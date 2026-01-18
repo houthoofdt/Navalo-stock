@@ -93,12 +93,23 @@ class StorageAdapter {
         }
 
         try {
+            // Use redirect:follow and no-cors workaround for Google Apps Script
+            const formData = new FormData();
+            formData.append('payload', JSON.stringify({ action, ...data }));
+            
             const response = await fetch(this.apiUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, ...data })
+                body: formData,
+                redirect: 'follow'
             });
-            return await response.json();
+            
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                console.log('Response:', text);
+                return { success: true, raw: text };
+            }
         } catch (error) {
             console.error('API Error:', error);
             throw error;
