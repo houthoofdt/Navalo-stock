@@ -428,8 +428,8 @@ async function refreshAllData() {
         updateDeliveriesDisplay();
         updatePurchaseOrdersDisplay();
         updateInvoicesDisplay();
-        updateReceivedInvoicesDisplay();
-        updateReceivedOrdersDisplay();
+        await updateReceivedInvoicesDisplay();
+        await updateReceivedOrdersDisplay();
         updateContactsDisplay();
         updateBomDisplay();
         calculateCapacity();
@@ -1129,8 +1129,25 @@ async function saveReceivedInvoice() {
     showToast(`${invoice.internalNumber} ${t('saved')}`, 'success');
 }
 
-function updateReceivedInvoicesDisplay() {
-    const invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
+async function updateReceivedInvoicesDisplay() {
+    let invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
+    
+    // Load from Google Sheets if connected
+    if (storage.getMode() === 'googlesheets') {
+        try {
+            const remoteInvoices = await storage.getReceivedInvoices(100);
+            if (Array.isArray(remoteInvoices) && remoteInvoices.length > 0) {
+                // Merge: prefer remote data, add local-only items
+                const remoteIds = new Set(remoteInvoices.map(i => i.id || i.internalNumber));
+                const localOnly = invoices.filter(i => !remoteIds.has(i.id) && !remoteIds.has(i.internalNumber));
+                invoices = [...remoteInvoices, ...localOnly];
+                localStorage.setItem('navalo_received_invoices', JSON.stringify(invoices));
+            }
+        } catch (e) {
+            console.warn('Failed to load received invoices from Google Sheets:', e);
+        }
+    }
+    
     const statusFilter = document.getElementById('recInvStatusFilter')?.value || '';
     const monthFilter = document.getElementById('recInvMonthFilter')?.value || '';
     
@@ -2836,8 +2853,26 @@ function editReceivedOrder(id) {
     document.getElementById('receivedOrderModal').classList.add('active');
 }
 
-function updateReceivedOrdersDisplay() {
-    const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+async function updateReceivedOrdersDisplay() {
+    let orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+    
+    // Load from Google Sheets if connected
+    if (storage.getMode() === 'googlesheets') {
+        try {
+            const remoteOrders = await storage.getReceivedOrders(100);
+            if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
+                // Merge: prefer remote data, add local-only items
+                const remoteIds = new Set(remoteOrders.map(o => o.id || o.orderNumber));
+                const localOnly = orders.filter(o => !remoteIds.has(o.id) && !remoteIds.has(o.orderNumber));
+                orders = [...remoteOrders, ...localOnly];
+                // Update localStorage with merged data
+                localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
+            }
+        } catch (e) {
+            console.warn('Failed to load received orders from Google Sheets:', e);
+        }
+    }
+    
     const statusFilter = document.getElementById('recOrderStatusFilter')?.value || '';
     const monthFilter = document.getElementById('recOrderMonthFilter')?.value || '';
     
