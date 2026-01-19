@@ -5,7 +5,7 @@
 
 const CONFIG = {
     // URL de l'API Google Apps Script
-    API_URL: 'https://script.google.com/macros/s/AKfycbyfzysOOyPGDNOoMPRea5kOb5lHOgFg1gAEjlD13IM8VJxCqdOft2zTEJoAyHbVuHvr/exec',
+    API_URL: 'https://script.google.com/macros/s/AKfycbw29dUjDWQAeYWALXX3MkpN41vp_n9PX0ZxHUtoO0L2gGCnJX5K2QvdsUi9ry6t20nf/exec',
     
     // Mode de stockage: 'local' ou 'googlesheets'
     STORAGE_MODE: 'googlesheets',
