@@ -122,6 +122,7 @@ const TRANSLATIONS = {
         saveInvoice: 'Enregistrer', paid: 'Payé', unpaid: 'Non payé',
         overdue: 'En retard', viewPDF: 'Voir PDF', export: 'Exporter',
         bomTitle: 'Nomenclatures (BOM)', selectModel: 'Modèle', qty: 'Qté',
+        bomCost: 'Coût de fabrication', unitPriceCol: 'Prix Unit.', lineTotalCol: 'Total Ligne',
         historyTitle: 'Historique des mouvements', historyType: 'Type',
         historyAll: 'Tous', historyIn: 'Entrées', historyOut: 'Sorties',
         docNumber: 'N° Doc', priceUnit: 'Prix Unit.', value: 'Valeur',
@@ -160,7 +161,9 @@ const TRANSLATIONS = {
         // Exchange rate
         exchangeRateDUZP: 'Taux CNB au DUZP (EUR/CZK)',
         czkEquivalent: 'Équivalent en CZK au taux',
-        subtotalCZK: 'Base HT en CZK', vatCZK: 'TVA en CZK', totalCZK: 'Total TTC en CZK'
+        subtotalCZK: 'Base HT en CZK', vatCZK: 'TVA en CZK', totalCZK: 'Total TTC en CZK',
+        // Auto-refresh
+        dataRefreshed: 'Données actualisées'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -215,6 +218,7 @@ const TRANSLATIONS = {
         saveInvoice: 'Uložit', paid: 'Zaplaceno', unpaid: 'Nezaplaceno',
         overdue: 'Po splatnosti', viewPDF: 'Zobrazit PDF', export: 'Exportovat',
         bomTitle: 'Kusovníky (BOM)', selectModel: 'Model', qty: 'Mn.',
+        bomCost: 'Výrobní náklady', unitPriceCol: 'Jedn. cena', lineTotalCol: 'Celkem',
         historyTitle: 'Historie pohybů', historyType: 'Typ',
         historyAll: 'Vše', historyIn: 'Příjmy', historyOut: 'Výdeje',
         docNumber: 'Číslo dok.', priceUnit: 'Jedn. cena', value: 'Hodnota',
@@ -252,7 +256,9 @@ const TRANSLATIONS = {
         // Exchange rate
         exchangeRateDUZP: 'Kurz ČNB k DUZP (EUR/CZK)',
         czkEquivalent: 'Ekvivalent v CZK dle kurzu',
-        subtotalCZK: 'Základ daně v CZK', vatCZK: 'DPH v CZK', totalCZK: 'Celkem s DPH v CZK'
+        subtotalCZK: 'Základ daně v CZK', vatCZK: 'DPH v CZK', totalCZK: 'Celkem s DPH v CZK',
+        // Auto-refresh
+        dataRefreshed: 'Data aktualizována'
     }
 };
 
@@ -318,6 +324,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const today = new Date().toISOString().split('T')[0];
     if (document.getElementById('entryDate')) document.getElementById('entryDate').value = today;
     if (document.getElementById('entryBonNum')) document.getElementById('entryBonNum').value = getNextReceiptNumber();
+    
+    // Auto-refresh for multi-user sync (every 30 seconds)
+    if (storage.getMode() === 'googlesheets') {
+        startAutoRefresh();
+    }
     if (document.getElementById('deliveryDate')) document.getElementById('deliveryDate').value = today;
 });
 
@@ -736,6 +747,7 @@ function onDeliveryClientChange() {
 function onSupplierChange(selectId) {
     const select = document.getElementById(selectId);
     const opt = select.options[select.selectedIndex];
+    const supplierName = select.value;
     
     if (selectId === 'recInvSupplier' && opt) {
         if (opt.dataset.ico) document.getElementById('recInvSupplierIco').value = opt.dataset.ico;
@@ -744,10 +756,54 @@ function onSupplierChange(selectId) {
     if (selectId === 'entrySupplier' && opt?.dataset?.currency) {
         document.getElementById('entryCurrency').value = opt.dataset.currency;
     }
-    if (selectId === 'poSupplier' && opt?.dataset?.currency) {
-        document.getElementById('poCurrency').value = opt.dataset.currency;
-        onPOCurrencyChange();
+    if (selectId === 'poSupplier') {
+        if (opt?.dataset?.currency) {
+            document.getElementById('poCurrency').value = opt.dataset.currency;
+            onPOCurrencyChange();
+        }
+        // Filter components by selected supplier
+        populateComponentSelectsBySupplier('poItems', supplierName);
     }
+}
+
+// Populate component selects filtered by supplier/manufacturer
+function populateComponentSelectsBySupplier(containerId, supplierName) {
+    if (!currentStock) return;
+    
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.querySelectorAll('.item-ref').forEach(select => {
+        const current = select.value;
+        select.innerHTML = `<option value="">${t('refPlaceholder')}</option>`;
+        
+        // Filter components by manufacturer if supplier is selected
+        let components = Object.entries(currentStock).sort((a, b) => a[0].localeCompare(b[0]));
+        
+        if (supplierName) {
+            // Get components that match the supplier/manufacturer
+            const supplierLower = supplierName.toLowerCase();
+            components = components.filter(([ref, data]) => {
+                const manufacturer = (data.manufacturer || '').toLowerCase();
+                const name = (data.name || '').toLowerCase();
+                // Match if manufacturer contains supplier name or vice versa
+                return manufacturer.includes(supplierLower) || 
+                       supplierLower.includes(manufacturer) ||
+                       name.includes(supplierLower);
+            });
+        }
+        
+        components.forEach(([ref, data]) => {
+            const opt = document.createElement('option');
+            opt.value = ref;
+            const price = getComponentPrice(ref, 'EUR');
+            const priceStr = price ? ` (${formatCurrency(price)} €)` : '';
+            opt.textContent = `${ref} - ${data.name || ref}${priceStr}`;
+            select.appendChild(opt);
+        });
+        
+        if (current) select.value = current;
+    });
 }
 
 // ========================================
@@ -1755,13 +1811,30 @@ function addPOItemRow(ref = '', qty = '') {
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
-        <select class="item-ref" required onchange="updatePOTotal()"><option value="">${t('refPlaceholder')}</option></select>
+        <select class="item-ref" required onchange="updatePOTotal(); autoFillPrice(this)"><option value="">${t('refPlaceholder')}</option></select>
         <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="1" value="${qty}" required onchange="updatePOTotal()">
         <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" onchange="updatePOTotal()">
         <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
     container.appendChild(row);
-    populateComponentSelects();
-    if (ref) setTimeout(() => { row.querySelector('.item-ref').value = ref; updatePOTotal(); }, 50);
+    
+    // Filter by selected supplier
+    const supplierName = document.getElementById('poSupplier').value;
+    populateComponentSelectsBySupplier('poItems', supplierName);
+    
+    if (ref) setTimeout(() => { row.querySelector('.item-ref').value = ref; autoFillPrice(row.querySelector('.item-ref')); updatePOTotal(); }, 50);
+}
+
+// Auto-fill price when component is selected
+function autoFillPrice(selectEl) {
+    const row = selectEl.closest('.item-row');
+    const ref = selectEl.value;
+    const priceInput = row.querySelector('.item-price');
+    const currency = document.getElementById('poCurrency')?.value || 'EUR';
+    
+    if (ref && priceInput && !priceInput.value) {
+        const price = getComponentPrice(ref, currency);
+        if (price) priceInput.value = price.toFixed(2);
+    }
 }
 
 function updatePOTotal() {
@@ -2312,21 +2385,37 @@ function updateBomDisplay() {
     
     const bomItems = currentBom[currentBomModel] || [];
     if (bomItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-muted text-center">${t('noData')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center">${t('noData')}</td></tr>`;
+        document.getElementById('bomTotalCost')?.remove();
         return;
     }
+    
+    let totalCost = 0;
     
     tbody.innerHTML = bomItems.map(item => {
         const stock = currentStock[item.ref]?.qty || 0;
         const ok = stock >= item.qty;
+        const unitPrice = getComponentPrice(item.ref, 'EUR') || 0;
+        const lineTotal = unitPrice * item.qty;
+        totalCost += lineTotal;
+        
         return `<tr class="${ok ? '' : 'row-warning'}">
             <td><code>${item.ref}</code></td>
             <td>${item.name}</td>
             <td class="text-right">${item.qty}</td>
             <td class="text-right">${stock}</td>
+            <td class="text-right">${unitPrice > 0 ? formatCurrency(unitPrice) + ' €' : '-'}</td>
+            <td class="text-right">${lineTotal > 0 ? formatCurrency(lineTotal) + ' €' : '-'}</td>
             <td><span class="status-badge ${ok ? 'status-ok' : 'status-critical'}">${ok ? 'OK' : t('missing')}</span></td>
         </tr>`;
     }).join('');
+    
+    // Add total row
+    tbody.innerHTML += `<tr class="total-row" style="font-weight: bold; background: #f0f9ff;">
+        <td colspan="5" class="text-right">${t('bomCost') || 'Coût de fabrication'}:</td>
+        <td class="text-right" style="color: #2563eb;">${formatCurrency(totalCost)} €</td>
+        <td></td>
+    </tr>`;
 }
 
 // ========================================
@@ -3143,3 +3232,120 @@ async function testGoogleSheetsConnection() {
 
 // Make it available globally for console testing
 window.testGoogleSheetsConnection = testGoogleSheetsConnection;
+
+// ========================================
+// AUTO-REFRESH FOR MULTI-USER SYNC
+// ========================================
+
+let autoRefreshInterval = null;
+let autoRefreshPaused = false;
+const AUTO_REFRESH_DELAY = 30000; // 30 seconds
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) return; // Already running
+    
+    autoRefreshInterval = setInterval(async () => {
+        if (autoRefreshPaused) return;
+        if (document.hidden) return; // Don't refresh if tab is not visible
+        
+        try {
+            // Show refreshing indicator
+            const statusEl = document.getElementById('syncStatus');
+            const originalText = statusEl.textContent;
+            statusEl.textContent = '🔄 Sync...';
+            
+            // Refresh data from Google Sheets
+            await refreshFromGoogleSheets();
+            
+            // Restore indicator
+            statusEl.textContent = originalText;
+        } catch (e) {
+            console.warn('Auto-refresh failed:', e);
+        }
+    }, AUTO_REFRESH_DELAY);
+    
+    // Pause when user is editing (focus on input/textarea)
+    document.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            autoRefreshPaused = true;
+        }
+    });
+    
+    document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            autoRefreshPaused = false;
+        }
+    });
+    
+    // Refresh when tab becomes visible again
+    document.addEventListener('visibilitychange', async () => {
+        if (!document.hidden && storage.getMode() === 'googlesheets') {
+            await refreshFromGoogleSheets();
+        }
+    });
+    
+    console.log('🔄 Auto-refresh started (every 30s)');
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('⏹️ Auto-refresh stopped');
+    }
+}
+
+async function refreshFromGoogleSheets() {
+    // Refresh only the dynamic data that other users might modify
+    try {
+        // Stock data
+        const stockData = await storage.getStockWithValue();
+        if (stockData.components) {
+            currentStock = stockData.components;
+            updateStockDisplay();
+            
+            const totalValue = stockData.totalValue || 0;
+            document.getElementById('totalStockValue').textContent = `${t('stockValue')}: ${formatCurrency(totalValue)} CZK`;
+            document.getElementById('stockValueDisplay').textContent = formatCurrency(totalValue);
+        }
+        
+        // Received orders
+        await updateReceivedOrdersDisplay();
+        
+        // Received invoices
+        await updateReceivedInvoicesDisplay();
+        
+        // Purchase orders
+        updatePurchaseOrdersDisplay();
+        
+        // Deliveries
+        updateDeliveriesDisplay();
+        
+        // Update alerts
+        updateAlerts();
+        calculateCapacity();
+        
+    } catch (e) {
+        console.warn('Refresh from Google Sheets failed:', e);
+    }
+}
+
+// Manual refresh button handler
+function manualRefresh() {
+    const statusEl = document.getElementById('syncStatus');
+    statusEl.textContent = '🔄 Sync...';
+    
+    refreshFromGoogleSheets().then(() => {
+        statusEl.textContent = '● Google Sheets';
+        statusEl.style.color = '#10b981';
+        showToast(t('dataRefreshed') || 'Données actualisées', 'success');
+    }).catch(() => {
+        statusEl.textContent = '● Google Sheets';
+        statusEl.style.color = '#10b981';
+    });
+}
+
+// Export for global access
+window.manualRefresh = manualRefresh;
+window.stopAutoRefresh = stopAutoRefresh;
+window.startAutoRefresh = startAutoRefresh;
