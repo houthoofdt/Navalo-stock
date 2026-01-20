@@ -251,6 +251,7 @@ class StorageAdapter {
     localGetStockWithValue() {
         const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
         const lots = JSON.parse(localStorage.getItem('navalo_stock_lots') || '[]');
+        const exchangeRate = this.getExchangeRate('EUR');
         
         let totalValue = 0;
         const byCategory = {};
@@ -258,9 +259,23 @@ class StorageAdapter {
         Object.keys(stock).forEach(ref => {
             const componentLots = lots.filter(l => l.ref === ref && l.qtyRemaining > 0);
             let value = 0;
-            componentLots.forEach(lot => {
-                value += lot.qtyRemaining * lot.priceCZK;
-            });
+            
+            if (componentLots.length > 0) {
+                // Calculate value from FIFO lots
+                componentLots.forEach(lot => {
+                    value += lot.qtyRemaining * lot.priceCZK;
+                });
+            } else {
+                // No lots - use COMPONENT_PRICES if available
+                const qty = stock[ref].qty || 0;
+                if (qty > 0 && typeof getComponentPrice === 'function') {
+                    const priceEur = getComponentPrice(ref, 'EUR');
+                    if (priceEur) {
+                        value = qty * priceEur * exchangeRate;
+                    }
+                }
+            }
+            
             stock[ref].value = Math.round(value * 100) / 100;
             totalValue += value;
             
