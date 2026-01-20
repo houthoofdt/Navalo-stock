@@ -2854,30 +2854,20 @@ function editReceivedOrder(id) {
 }
 
 async function updateReceivedOrdersDisplay() {
-    console.log('updateReceivedOrdersDisplay: Starting...');
     let orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
-    console.log('updateReceivedOrdersDisplay: Local orders:', orders.length);
     
     // Load from Google Sheets if connected
     if (storage.getMode() === 'googlesheets') {
         try {
-            console.log('updateReceivedOrdersDisplay: Fetching from Google Sheets...');
             const remoteOrders = await storage.getReceivedOrders(100);
-            console.log('updateReceivedOrdersDisplay: Remote orders:', remoteOrders?.length, remoteOrders);
-            
             if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
-                // Use remote data as primary source
                 orders = remoteOrders;
-                // Update localStorage with remote data
                 localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
-                console.log('updateReceivedOrdersDisplay: Updated localStorage with', orders.length, 'orders');
             }
         } catch (e) {
-            console.error('Failed to load received orders from Google Sheets:', e);
+            console.warn('Failed to load received orders from Google Sheets:', e);
         }
     }
-    
-    console.log('updateReceivedOrdersDisplay: Final orders count:', orders.length);
     
     const statusFilter = document.getElementById('recOrderStatusFilter')?.value || '';
     const monthFilter = document.getElementById('recOrderMonthFilter')?.value || '';
@@ -2893,22 +2883,11 @@ async function updateReceivedOrdersDisplay() {
     
     // Calculate to-deliver quantities dynamically
     const models = getPacModels();
-    console.log('updateReceivedOrdersDisplay: Models:', models.map(m => m.id));
-    console.log('updateReceivedOrdersDisplay: To deliver orders:', toDeliver.length);
-    
     models.forEach(model => {
         const key = modelIdToKey(model.id);
-        const toDeliverQty = toDeliver.reduce((sum, o) => {
-            const qty = o.quantities?.[model.id] || 0;
-            return sum + qty;
-        }, 0);
-        console.log(`updateReceivedOrdersDisplay: ${model.id} -> ${toDeliverQty}`);
+        const toDeliverQty = toDeliver.reduce((sum, o) => sum + (o.quantities?.[model.id] || 0), 0);
         const el = document.getElementById(`recOrder-${key}`);
-        if (el) {
-            el.textContent = toDeliverQty;
-        } else {
-            console.warn(`Element recOrder-${key} not found`);
-        }
+        if (el) el.textContent = toDeliverQty;
     });
     
     const totalEl = document.getElementById('recOrderTotalCount');
@@ -2920,8 +2899,6 @@ async function updateReceivedOrdersDisplay() {
     if (confirmedEl) confirmedEl.textContent = confirmedOrders.length;
     
     const tbody = document.getElementById('receivedOrdersTableBody');
-    console.log('updateReceivedOrdersDisplay: tbody found:', !!tbody);
-    console.log('updateReceivedOrdersDisplay: filtered orders:', filtered.length);
     if (!tbody) return;
     
     const numCols = 6 + models.length + 3; // base columns + models + value/status/actions
