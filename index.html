@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAVALO - Gestion Stock PAC v4</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <h1>NAVALO Stock PAC</h1>
+            </div>
+            <div class="header-info">
+                <select id="languageSelect" class="lang-select" onchange="changeLanguage()">
+                    <option value="fr">🇫🇷 FR</option>
+                    <option value="cz">🇨🇿 CZ</option>
+                </select>
+                <span class="stock-value" id="totalStockValue">Valeur: -- CZK</span>
+                <span class="exchange-rate" id="exchangeRate">EUR: -- CZK</span>
+                <span class="status" id="syncStatus" onclick="manualRefresh()" style="cursor: pointer;" title="Cliquez pour actualiser">● Chargement...</span>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <button class="nav-btn active" data-tab="stock"><span>📦</span> <span data-i18n="navStock">Stock</span></button>
+            <button class="nav-btn" data-tab="entrees"><span>📥</span> <span data-i18n="navEntrees">Entrées</span></button>
+            <button class="nav-btn" data-tab="sorties"><span>📤</span> <span data-i18n="navSorties">Livraisons</span></button>
+            <button class="nav-btn" data-tab="commandes"><span>🛒</span> <span data-i18n="navCommandes">Commandes</span></button>
+            <button class="nav-btn" data-tab="factures"><span>🧾</span> <span data-i18n="navFactures">Factures</span></button>
+            <button class="nav-btn" data-tab="prijate"><span>📥</span> <span data-i18n="navPrijate">Faktury přijaté</span></button>
+            <button class="nav-btn" data-tab="objprijate"><span>📋</span> <span data-i18n="navObjPrijate">Obj. přijaté</span></button>
+            <button class="nav-btn" data-tab="contacts"><span>👥</span> <span data-i18n="navContacts">Contacts</span></button>
+            <button class="nav-btn" data-tab="bom"><span>📋</span> <span data-i18n="navBom">BOM</span></button>
+            <button class="nav-btn" data-tab="historique"><span>📊</span> <span data-i18n="navHistorique">Historique</span></button>
+        </nav>
+
+        <main class="main-content">
+            <!-- STOCK TAB -->
+            <section class="tab-content active" id="tab-stock">
+                <div class="tab-header">
+                    <h2 data-i18n="stockTitle">État du Stock</h2>
+                    <div class="tab-actions">
+                        <input type="text" id="stockSearch" placeholder="Rechercher..." class="search-input" data-i18n-placeholder="search">
+                        <select id="stockFilter" class="filter-select">
+                            <option value="all" data-i18n="filterAll">Tous</option>
+                            <option value="low" data-i18n="filterLow">Stock bas</option>
+                            <option value="critical" data-i18n="filterCritical">Rupture</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="summary-cards">
+                    <div class="summary-card info">
+                        <h3>💰 <span data-i18n="stockValueTitle">Valeur du Stock</span></h3>
+                        <div class="card-content">
+                            <span class="total-count" id="stockValueDisplay">0</span>
+                            <span class="total-label">CZK</span>
+                        </div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>⚠️ <span data-i18n="alertsTitle">Alertes</span></h3>
+                        <div class="card-content">
+                            <span class="alert-count" id="alertCount">0</span>
+                            <span class="alert-label" data-i18n="componentsToOrder">composants à commander</span>
+                        </div>
+                    </div>
+                    <div class="summary-card pac">
+                        <h3>📦 <span data-i18n="productionCapacity">Capacité Production</span></h3>
+                        <div class="card-content" id="stockCapacityContainer">
+                            <!-- Generated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="stockTable">
+                        <thead>
+                            <tr>
+                                <th data-i18n="reference">Référence</th>
+                                <th data-i18n="designation">Désignation</th>
+                                <th data-i18n="category">Catégorie</th>
+                                <th data-i18n="inStock">En Stock</th>
+                                <th data-i18n="onOrder">En Cmd</th>
+                                <th data-i18n="totalAvailable">Dispo Total</th>
+                                <th data-i18n="min">Min</th>
+                                <th data-i18n="valueCZK">Valeur (CZK)</th>
+                                <th data-i18n="status">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ENTREES TAB -->
+            <section class="tab-content" id="tab-entrees">
+                <div class="tab-header">
+                    <h2 data-i18n="entryTitle">Réception Marchandises</h2>
+                </div>
+
+                <div class="entry-container">
+                    <div class="manual-section">
+                        <h3>✏️ <span data-i18n="newReceipt">Nouvelle réception</span></h3>
+                        <form id="entryForm" class="entry-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label data-i18n="receiptNumber">N° Bon de réception</label>
+                                    <input type="text" id="entryBonNum" required>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="date">Date</label>
+                                    <input type="date" id="entryDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>🔗 <span data-i18n="linkToPO">Lier à une commande</span></label>
+                                    <select id="entryLinkedPO" onchange="loadPOItems()">
+                                        <option value="" data-i18n="none">-- Aucune --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label data-i18n="supplier">Fournisseur</label>
+                                    <select id="entrySupplier" onchange="updateEntryCurrency()">
+                                        <option value="">Sélectionner...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="currency">Devise</label>
+                                    <select id="entryCurrency">
+                                        <option value="CZK">CZK</option>
+                                        <option value="EUR">EUR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="items-section">
+                                <h4 data-i18n="articlesWithPrice">Articles (avec prix unitaire)</h4>
+                                <div id="entryItems">
+                                    <div class="item-row">
+                                        <select class="item-ref" required><option value="">Référence...</option></select>
+                                        <input type="number" class="item-qty" placeholder="Qté" min="0.01" step="0.01" required>
+                                        <input type="number" class="item-price" placeholder="Prix unit." min="0" step="0.01">
+                                        <button type="button" class="btn-icon btn-remove" onclick="removeItemRow(this)">✕</button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-secondary" onclick="addItemRow()" data-i18n="addLine">+ Ajouter</button>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" onclick="clearEntryForm()" data-i18n="clear">Annuler</button>
+                                <button type="submit" class="btn btn-primary">✓ <span data-i18n="saveReceipt">Valider la réception</span></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Historique des příjemky -->
+                <div class="receipts-history-section">
+                    <h3>📋 <span data-i18n="receiptsHistory">Historique des réceptions</span></h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="receiptNumber">N° Příjemka</th>
+                                    <th data-i18n="date">Datum</th>
+                                    <th data-i18n="supplier">Dodavatel</th>
+                                    <th data-i18n="linkPO">Obj.</th>
+                                    <th data-i18n="items">Položky</th>
+                                    <th data-i18n="totalValue">Hodnota</th>
+                                    <th data-i18n="currency">Měna</th>
+                                    <th>Akce</th>
+                                </tr>
+                            </thead>
+                            <tbody id="receiptsHistoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SORTIES/LIVRAISONS TAB -->
+            <section class="tab-content" id="tab-sorties">
+                <div class="tab-header">
+                    <h2 data-i18n="deliveryTitle">Livraisons / Sorties</h2>
+                </div>
+
+                <div class="delivery-container">
+                    <div class="client-section">
+                        <h3>👤 <span data-i18n="client">Client</span></h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label data-i18n="client">Client</label>
+                                <select id="deliveryClient" onchange="onDeliveryClientChange()">
+                                    <option value="">Sélectionner...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="clientAddress">Adresse</label>
+                                <input type="text" id="deliveryClientAddress">
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="date">Date</label>
+                                <input type="date" id="deliveryDate" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label data-i18n="linkedOrder">Commande liée</label>
+                                <select id="deliveryLinkedOrder" onchange="onDeliveryOrderChange()">
+                                    <option value="">Aucune</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="clientOrderNum">N° Cmd Client</label>
+                                <input type="text" id="deliveryClientOrderNum" placeholder="Ex: PO-12345">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pac-selection">
+                        <h3>🚚 PAC</h3>
+                        <div class="delivery-cards" id="deliveryCardsContainer">
+                            <!-- Generated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="bom-preview-section" id="bomPreviewSection" style="display:none;">
+                        <h3>⚠️ <span data-i18n="bomPreview">Composants à déduire</span></h3>
+                        <div id="bomPreviewContent"></div>
+                    </div>
+
+                    <div class="delivery-actions">
+                        <button class="btn btn-outline" onclick="clearDeliveryForm()" data-i18n="clear">Annuler</button>
+                        <button class="btn btn-primary btn-large" onclick="processDelivery()">🧾 <span data-i18n="createDelivery">Créer BL</span></button>
+                    </div>
+                </div>
+
+                <div class="table-container mt-2">
+                    <h3 data-i18n="deliveryHistory">Bons de Livraison récents</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>N° BL</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="client">Client</th>
+                                <th data-i18n="clientOrderNum">N° Cmd Client</th>
+                                <th>PAC</th>
+                                <th data-i18n="value">Valeur</th>
+                                <th data-i18n="invoiced">Facturé</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="blTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- COMMANDES TAB -->
+            <section class="tab-content" id="tab-commandes">
+                <div class="tab-header">
+                    <h2 data-i18n="poTitle">Commandes Fournisseurs</h2>
+                    <div class="tab-actions">
+                        <select id="poStatusFilter" class="filter-select" onchange="updatePurchaseOrdersDisplay()">
+                            <option value="all">Tous</option>
+                            <option value="Brouillon">Brouillon</option>
+                            <option value="Envoyé">Envoyé</option>
+                            <option value="Reçu">Reçu</option>
+                            <option value="Annulé">Annulé</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="exportPurchaseOrders()">📥 Export</button>
+                        <button class="btn btn-primary" onclick="openPOModal()">+ <span data-i18n="newPO">Nouvelle commande</span></button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>📝 <span data-i18n="filterDraft">Brouillons</span></h3>
+                        <div class="card-content"><span class="total-count" id="poDraftCount">0</span></div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>📤 <span data-i18n="filterSent">En attente</span></h3>
+                        <div class="card-content"><span class="total-count" id="poSentCount">0</span></div>
+                    </div>
+                    <div class="summary-card info">
+                        <h3>✅ <span data-i18n="filterReceived">Reçues</span></h3>
+                        <div class="card-content"><span class="total-count" id="poReceivedCount">0</span></div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>💰 <span data-i18n="totalValue">Valeur</span></h3>
+                        <div class="card-content">
+                            <span class="total-count" id="poPendingValue">0</span>
+                            <span class="total-label">EUR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="suggestions-section">
+                    <h3>📋 <span data-i18n="suggestedOrders">Composants à commander</span></h3>
+                    <div class="table-container">
+                        <table class="data-table compact">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="reference">Référence</th>
+                                    <th data-i18n="designation">Désignation</th>
+                                    <th data-i18n="inStock">Stock</th>
+                                    <th data-i18n="onOrder">En Cmd</th>
+                                    <th>Total</th>
+                                    <th data-i18n="min">Min</th>
+                                    <th data-i18n="toOrder">Suggéré</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suggestionsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="table-container mt-2">
+                    <h3 data-i18n="poTitle">Toutes les commandes</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="poNumber">N° Cmd</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="supplier">Fournisseur</th>
+                                <th data-i18n="articles">Articles</th>
+                                <th data-i18n="totalValue">Valeur</th>
+                                <th data-i18n="status">Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- FACTURES EMISES TAB -->
+            <section class="tab-content" id="tab-factures">
+                <div class="tab-header">
+                    <h2 data-i18n="invoiceTitle">Factures émises</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openFreeInvoiceModal()">+ <span data-i18n="newInvoice">Nouvelle facture</span></button>
+                        <select id="invoiceStatusFilter" class="filter-select" onchange="updateInvoicesDisplay()">
+                            <option value="all">Tous</option>
+                            <option value="unpaid">Non payées</option>
+                            <option value="paid">Payées</option>
+                        </select>
+                        <input type="month" id="invoiceMonthFilter" class="filter-input" onchange="updateInvoicesDisplay()">
+                        <button class="btn btn-secondary" onclick="exportInvoices()">📥 Export</button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>🧾 Total</h3>
+                        <div class="card-content"><span class="total-count" id="invoiceTotalCount">0</span></div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>⏳ <span data-i18n="unpaidInvoices">Non payées</span></h3>
+                        <div class="card-content"><span class="total-count" id="invoiceUnpaidCount">0</span></div>
+                    </div>
+                    <div class="summary-card info">
+                        <h3>💰 <span data-i18n="totalValue">Montant</span></h3>
+                        <div class="card-content">
+                            <span class="total-count" id="invoiceUnpaidValue">0</span>
+                            <span class="total-label">CZK</span>
+                        </div>
+                    </div>
+                    <div class="summary-card danger">
+                        <h3>⚠️ <span data-i18n="overdueInvoices">En retard</span></h3>
+                        <div class="card-content"><span class="total-count" id="invoiceOverdueCount">0</span></div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="invoiceNumber">N° Facture</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="client">Client</th>
+                                <th data-i18n="dueDate">Échéance</th>
+                                <th data-i18n="subtotal">HT</th>
+                                <th data-i18n="vat">TVA</th>
+                                <th data-i18n="totalTTC">TTC</th>
+                                <th data-i18n="status">Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoicesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- FACTURES RECUES TAB -->
+            <section class="tab-content" id="tab-prijate">
+                <div class="tab-header">
+                    <h2 data-i18n="receivedInvTitle">Factures Reçues</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openReceivedInvoiceModal()">+ <span data-i18n="newReceivedInv">Nouvelle facture</span></button>
+                        <select id="recInvStatusFilter" class="filter-select" onchange="updateReceivedInvoicesDisplay()">
+                            <option value="">Tous</option>
+                            <option value="unpaid">Nezaplaceno</option>
+                            <option value="paid">Zaplaceno</option>
+                        </select>
+                        <input type="month" id="recInvMonthFilter" class="filter-input" onchange="updateReceivedInvoicesDisplay()">
+                        <button class="btn btn-secondary" onclick="exportReceivedInvoices()">📥 Export</button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>🧾 Total</h3>
+                        <div class="card-content"><span class="total-count" id="recInvTotalCount">0</span></div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>⏳ <span data-i18n="unpaid">Nezaplaceno</span></h3>
+                        <div class="card-content"><span class="total-count" id="recInvUnpaidCount">0</span></div>
+                    </div>
+                    <div class="summary-card info">
+                        <h3>💰</h3>
+                        <div class="card-content">
+                            <span class="total-count" id="recInvUnpaidValue">0</span>
+                            <span class="total-label">CZK</span>
+                        </div>
+                    </div>
+                    <div class="summary-card danger">
+                        <h3>⚠️ <span data-i18n="overdue">Po splatnosti</span></h3>
+                        <div class="card-content"><span class="total-count" id="recInvOverdueCount">0</span></div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="internalNumber">N° Int.</th>
+                                <th data-i18n="invoiceNumberExt">N° Facture</th>
+                                <th data-i18n="supplier">Fournisseur</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="dueDate">Échéance</th>
+                                <th data-i18n="linkReceipt">Příjemka</th>
+                                <th data-i18n="subtotal">HT</th>
+                                <th data-i18n="vat">TVA</th>
+                                <th data-i18n="total">Total</th>
+                                <th data-i18n="status">Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receivedInvoicesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- RECEIVED ORDERS TAB (Objednávky přijaté) -->
+            <section class="tab-content" id="tab-objprijate">
+                <div class="tab-header">
+                    <h2 data-i18n="receivedOrdersTitle">Objednávky přijaté</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openReceivedOrderModal()">+ <span data-i18n="newReceivedOrder">Nová objednávka</span></button>
+                        <select id="recOrderStatusFilter" class="filter-select" onchange="updateReceivedOrdersDisplay()">
+                            <option value="">Vše</option>
+                            <option value="new" data-i18n="recOrdNew">Nová</option>
+                            <option value="confirmed" data-i18n="recOrdConfirmed">Potvrzeno</option>
+                            <option value="delivered" data-i18n="recOrdDelivered">Dodáno</option>
+                            <option value="invoiced" data-i18n="recOrdInvoiced">Fakturováno</option>
+                        </select>
+                        <input type="month" id="recOrderMonthFilter" class="filter-input" onchange="updateReceivedOrdersDisplay()">
+                        <button class="btn btn-secondary" onclick="exportReceivedOrders()">📥 Export</button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>📋 Total</h3>
+                        <div class="card-content"><span class="total-count" id="recOrderTotalCount">0</span></div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>🆕 <span data-i18n="recOrdNew">Nové</span></h3>
+                        <div class="card-content"><span class="total-count" id="recOrderNewCount">0</span></div>
+                    </div>
+                    <div class="summary-card info">
+                        <h3>✓ <span data-i18n="recOrdConfirmed">Potvrzené</span></h3>
+                        <div class="card-content"><span class="total-count" id="recOrderConfirmedCount">0</span></div>
+                    </div>
+                    <div class="summary-card pac">
+                        <h3>📦 <span data-i18n="toDeliver">K dodání</span></h3>
+                        <div class="card-content" id="recOrderToDeliverContainer">
+                            <!-- Generated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr id="recOrdersTableHeader">
+                                <th data-i18n="orderNumber">N° Objednávky</th>
+                                <th data-i18n="clientOrderNum">Číslo obj. zákazníka</th>
+                                <th data-i18n="date">Datum</th>
+                                <th data-i18n="client">Zákazník</th>
+                                <th data-i18n="deliveryDate">Datum dodání</th>
+                                <!-- Model columns generated dynamically -->
+                                <th data-i18n="totalValue">Hodnota</th>
+                                <th data-i18n="status">Stav</th>
+                                <th>Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receivedOrdersTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- CONTACTS TAB -->
+            <section class="tab-content" id="tab-contacts">
+                <div class="tab-header">
+                    <h2 data-i18n="contactsTitle">Gestion des Contacts</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openContactModal('supplier')">+ <span data-i18n="contactSupplier">Fournisseur</span></button>
+                        <button class="btn btn-secondary" onclick="openContactModal('client')">+ <span data-i18n="contactClient">Client</span></button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="companyName">Nom</th>
+                                <th data-i18n="contactType">Type</th>
+                                <th data-i18n="ico">IČO</th>
+                                <th data-i18n="dic">DIČ</th>
+                                <th data-i18n="currency">Devise</th>
+                                <th data-i18n="address">Adresse</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- BOM TAB -->
+            <section class="tab-content" id="tab-bom">
+                <div class="tab-header">
+                    <h2 data-i18n="bomTitle">Nomenclatures (BOM)</h2>
+                    <div class="tab-actions">
+                        <select id="bomModelSelect" class="filter-select" onchange="changeBomModel()">
+                            <!-- Generated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="bomTable">
+                        <thead>
+                            <tr>
+                                <th data-i18n="reference">Référence</th>
+                                <th data-i18n="designation">Désignation</th>
+                                <th data-i18n="qty">Qté</th>
+                                <th data-i18n="inStock">Stock</th>
+                                <th data-i18n="unitPriceCol">Prix Unit.</th>
+                                <th data-i18n="lineTotalCol">Total</th>
+                                <th data-i18n="status">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bomTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- HISTORIQUE TAB -->
+            <section class="tab-content" id="tab-historique">
+                <div class="tab-header">
+                    <h2 data-i18n="historyTitle">Historique des mouvements</h2>
+                    <div class="tab-actions">
+                        <select id="historyType" class="filter-select">
+                            <option value="all">Tous</option>
+                            <option value="ENTRÉE">Entrées</option>
+                            <option value="SORTIE">Sorties</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="exportHistory()">📥 Export CSV</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="historyType">Type</th>
+                                <th data-i18n="docNumber">N° Doc</th>
+                                <th data-i18n="reference">Référence</th>
+                                <th data-i18n="qty">Qté</th>
+                                <th data-i18n="priceUnit">Prix Unit.</th>
+                                <th data-i18n="value">Valeur</th>
+                                <th data-i18n="partner">Partenaire</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- Contact Modal -->
+    <div class="modal" id="contactModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="contactModalTitle" data-i18n="newContact">Nouveau Contact</h3>
+                <button class="modal-close" onclick="closeContactModal()">✕</button>
+            </div>
+            <form id="contactForm" onsubmit="event.preventDefault(); saveContact();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="contactType">Type</label>
+                        <select id="contactType" required>
+                            <option value="supplier" data-i18n="contactSupplier">Fournisseur</option>
+                            <option value="client" data-i18n="contactClient">Client</option>
+                            <option value="both" data-i18n="contactBoth">Les deux</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="companyName">Nom société *</label>
+                        <input type="text" id="contactName" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="address">Adresse</label>
+                    <textarea id="contactAddress" rows="2"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="ico">IČO</label>
+                        <input type="text" id="contactIco">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="dic">DIČ</label>
+                        <input type="text" id="contactDic">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="defaultCurrency">Devise</label>
+                        <select id="contactCurrency">
+                            <option value="EUR">EUR</option>
+                            <option value="CZK">CZK</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="phone">Téléphone</label>
+                        <input type="text" id="contactPhone">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="email">Email</label>
+                        <input type="email" id="contactEmail">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="bankAccount">Compte bancaire</label>
+                        <input type="text" id="contactBankAccount">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="iban">IBAN</label>
+                        <input type="text" id="contactIban">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="bic">BIC</label>
+                        <input type="text" id="contactBic">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="notes">Notes</label>
+                    <textarea id="contactNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeContactModal()" data-i18n="cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Received Invoice Modal -->
+    <div class="modal" id="receivedInvoiceModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="recInvModalTitle" data-i18n="newReceivedInv">Nouvelle Facture Reçue</h3>
+                <button class="modal-close" onclick="closeReceivedInvoiceModal()">✕</button>
+            </div>
+            <form id="receivedInvoiceForm" onsubmit="event.preventDefault(); saveReceivedInvoice();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="internalNumber">N° Interne (auto)</label>
+                        <input type="text" id="recInvInternalNum" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="invoiceNumberExt">N° Facture fournisseur *</label>
+                        <input type="text" id="recInvNumber" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="varSymbol">Var. symbol</label>
+                        <input type="text" id="recInvVarSymbol">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="supplier">Fournisseur *</label>
+                        <select id="recInvSupplier" required onchange="onSupplierChange('recInvSupplier')">
+                            <option value="">Sélectionner...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="supplierIco">IČO</label>
+                        <input type="text" id="recInvSupplierIco">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="supplierDic">DIČ</label>
+                        <input type="text" id="recInvSupplierDic">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="issueDate">Date émission *</label>
+                        <input type="date" id="recInvDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="dueDate">Échéance *</label>
+                        <input type="date" id="recInvDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="taxDate">DUZP</label>
+                        <input type="date" id="recInvTaxDate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="subtotalHT">Montant HT *</label>
+                        <input type="number" id="recInvSubtotal" step="0.01" required onchange="calculateRecInvVat()">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="vatRate">Taux TVA (%)</label>
+                        <input type="number" id="recInvVatRate" value="21" onchange="calculateRecInvVat()">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="vatAmount">TVA</label>
+                        <input type="number" id="recInvVat" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="total">Total TTC</label>
+                        <input type="number" id="recInvTotal" step="0.01" readonly>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="currency">Devise</label>
+                        <select id="recInvCurrency">
+                            <option value="CZK">CZK</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="linkPO">Lier à commande</label>
+                        <select id="recInvLinkedPO">
+                            <option value="">-- Aucune --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="linkReceipt">Lier à příjemka</label>
+                        <select id="recInvLinkedReceipt">
+                            <option value="">-- Aucune --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="notes">Notes</label>
+                    <textarea id="recInvNotes" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="attachFile">Joindre fichier (PDF/image)</label>
+                    <input type="file" id="recInvFile" accept=".pdf,.jpg,.jpeg,.png" onchange="onRecInvFileSelect(this)">
+                    <span id="recInvFileName" class="file-name"></span>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeReceivedInvoiceModal()" data-i18n="cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delivery Modal -->
+    <div class="modal" id="deliveryModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="deliveryNote">Bon de Livraison</h3>
+                <button class="modal-close" onclick="closeDeliveryModal()">✕</button>
+            </div>
+            <div id="deliveryPreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeDeliveryModal()" data-i18n="cancel">Fermer</button>
+                <button class="btn btn-primary" onclick="printDelivery()">🖨️ <span data-i18n="print">Imprimer</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PO Modal -->
+    <div class="modal" id="poModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="poModalTitle" data-i18n="newPO">Nouvelle Commande</h3>
+                <button class="modal-close" onclick="closePOModal()">✕</button>
+            </div>
+            <form id="poForm" onsubmit="event.preventDefault(); createPurchaseOrder();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="supplier">Fournisseur *</label>
+                        <select id="poSupplier" required onchange="onSupplierChange('poSupplier')">
+                            <option value="">Sélectionner...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="currency">Devise</label>
+                        <select id="poCurrency" onchange="onPOCurrencyChange()">
+                            <option value="EUR">EUR</option>
+                            <option value="CZK">CZK</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="expectedDeliveryDate">Livraison souhaitée</label>
+                        <input type="date" id="poExpectedDate">
+                    </div>
+                </div>
+                <div class="items-section">
+                    <h4 data-i18n="articles">Articles</h4>
+                    <div id="poItems"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addPOItemRow()" data-i18n="addLine">+ Ajouter</button>
+                </div>
+                <div class="po-total">
+                    <strong>Total: <span id="poTotal">0</span></strong>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closePOModal()" data-i18n="cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PO Preview Modal -->
+    <div class="modal" id="poPreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="purchaseOrder">Bon de Commande</h3>
+                <button class="modal-close" onclick="closePOPreviewModal()">✕</button>
+            </div>
+            <div id="poPreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closePOPreviewModal()" data-i18n="cancel">Fermer</button>
+                <button class="btn btn-primary" onclick="printPO()">🖨️ <span data-i18n="print">Imprimer</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Modal (Issued) -->
+    <div class="modal" id="invoiceModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="invoiceModalTitle" data-i18n="newInvoice">Nová faktura</h3>
+                <button class="modal-close" onclick="closeInvoiceModal()">✕</button>
+            </div>
+            <form id="invoiceForm" onsubmit="event.preventDefault(); saveIssuedInvoice();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="invoiceNumber">Číslo faktury (auto)</label>
+                        <input type="text" id="invNumber" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="varSymbol">Var. symbol</label>
+                        <input type="text" id="invVarSymbol">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="linkedRecOrder">Navázat na obj.</label>
+                        <select id="invLinkedOrder" onchange="loadRecOrderToInvoice()">
+                            <option value="">-- Žádná --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="client">Zákazník *</label>
+                        <select id="invClient" required onchange="onClientChange()">
+                            <option value="">Vybrat...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="ico">IČO</label>
+                        <input type="text" id="invClientIco" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="dic">DIČ</label>
+                        <input type="text" id="invClientDic" readonly class="input-readonly">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="clientAddress">Adresa zákazníka</label>
+                    <textarea id="invClientAddress" rows="2" readonly class="input-readonly"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="issueDate">Datum vystavení *</label>
+                        <input type="date" id="invDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="dueDate">Datum splatnosti *</label>
+                        <input type="date" id="invDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="taxDate">DUZP</label>
+                        <input type="date" id="invTaxDate">
+                    </div>
+                </div>
+                <div class="items-section">
+                    <h4 data-i18n="articles">Položky</h4>
+                    <div id="invItems"></div>
+                    <button type="button" class="btn btn-secondary" onclick="addInvoiceItemRow()" data-i18n="addLine">+ Přidat</button>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="subtotalHT">Základ daně</label>
+                        <input type="number" id="invSubtotal" step="0.01" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="vatRate">Sazba DPH (%)</label>
+                        <input type="number" id="invVatRate" value="21" onchange="calculateInvoiceTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="vatAmount">DPH</label>
+                        <input type="number" id="invVat" step="0.01" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="totalTTC">Celkem s DPH</label>
+                        <input type="number" id="invTotal" step="0.01" readonly class="input-readonly">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="currency">Měna</label>
+                        <select id="invCurrency" onchange="onInvCurrencyChange()">
+                            <option value="CZK">CZK</option>
+                            <option value="EUR">EUR</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="invExchangeRateGroup" style="display:none;">
+                        <label data-i18n="exchangeRateDUZP">Kurz ČNB k DUZP (EUR/CZK)</label>
+                        <input type="number" id="invExchangeRate" step="0.001" value="25.000" onchange="calculateInvoiceTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="paymentMethod">Způsob platby</label>
+                        <select id="invPaymentMethod">
+                            <option value="bank">Bankovní převod</option>
+                            <option value="cash">Hotovost</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="notes">Poznámky</label>
+                    <textarea id="invNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeInvoiceModal()" data-i18n="cancel">Zrušit</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Uložit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Invoice Preview Modal -->
+    <div class="modal" id="invoicePreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="invoice">Faktura</h3>
+                <button class="modal-close" onclick="closeInvoicePreviewModal()">✕</button>
+            </div>
+            <div id="invoicePreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeInvoicePreviewModal()" data-i18n="cancel">Zavřít</button>
+                <button class="btn btn-primary" onclick="printInvoice()">🖨️ <span data-i18n="print">Tisknout</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Received Order Modal -->
+    <div class="modal" id="receivedOrderModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="recOrderModalTitle" data-i18n="newReceivedOrder">Nová přijatá objednávka</h3>
+                <button class="modal-close" onclick="closeReceivedOrderModal()">✕</button>
+            </div>
+            <form id="receivedOrderForm" onsubmit="event.preventDefault(); saveReceivedOrder();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="orderNumber">Číslo objednávky (auto)</label>
+                        <input type="text" id="recOrdNumber" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="clientOrderNum">Číslo obj. zákazníka</label>
+                        <input type="text" id="recOrdClientNum">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="date">Datum přijetí *</label>
+                        <input type="date" id="recOrdDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="client">Zákazník *</label>
+                        <select id="recOrdClient" required onchange="onRecOrdClientChange()">
+                            <option value="">Vybrat...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="ico">IČO</label>
+                        <input type="text" id="recOrdClientIco" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="dic">DIČ</label>
+                        <input type="text" id="recOrdClientDic" readonly class="input-readonly">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="clientAddress">Adresa dodání</label>
+                    <textarea id="recOrdAddress" rows="2"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="deliveryDate">Požad. datum dodání *</label>
+                        <input type="date" id="recOrdDeliveryDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="currency">Měna</label>
+                        <select id="recOrdCurrency" onchange="calculateRecOrdTotal()">
+                            <option value="EUR">EUR</option>
+                            <option value="CZK">CZK</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="items-section">
+                    <h4 data-i18n="products">Produkty</h4>
+                    <div class="form-row" id="recOrdModelsContainer">
+                        <!-- Generated dynamically -->
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="subtotal">Celkem bez DPH</label>
+                        <input type="number" id="recOrdSubtotal" step="0.01" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="total">Celkem s DPH (21%)</label>
+                        <input type="number" id="recOrdTotal" step="0.01" readonly class="input-readonly">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="notes">Poznámky</label>
+                    <textarea id="recOrdNotes" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeReceivedOrderModal()" data-i18n="cancel">Zrušit</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Uložit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order Confirmation Preview Modal -->
+    <div class="modal" id="orderConfirmModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="orderConfirmation">Potvrzení objednávky</h3>
+                <button class="modal-close" onclick="closeOrderConfirmModal()">✕</button>
+            </div>
+            <div id="orderConfirmPreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeOrderConfirmModal()" data-i18n="cancel">Zavřít</button>
+                <button class="btn btn-primary" onclick="printOrderConfirm()">🖨️ <span data-i18n="print">Tisknout</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="config.js"></script>
+    <script src="data.js"></script>
+    <script src="storage.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
