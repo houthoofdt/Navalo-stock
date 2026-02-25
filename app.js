@@ -6733,9 +6733,14 @@ async function updateReceivedOrdersDisplay() {
                 if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
                     // Preserve local data not stored in Google Sheets
                     const localOrders = orders;
+                    console.log('🔄 Merging remote orders with local data. Local:', localOrders.length, 'Remote:', remoteOrders.length);
+
                     orders = remoteOrders.map(remote => {
                         const local = localOrders.find(l => l.id === remote.id || l.orderNumber === remote.orderNumber);
+
                         if (local) {
+                            console.log(`✅ Match for ${remote.orderNumber}: stockComponents=${!!local.stockComponents} (${local.stockComponents?.length || 0}), customItems=${!!local.customItems} (${local.customItems?.length || 0})`);
+
                             // Preserve file data
                             if (local.fileData && !remote.fileData) {
                                 remote.fileData = local.fileData;
@@ -6745,10 +6750,14 @@ async function updateReceivedOrdersDisplay() {
                             // Preserve stock components and custom items (not supported by Google Sheets API yet)
                             if (local.stockComponents && !remote.stockComponents) {
                                 remote.stockComponents = local.stockComponents;
+                                console.log(`  📦 Preserved ${local.stockComponents.length} stock components`);
                             }
                             if (local.customItems && !remote.customItems) {
                                 remote.customItems = local.customItems;
+                                console.log(`  ✏️ Preserved ${local.customItems.length} custom items`);
                             }
+                        } else {
+                            console.log(`⚠️ No match for ${remote.orderNumber} (ID: ${remote.id})`);
                         }
                         return remote;
                     });
