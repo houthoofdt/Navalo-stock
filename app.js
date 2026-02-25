@@ -3397,10 +3397,36 @@ async function cancelReceipt(key) {
 
 async function updateDeliveriesDisplay() {
     try {
-        const deliveries = await storage.getDeliveries(20);
+        // Get local deliveries first
+        let deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
+
+        // Merge with Google Sheets data if connected
+        if (storage.getMode() === 'googlesheets') {
+            try {
+                const remoteDeliveries = await storage.getDeliveries(20);
+                if (Array.isArray(remoteDeliveries) && remoteDeliveries.length > 0) {
+                    console.log('🚚 Merging deliveries. Local:', deliveries.length, 'Remote:', remoteDeliveries.length);
+
+                    // Keep local-only deliveries (not yet in Google Sheets)
+                    const localOnlyDeliveries = deliveries.filter(local =>
+                        !remoteDeliveries.find(r => r.id === local.id || r.blNumber === local.blNumber)
+                    );
+
+                    if (localOnlyDeliveries.length > 0) {
+                        console.log(`📦 Keeping ${localOnlyDeliveries.length} local-only deliveries`);
+                        deliveries = [...remoteDeliveries, ...localOnlyDeliveries];
+                    } else {
+                        deliveries = remoteDeliveries;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load deliveries from Google Sheets:', e);
+            }
+        }
+
         const tbody = document.getElementById('blTableBody');
         if (!tbody) return;
-        
+
         if (!Array.isArray(deliveries) || deliveries.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">${t('noData')}</td></tr>`;
             return;
