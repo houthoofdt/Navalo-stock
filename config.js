@@ -8,11 +8,11 @@ const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbynxyR7NItwsBCOBQc8SoGwt0BELBjuDbtD1IEh_aAe3OMqafLBJiyTcNV4Pyb_mTyq/exec',
     
     // Mode de stockage: 'local' ou 'googlesheets'
-    STORAGE_MODE: 'local',
+    STORAGE_MODE: 'googlesheets',
 
     // Mode hybride: travail en local avec synchronisation automatique vers Google Sheets
     // ⚡ RECOMMANDÉ pour meilleures performances
-    HYBRID_MODE: false,
+    HYBRID_MODE: true,
 
     // Intervalle de synchronisation en millisecondes (par défaut 5 minutes)
     // 60000 = 1 min, 300000 = 5 min, 600000 = 10 min

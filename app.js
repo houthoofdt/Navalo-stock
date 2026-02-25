@@ -6633,10 +6633,10 @@ async function saveReceivedOrder() {
     localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
 
     // Sync to Google Sheets if connected
-    // TEMPORARILY DISABLED: Google Sheets API doesn't support stockComponents/customItems yet
-    // To avoid data loss, we keep orders local-only for now
+    // Note: Google Sheets API doesn't support stockComponents/customItems yet,
+    // but we preserve them locally when reloading from Google Sheets
     try {
-        if (false && storage.getMode() === 'googlesheets') {
+        if (storage.getMode() === 'googlesheets') {
             if (editingRecOrderId) {
                 // Update existing order
                 const result = await storage.updateReceivedOrder({ 
