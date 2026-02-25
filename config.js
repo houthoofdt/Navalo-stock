@@ -8,8 +8,16 @@ const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbynxyR7NItwsBCOBQc8SoGwt0BELBjuDbtD1IEh_aAe3OMqafLBJiyTcNV4Pyb_mTyq/exec',
     
     // Mode de stockage: 'local' ou 'googlesheets'
-    STORAGE_MODE: 'googlesheets',
-    
+    STORAGE_MODE: 'local',
+
+    // Mode hybride: travail en local avec synchronisation automatique vers Google Sheets
+    // ⚡ RECOMMANDÉ pour meilleures performances
+    HYBRID_MODE: false,
+
+    // Intervalle de synchronisation en millisecondes (par défaut 5 minutes)
+    // 60000 = 1 min, 300000 = 5 min, 600000 = 10 min
+    SYNC_INTERVAL: 300000,
+
     // Informations entreprise
     COMPANY: {
         name: 'NAVALO s.r.o.',

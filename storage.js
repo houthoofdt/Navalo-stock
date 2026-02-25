@@ -9,14 +9,27 @@ class StorageAdapter {
         this.mode = 'local';
         this.apiUrl = '';
         this.exchangeRates = { EUR: 25.0 };
+        this.hybridMode = false;
+        this.syncInterval = 300000; // 5 minutes par défaut
+        this.syncTimer = null;
     }
 
     async init() {
         if (typeof CONFIG !== 'undefined' && checkConfig()) {
             this.mode = CONFIG.STORAGE_MODE;
             this.apiUrl = CONFIG.API_URL;
-            console.log('📊 Mode Google Sheets activé');
-            await this.fetchExchangeRate();
+            this.hybridMode = CONFIG.HYBRID_MODE || false;
+            this.syncInterval = CONFIG.SYNC_INTERVAL || 300000;
+
+            if (this.hybridMode) {
+                console.log('⚡ Mode Hybride activé (local + sync Google Sheets)');
+                await this.initLocalStorage();
+                await this.initSyncSystem();
+                await this.fetchExchangeRate();
+            } else {
+                console.log('📊 Mode Google Sheets activé');
+                await this.fetchExchangeRate();
+            }
         } else {
             this.mode = 'local';
             console.log('💾 Mode local activé');
@@ -41,13 +54,32 @@ class StorageAdapter {
         if (!localStorage.getItem('navalo_contacts')) {
             localStorage.setItem('navalo_contacts', JSON.stringify([]));
         }
+        if (!localStorage.getItem('navalo_adjustments')) {
+            localStorage.setItem('navalo_adjustments', JSON.stringify([]));
+        }
         if (!localStorage.getItem('navalo_config')) {
             localStorage.setItem('navalo_config', JSON.stringify({
                 next_bl: 1,
                 next_po: 1,
                 next_fp: 1,
+                next_adj: 1,
                 year: new Date().getFullYear(),
                 fp_year: new Date().getFullYear()
+            }));
+        }
+
+        // Initialize sync system for hybrid mode
+        if (!localStorage.getItem('navalo_sync_queue')) {
+            localStorage.setItem('navalo_sync_queue', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('navalo_sync_status')) {
+            localStorage.setItem('navalo_sync_status', JSON.stringify({
+                lastSync: null,
+                nextSync: null,
+                pendingItems: 0,
+                syncInterval: this.syncInterval,
+                enabled: true,
+                errors: []
             }));
         }
         
@@ -60,6 +92,174 @@ class StorageAdapter {
             const initialData = generateInitialStock();
             localStorage.setItem('navalo_stock', JSON.stringify(initialData.components));
             localStorage.setItem('navalo_pac_stock', JSON.stringify(initialData.pac));
+        }
+    }
+
+    // ========================================
+    // HYBRID MODE - SYNC SYSTEM
+    // ========================================
+
+    async initSyncSystem() {
+        // Start periodic sync
+        this.startPeriodicSync();
+
+        // Sync any pending items from previous session
+        const queue = this.getSyncQueue();
+        if (queue.length > 0) {
+            console.log(`🔄 ${queue.length} opérations en attente de synchronisation`);
+            // Don't block init, sync in background
+            setTimeout(() => this.processSyncQueue(), 5000);
+        }
+    }
+
+    startPeriodicSync() {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+        }
+
+        this.syncTimer = setInterval(async () => {
+            await this.processSyncQueue();
+        }, this.syncInterval);
+
+        console.log(`⏰ Synchronisation automatique toutes les ${this.syncInterval / 1000}s`);
+    }
+
+    stopPeriodicSync() {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+            this.syncTimer = null;
+        }
+    }
+
+    getSyncQueue() {
+        return JSON.parse(localStorage.getItem('navalo_sync_queue') || '[]');
+    }
+
+    getSyncStatus() {
+        return JSON.parse(localStorage.getItem('navalo_sync_status') || '{}');
+    }
+
+    updateSyncStatus(updates) {
+        const status = this.getSyncStatus();
+        Object.assign(status, updates);
+        localStorage.setItem('navalo_sync_status', JSON.stringify(status));
+
+        // Dispatch event for UI updates
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('syncStatusChanged', { detail: status }));
+        }
+    }
+
+    addToSyncQueue(action, data) {
+        const queue = this.getSyncQueue();
+        const item = {
+            id: 'SYNC-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            timestamp: new Date().toISOString(),
+            action,
+            data,
+            status: 'pending',
+            retries: 0,
+            error: null
+        };
+
+        queue.push(item);
+        localStorage.setItem('navalo_sync_queue', JSON.stringify(queue));
+
+        this.updateSyncStatus({
+            pendingItems: queue.filter(i => i.status === 'pending').length
+        });
+
+        console.log(`📝 Ajouté à la queue: ${action}`);
+    }
+
+    async processSyncQueue() {
+        if (!this.hybridMode || !this.apiUrl) return;
+
+        const queue = this.getSyncQueue();
+        const pending = queue.filter(item => item.status === 'pending' || item.status === 'error');
+
+        if (pending.length === 0) {
+            this.updateSyncStatus({
+                lastSync: new Date().toISOString(),
+                nextSync: new Date(Date.now() + this.syncInterval).toISOString(),
+                pendingItems: 0
+            });
+            return;
+        }
+
+        console.log(`🔄 Synchronisation de ${pending.length} opérations...`);
+        let synced = 0;
+        let errors = 0;
+
+        for (const item of pending) {
+            try {
+                item.status = 'syncing';
+                localStorage.setItem('navalo_sync_queue', JSON.stringify(queue));
+
+                // Call Google Sheets API
+                await this.apiPostDirect(item.action, item.data);
+
+                item.status = 'synced';
+                item.syncedAt = new Date().toISOString();
+                synced++;
+
+            } catch (error) {
+                console.error(`❌ Erreur sync ${item.action}:`, error);
+                item.status = 'error';
+                item.retries++;
+                item.error = error.message;
+                errors++;
+
+                // Remove from queue after 5 failed attempts
+                if (item.retries >= 5) {
+                    console.warn(`⚠️ Opération abandonnée après 5 tentatives: ${item.action}`);
+                    item.status = 'failed';
+                }
+            }
+        }
+
+        // Remove synced items older than 24h
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const cleanedQueue = queue.filter(item => {
+            if (item.status === 'synced') {
+                const syncTime = new Date(item.syncedAt || item.timestamp).getTime();
+                return syncTime > oneDayAgo;
+            }
+            return item.status !== 'failed';
+        });
+
+        localStorage.setItem('navalo_sync_queue', JSON.stringify(cleanedQueue));
+
+        this.updateSyncStatus({
+            lastSync: new Date().toISOString(),
+            nextSync: new Date(Date.now() + this.syncInterval).toISOString(),
+            pendingItems: cleanedQueue.filter(i => i.status === 'pending').length,
+            errors: cleanedQueue.filter(i => i.status === 'error').map(i => ({
+                action: i.action,
+                error: i.error,
+                retries: i.retries
+            }))
+        });
+
+        console.log(`✅ Synchronisation terminée: ${synced} réussies, ${errors} erreurs`);
+    }
+
+    async apiPostDirect(action, data) {
+        // Direct API call to Google Sheets (used by sync queue)
+        const formData = new FormData();
+        formData.append('payload', JSON.stringify({ action, ...data }));
+
+        const response = await fetch(this.apiUrl, {
+            method: 'POST',
+            body: formData,
+            redirect: 'follow'
+        });
+
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            return { success: true, raw: text };
         }
     }
 
@@ -88,21 +288,29 @@ class StorageAdapter {
     }
 
     async apiPost(action, data) {
+        // Mode local : traiter localement uniquement
         if (this.mode === 'local') {
             return this.localPost(action, data);
         }
 
+        // Mode hybride : traiter localement + ajouter à la queue de sync
+        if (this.hybridMode) {
+            const result = this.localPost(action, data);
+            this.addToSyncQueue(action, data);
+            return result;
+        }
+
+        // Mode Google Sheets pur : appel API direct (lent)
         try {
-            // Use redirect:follow and no-cors workaround for Google Apps Script
             const formData = new FormData();
             formData.append('payload', JSON.stringify({ action, ...data }));
-            
+
             const response = await fetch(this.apiUrl, {
                 method: 'POST',
                 body: formData,
                 redirect: 'follow'
             });
-            
+
             const text = await response.text();
             try {
                 return JSON.parse(text);
@@ -197,6 +405,21 @@ class StorageAdapter {
                 return { currency: params.currency, rate: this.getExchangeRate(params.currency) };
             case 'getContacts':
                 return JSON.parse(localStorage.getItem('navalo_contacts') || '[]');
+            case 'getReceivedOrders':
+                const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+                // Ensure retrocompatibility: initialize new fields if missing
+                orders.forEach(order => {
+                    if (!order.deliveredQuantities) {
+                        order.deliveredQuantities = {};
+                    }
+                    if (!order.remainingQuantities) {
+                        order.remainingQuantities = { ...order.quantities };
+                    }
+                    if (!order.deliveries) {
+                        order.deliveries = [];
+                    }
+                });
+                return orders.slice(0, params.limit || 50);
             default:
                 return null;
         }
@@ -208,6 +431,8 @@ class StorageAdapter {
                 return this.localProcessReceipt(data);
             case 'processDelivery':
                 return this.localProcessDelivery(data);
+            case 'processAdjustment':
+                return this.localProcessAdjustment(data);
             case 'createPurchaseOrder':
                 return this.localCreatePurchaseOrder(data);
             case 'updatePurchaseOrder':
@@ -321,11 +546,49 @@ class StorageAdapter {
         return suggested.sort((a, b) => (a.current / a.min) - (b.current / b.min));
     }
 
+    validatePartialReceipt(poId, items) {
+        const purchaseOrders = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+        const po = purchaseOrders.find(p => p.id === poId);
+
+        if (!po) {
+            return { valid: false, errors: ['Commande fournisseur non trouvée'] };
+        }
+
+        const errors = [];
+
+        // Initialize remainingQuantities if not present
+        if (!po.remainingQuantities) {
+            po.remainingQuantities = {};
+            (po.items || []).forEach(item => {
+                po.remainingQuantities[item.ref] = item.qty;
+            });
+        }
+
+        // Validate each item quantity
+        items.forEach(item => {
+            const { ref, qty } = item;
+            if (qty > 0) {
+                const remainingQty = po.remainingQuantities[ref] || 0;
+                if (qty > remainingQty) {
+                    const orderedItem = (po.items || []).find(i => i.ref === ref);
+                    const name = orderedItem?.name || ref;
+                    errors.push(`${name}: impossible de recevoir ${qty} (restant: ${remainingQty})`);
+                }
+            }
+        });
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+
     localProcessReceipt(data) {
-        const { items, supplier, bonNum, date, currency } = data;
+        const { items, supplier, bonNum, date, currency, linkedPO } = data;
         const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
         let lots = JSON.parse(localStorage.getItem('navalo_stock_lots') || '[]');
         const history = JSON.parse(localStorage.getItem('navalo_history') || '[]');
+        let purchaseOrders = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
         
         const exchangeRate = this.getExchangeRate(currency);
         const results = [];
@@ -371,11 +634,81 @@ class StorageAdapter {
             
             results.push({ ref, qty, priceCZK });
         });
-        
+
+        // Update linked Purchase Order if specified
+        if (linkedPO) {
+            const poIndex = purchaseOrders.findIndex(po => po.id === linkedPO);
+            if (poIndex >= 0) {
+                const po = purchaseOrders[poIndex];
+
+                // Initialize partial receipt fields if not present
+                if (!po.deliveredQuantities) {
+                    po.deliveredQuantities = {};
+                }
+                if (!po.remainingQuantities) {
+                    // Build remainingQuantities from items
+                    po.remainingQuantities = {};
+                    (po.items || []).forEach(item => {
+                        po.remainingQuantities[item.ref] = item.qty;
+                    });
+                }
+                if (!po.receipts) {
+                    po.receipts = [];
+                }
+
+                // Update delivered and remaining quantities
+                items.forEach(item => {
+                    const { ref, qty } = item;
+                    po.deliveredQuantities[ref] = (po.deliveredQuantities[ref] || 0) + qty;
+
+                    // Calculate remaining based on ordered quantity
+                    const orderedQty = (po.items || []).find(i => i.ref === ref)?.qty || 0;
+                    po.remainingQuantities[ref] = orderedQty - po.deliveredQuantities[ref];
+                });
+
+                // Add to receipts history
+                po.receipts.push({
+                    bonNum,
+                    date: date || new Date().toISOString(),
+                    items: items.map(i => ({ ref: i.ref, qty: i.qty, price: i.price }))
+                });
+
+                // Update PO status based on remaining quantities
+                const hasRemaining = Object.values(po.remainingQuantities).some(q => q > 0);
+                if (!hasRemaining) {
+                    po.status = 'Reçu';
+                } else if (po.receipts.length > 0) {
+                    po.status = 'Partiel';
+                }
+
+                purchaseOrders[poIndex] = po;
+            }
+        }
+
+        // Save receipt to receipts history
+        let receipts = JSON.parse(localStorage.getItem('navalo_receipts') || '[]');
+        const receiptId = 'REC-' + Date.now();
+        receipts.unshift({
+            id: receiptId,
+            receiptNumber: bonNum,
+            date: date || new Date().toISOString(),
+            supplier,
+            currency,
+            linkedPO: linkedPO || '',
+            items: results.map(r => ({ ref: r.ref, qty: r.qty, price: r.priceCZK })),
+            itemCount: results.length,
+            totalValue: results.reduce((sum, r) => sum + (r.qty * r.priceCZK), 0),
+            exchangeRate
+        });
+
         localStorage.setItem('navalo_stock', JSON.stringify(stock));
         localStorage.setItem('navalo_stock_lots', JSON.stringify(lots));
         localStorage.setItem('navalo_history', JSON.stringify(history));
-        
+        localStorage.setItem('navalo_receipts', JSON.stringify(receipts));
+        if (linkedPO) {
+            localStorage.setItem('navalo_purchase_orders', JSON.stringify(purchaseOrders));
+        }
+
         return { success: true, processed: results.length, items: results, exchangeRate };
     }
 
@@ -383,13 +716,56 @@ class StorageAdapter {
     // DELIVERY - HISTORY SHOWS PAC ONLY
     // ========================================
 
+    validatePartialDelivery(orderId, quantities) {
+        const receivedOrders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+        const order = receivedOrders.find(o => o.id === orderId);
+
+        if (!order) {
+            return { valid: false, errors: ['Commande non trouvée'] };
+        }
+
+        const errors = [];
+
+        // Initialize remainingQuantities if not present
+        const remaining = order.remainingQuantities || { ...order.quantities };
+
+        // Validate each model quantity
+        Object.entries(quantities).forEach(([model, qty]) => {
+            if (qty > 0) {
+                const remainingQty = remaining[model] || 0;
+                if (qty > remainingQty) {
+                    errors.push(`${model}: impossible de livrer ${qty} (restant: ${remainingQty})`);
+                }
+            }
+        });
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+
     localProcessDelivery(data) {
-        const { client, clientAddress, quantities, notes, date } = data;
+        const { client, clientAddress, notes, date, linkedOrderId } = data;
         const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
         const bom = JSON.parse(localStorage.getItem('navalo_bom') || '{}');
         let lots = JSON.parse(localStorage.getItem('navalo_stock_lots') || '[]');
         const history = JSON.parse(localStorage.getItem('navalo_history') || '[]');
         const deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
+        let receivedOrders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+
+        // Handle both old format (quantities) and new format (items)
+        let items;
+        if (data.items) {
+            items = data.items;
+        } else if (data.quantities) {
+            // Convert old format to new format for retrocompatibility
+            items = { pac: data.quantities, components: [], custom: [] };
+        } else {
+            return { success: false, error: 'No items specified' };
+        }
+
+        const quantities = items.pac || {};
         
         // Calculate required components
         const required = {};
@@ -491,11 +867,121 @@ class StorageAdapter {
                 partner: client
             });
         });
-        
+
+        // ========================================
+        // PROCESS DIRECT COMPONENTS (items.components)
+        // ========================================
+
+        const componentItems = items.components || [];
+        componentItems.forEach(item => {
+            const { ref, name, qty } = item;
+            if (!ref || qty <= 0) return;
+
+            // Deduct from stock
+            if (stock[ref]) {
+                stock[ref].qty -= qty;
+            }
+
+            // Deduct from lots (FIFO)
+            let qtyToDeduct = qty;
+            const refLots = lots
+                .filter(l => l.ref === ref && l.qtyRemaining > 0)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            let deductedValue = 0;
+            for (const lot of refLots) {
+                if (qtyToDeduct <= 0) break;
+                const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+                lot.qtyRemaining -= deductFromLot;
+                deductedValue += deductFromLot * lot.priceCZK;
+                qtyToDeduct -= deductFromLot;
+            }
+
+            totalValue += deductedValue;
+
+            // Add to history
+            history.unshift({
+                date: date || new Date().toISOString(),
+                type: 'SORTIE',
+                docNum: blNumber,
+                ref,
+                name: name || ref,
+                qty: -qty,
+                priceUnit: deductedValue / qty,
+                value: -deductedValue,
+                partner: client
+            });
+        });
+
+        // ========================================
+        // CUSTOM ITEMS (no stock deduction)
+        // ========================================
+
+        const customItems = items.custom || [];
+
         // Record delivery
         const deliveryId = 'DEL-' + Date.now();
         const totalPac = (quantities['TX9'] || 0) + (quantities['TX12-3PH'] || 0) + (quantities['TX12-1PH'] || 0);
-        
+        const totalComponents = componentItems.reduce((sum, item) => sum + item.qty, 0);
+        const totalCustom = customItems.reduce((sum, item) => sum + item.qty, 0);
+
+        // Find linked order for partial delivery tracking
+        let linkedOrder = null;
+        let linkedOrderNumber = '';
+        let isPartial = false;
+        let remainingOnOrder = {};
+
+        if (linkedOrderId) {
+            const orderIndex = receivedOrders.findIndex(o => o.id === linkedOrderId);
+            if (orderIndex >= 0) {
+                linkedOrder = receivedOrders[orderIndex];
+                linkedOrderNumber = linkedOrder.orderNumber || '';
+
+                // Initialize partial delivery fields if not present
+                if (!linkedOrder.deliveredQuantities) {
+                    linkedOrder.deliveredQuantities = {};
+                }
+                if (!linkedOrder.remainingQuantities) {
+                    linkedOrder.remainingQuantities = { ...linkedOrder.quantities };
+                }
+                if (!linkedOrder.deliveries) {
+                    linkedOrder.deliveries = [];
+                }
+
+                // Update delivered and remaining quantities
+                Object.entries(quantities).forEach(([model, qty]) => {
+                    if (qty > 0) {
+                        linkedOrder.deliveredQuantities[model] = (linkedOrder.deliveredQuantities[model] || 0) + qty;
+                        linkedOrder.remainingQuantities[model] = (linkedOrder.quantities[model] || 0) - linkedOrder.deliveredQuantities[model];
+                    }
+                });
+
+                // Add to deliveries history
+                linkedOrder.deliveries.push({
+                    deliveryId,
+                    blNumber,
+                    date: date || new Date().toISOString(),
+                    quantities: { ...quantities }
+                });
+
+                // Update order status based on remaining quantities
+                const hasRemaining = Object.values(linkedOrder.remainingQuantities).some(q => q > 0);
+                if (!hasRemaining) {
+                    linkedOrder.status = 'delivered';
+                    linkedOrder.delivered = true;
+                } else {
+                    linkedOrder.status = 'partial';
+                    isPartial = true;
+                }
+
+                // Save snapshot of remaining quantities for delivery record
+                remainingOnOrder = { ...linkedOrder.remainingQuantities };
+
+                // Update the order in the array
+                receivedOrders[orderIndex] = linkedOrder;
+            }
+        }
+
         deliveries.unshift({
             id: deliveryId,
             date: date || new Date().toISOString(),
@@ -506,23 +992,212 @@ class StorageAdapter {
             tx12_3ph: quantities['TX12-3PH'] || 0,
             tx12_1ph: quantities['TX12-1PH'] || 0,
             total: totalPac,
+            componentItems: componentItems.length > 0 ? componentItems : undefined,
+            customItems: customItems.length > 0 ? customItems : undefined,
+            totalComponents,
+            totalCustom,
             value: Math.round(totalValue * 100) / 100,
             status: 'Créé',
-            notes
+            notes,
+            linkedOrderId: linkedOrderId || '',
+            linkedOrderNumber,
+            isPartial,
+            remainingOnOrder
         });
-        
+
         localStorage.setItem('navalo_stock', JSON.stringify(stock));
         localStorage.setItem('navalo_stock_lots', JSON.stringify(lots));
         localStorage.setItem('navalo_history', JSON.stringify(history));
         localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
-        
-        return { 
-            success: true, 
+        if (linkedOrderId) {
+            localStorage.setItem('navalo_received_orders', JSON.stringify(receivedOrders));
+        }
+
+        return {
+            success: true,
             deliveryId,
             blNumber,
             totalPac,
+            totalComponents,
+            totalCustom,
             totalValue: Math.round(totalValue * 100) / 100,
             componentsDeducted: Object.keys(required).length
+        };
+    }
+
+    // ========================================
+    // STOCK ADJUSTMENTS
+    // ========================================
+
+    localProcessAdjustment(data) {
+        const { ref, newQty, reason, reasonText, date, userName } = data;
+
+        // Validation
+        if (!ref || typeof newQty !== 'number' || newQty < 0) {
+            return { success: false, error: 'Données invalides' };
+        }
+
+        if (!reason || !reasonText) {
+            return { success: false, error: 'Raison obligatoire' };
+        }
+
+        const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+        let lots = JSON.parse(localStorage.getItem('navalo_stock_lots') || '[]');
+        const history = JSON.parse(localStorage.getItem('navalo_history') || '[]');
+        let adjustments = JSON.parse(localStorage.getItem('navalo_adjustments') || '[]');
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+
+        // Check if ref exists
+        if (!stock[ref]) {
+            return { success: false, error: 'Référence non trouvée' };
+        }
+
+        const currentQty = stock[ref].qty || 0;
+        const qtyChange = newQty - currentQty;
+
+        // No change
+        if (qtyChange === 0) {
+            return { success: false, error: 'Aucun changement de quantité' };
+        }
+
+        // Generate document number
+        const year = new Date(date || new Date()).getFullYear();
+        if (config.year !== year) {
+            config.year = year;
+            config.next_adj = 1;
+        }
+        const adjNum = config.next_adj || 1;
+        const docNum = `ADJ-${year}${String(adjNum).padStart(3, '0')}`;
+        config.next_adj = adjNum + 1;
+
+        let valueImpact = 0;
+        const lotsAffected = [];
+
+        if (qtyChange > 0) {
+            // INCREASE: Create new FIFO lot with average price
+            // First try lots with remaining quantity
+            const existingLotsWithQty = lots.filter(l => l.ref === ref && l.qtyRemaining > 0);
+            let avgPrice = 0;
+
+            if (existingLotsWithQty.length > 0) {
+                const totalValue = existingLotsWithQty.reduce((sum, l) => sum + (l.qtyRemaining * l.priceCZK), 0);
+                const totalQty = existingLotsWithQty.reduce((sum, l) => sum + l.qtyRemaining, 0);
+                avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
+            }
+
+            // If no price found, try all lots (including exhausted ones) for historical average
+            if (avgPrice === 0) {
+                const allRefLots = lots.filter(l => l.ref === ref);
+                if (allRefLots.length > 0) {
+                    const totalValue = allRefLots.reduce((sum, l) => sum + (l.qty * l.priceCZK), 0);
+                    const totalQty = allRefLots.reduce((sum, l) => sum + l.qty, 0);
+                    avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
+                }
+            }
+
+            // If still no price, try COMPONENT_PRICES
+            if (avgPrice === 0 && typeof getComponentPrice === 'function') {
+                const priceEur = getComponentPrice(ref, 'EUR');
+                if (priceEur) {
+                    avgPrice = priceEur * 25.2; // Use initial rate
+                }
+            }
+
+            const newLot = {
+                id: 'LOT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                ref,
+                date: date || new Date().toISOString(),
+                qty: qtyChange,
+                qtyRemaining: qtyChange,
+                priceOriginal: avgPrice,
+                currency: 'CZK',
+                priceCZK: avgPrice,
+                supplier: 'ADJUSTMENT',
+                bonNum: docNum
+            };
+
+            lots.push(newLot);
+            lotsAffected.push(newLot.id);
+            valueImpact = qtyChange * avgPrice;
+
+        } else {
+            // DECREASE: Deduct using FIFO
+            // For adjustments, we allow deduction even if lots don't match perfectly
+            // (to handle inventory corrections and data inconsistencies)
+            let qtyToDeduct = Math.abs(qtyChange);
+            const refLots = lots
+                .filter(l => l.ref === ref && l.qtyRemaining > 0)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            for (const lot of refLots) {
+                if (qtyToDeduct <= 0) break;
+
+                const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+                lot.qtyRemaining -= deductFromLot;
+                valueImpact -= deductFromLot * lot.priceCZK;
+                qtyToDeduct -= deductFromLot;
+                lotsAffected.push(lot.id);
+            }
+
+            // For adjustments, we don't block if lots are insufficient
+            // The stock quantity will be updated anyway (inventory correction)
+            // The remaining quantity just won't have a FIFO lot associated
+            if (qtyToDeduct > 0) {
+                console.warn(`Adjustment: Insufficient FIFO lots for ${ref}, remaining ${qtyToDeduct} units not deducted from lots`);
+            }
+        }
+
+        // Update stock quantity
+        stock[ref].qty = newQty;
+
+        // Create adjustment record
+        const adjustmentId = 'ADJ-' + Date.now();
+        const adjustment = {
+            id: adjustmentId,
+            docNum,
+            date: date || new Date().toISOString(),
+            ref,
+            name: stock[ref].name || ref,
+            qtyBefore: currentQty,
+            qtyAfter: newQty,
+            qtyChange,
+            reason,
+            reasonText: reasonText.substring(0, 500),
+            userName: userName || 'Unknown',
+            lotsAffected,
+            valueImpact: Math.round(valueImpact * 100) / 100,
+            createdAt: new Date().toISOString()
+        };
+
+        adjustments.unshift(adjustment);
+
+        // Add to history
+        history.unshift({
+            date: date || new Date().toISOString(),
+            type: 'AJUSTEMENT',
+            docNum,
+            ref,
+            name: stock[ref].name || ref,
+            qty: qtyChange,
+            priceUnit: qtyChange !== 0 ? Math.abs(valueImpact / qtyChange) : 0,
+            value: valueImpact,
+            partner: 'Ajustement de stock',
+            reason: reasonText
+        });
+
+        // Save all
+        localStorage.setItem('navalo_stock', JSON.stringify(stock));
+        localStorage.setItem('navalo_stock_lots', JSON.stringify(lots));
+        localStorage.setItem('navalo_history', JSON.stringify(history));
+        localStorage.setItem('navalo_adjustments', JSON.stringify(adjustments));
+        localStorage.setItem('navalo_config', JSON.stringify(config));
+
+        return {
+            success: true,
+            docNum,
+            adjustmentId,
+            qtyChange,
+            valueImpact: Math.round(valueImpact * 100) / 100
         };
     }
 
@@ -732,6 +1407,28 @@ class StorageAdapter {
         return await this.apiPost('updateComponentPrice', data);
     }
 
+    // ========================================
+    // STOCK ADJUSTMENTS
+    // ========================================
+
+    async processAdjustment(data) {
+        return await this.apiPost('processAdjustment', data);
+    }
+
+    async getAdjustments(limit = 100) {
+        if (this.mode === 'local') {
+            const adjustments = JSON.parse(localStorage.getItem('navalo_adjustments') || '[]');
+            return adjustments.slice(0, limit);
+        }
+        try {
+            const result = await this.apiGet('getAdjustments', { limit });
+            return Array.isArray(result) ? result : [];
+        } catch (e) {
+            console.warn('Failed to get adjustments from API, returning empty array:', e);
+            return [];
+        }
+    }
+
     // Google Drive methods
     async uploadToDrive(data) {
         return await this.apiPost('uploadToDrive', data);
@@ -765,8 +1462,38 @@ class StorageAdapter {
         return await this.apiGet('getExchangeRateForDate', { currency, date });
     }
 
+    // ========================================
+    // SYNC SYSTEM (Hybrid Mode)
+    // ========================================
+
+    async syncNow() {
+        if (!this.hybridMode) {
+            console.warn('Sync non disponible en mode non-hybride');
+            return { success: false, error: 'Mode hybride non activé' };
+        }
+        console.log('🔄 Synchronisation manuelle déclenchée...');
+        await this.processSyncQueue();
+        return { success: true };
+    }
+
+    getSyncInfo() {
+        if (!this.hybridMode) {
+            return null;
+        }
+        return {
+            status: this.getSyncStatus(),
+            queue: this.getSyncQueue(),
+            isHybrid: this.hybridMode,
+            syncInterval: this.syncInterval
+        };
+    }
+
     getMode() {
         return this.mode;
+    }
+
+    isHybridMode() {
+        return this.hybridMode;
     }
 }
 

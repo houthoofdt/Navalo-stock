@@ -2983,3 +2983,138 @@ a.btn-icon[draggable="true"]:active {
     background: #94a3b8;
 }
 
+/* ========================================
+   STOCK ADJUSTMENTS
+   ======================================== */
+
+/* Button Icon for Adjustments */
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius);
+    transition: background 0.2s;
+}
+
+.btn-icon:hover {
+    background: rgba(37, 99, 235, 0.1);
+}
+
+/* Adjustment Preview */
+.adjustment-preview {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.preview-label {
+    font-size: 0.875rem;
+    color: var(--secondary);
+    margin-bottom: 0.5rem;
+}
+
+.preview-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* Quantity Change Colors */
+.qty-increase {
+    color: var(--success);
+}
+
+.qty-decrease {
+    color: var(--danger);
+}
+
+/* Character Counter */
+.char-counter {
+    text-align: right;
+    font-size: 0.875rem;
+    color: var(--secondary);
+    margin-top: 0.25rem;
+}
+
+/* Adjustments Table Specific Styles */
+#adjustmentsTableBody tr td:nth-child(7) {
+    font-weight: 600;
+}
+
+#adjustmentsTableBody tr td:nth-child(9) {
+    font-weight: 500;
+}
+
+/* Form hints */
+.form-hint {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--secondary);
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* ========================================
+   HYBRID MODE - SYNC INDICATOR
+   ======================================== */
+
+.sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+}
+
+.sync-indicator #syncIndicatorIcon {
+    font-size: 1rem;
+    animation: pulse 2s infinite;
+}
+
+.sync-indicator .sync-pending {
+    color: #f59e0b;
+}
+
+.sync-indicator .sync-ok {
+    color: #10b981;
+}
+
+.sync-indicator .sync-error {
+    color: #ef4444;
+}
+
+.btn-sync-now {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-sync-now:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-sync-now:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+

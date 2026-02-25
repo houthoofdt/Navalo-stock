@@ -186,7 +186,39 @@ const TRANSLATIONS = {
         proformaCZK: 'Avance en CZK',
         remainingToPay: 'Reste à payer',
         invoiceExchangeRate: 'Taux facture (DUZP)',
-        remainingCZK: 'Reste en CZK'
+        remainingCZK: 'Reste en CZK',
+        // Stock Adjustments
+        navAdjustments: 'Ajustements',
+        adjustmentsTitle: 'Ajustements de Stock',
+        adjustmentTitle: 'Ajustement de stock',
+        adjustStock: 'Ajuster',
+        currentQty: 'Qté actuelle',
+        newQty: 'Nouvelle quantité',
+        qtyBefore: 'Qté avant',
+        qtyAfter: 'Qté après',
+        qtyChange: 'Changement',
+        changePreview: 'Changement',
+        reason: 'Raison',
+        reasonDetails: 'Détails',
+        reasonInventory: 'Inventaire physique',
+        reasonDamage: 'Dommage/casse',
+        reasonTheft: 'Vol/perte',
+        reasonFound: 'Trouvé/retrouvé',
+        reasonError: 'Correction erreur',
+        reasonObsolete: 'Obsolète/périmé',
+        reasonOther: 'Autre',
+        valueImpact: 'Impact valeur',
+        userName: 'Utilisateur',
+        optional: 'Optionnel',
+        actions: 'Actions',
+        confirmLargeAdjustment: 'ATTENTION: Grand ajustement détecté. Voulez-vous continuer?',
+        adjustmentSaved: 'Ajustement enregistré',
+        noChangeError: 'Aucun changement de quantité',
+        manufacturers: 'Marques fournies',
+        manufacturersHint: 'Marques/fabricants séparés par des virgules (pour filtrage dans commandes)',
+        manufacturer: 'Fabricant',
+        stockComponents: 'Composants du stock',
+        addStockComponent: 'Composant'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -300,7 +332,39 @@ const TRANSLATIONS = {
         proformaCZK: 'Záloha v CZK',
         remainingToPay: 'Zbývá k úhradě',
         invoiceExchangeRate: 'Kurz faktury (k DUZP)',
-        remainingCZK: 'Zbývá v CZK'
+        remainingCZK: 'Zbývá v CZK',
+        // Stock Adjustments
+        navAdjustments: 'Úpravy',
+        adjustmentsTitle: 'Úpravy skladu',
+        adjustmentTitle: 'Úprava skladu',
+        adjustStock: 'Upravit',
+        currentQty: 'Současná množství',
+        newQty: 'Nové množství',
+        qtyBefore: 'Mn. před',
+        qtyAfter: 'Mn. po',
+        qtyChange: 'Změna',
+        changePreview: 'Změna',
+        reason: 'Důvod',
+        reasonDetails: 'Detaily',
+        reasonInventory: 'Fyzická inventura',
+        reasonDamage: 'Poškození',
+        reasonTheft: 'Krádež/ztráta',
+        reasonFound: 'Nalezeno',
+        reasonError: 'Oprava chyby',
+        reasonObsolete: 'Zastaralé',
+        reasonOther: 'Jiné',
+        valueImpact: 'Dopad hodnoty',
+        userName: 'Uživatel',
+        optional: 'Volitelné',
+        actions: 'Akce',
+        confirmLargeAdjustment: 'POZOR: Velká úprava detekována. Chcete pokračovat?',
+        adjustmentSaved: 'Úprava uložena',
+        noChangeError: 'Žádná změna množství',
+        manufacturers: 'Dodávané značky',
+        manufacturersHint: 'Značky/výrobci oddělené čárkami (pro filtrování v objednávkách)',
+        manufacturer: 'Výrobce',
+        stockComponents: 'Skladové komponenty',
+        addStockComponent: 'Komponenta'
     }
 };
 
@@ -332,14 +396,98 @@ function updateAllLabels() {
 // INITIALIZATION
 // ========================================
 
+// ========================================
+// MIGRATION FOR PARTIAL DELIVERIES & RECEIPTS
+// ========================================
+
+function migratePurchaseOrdersToPartial() {
+    const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+    let migrated = false;
+
+    pos.forEach(po => {
+        // Check if migration is needed
+        if (!po.deliveredQuantities || !po.remainingQuantities || !po.receipts) {
+            migrated = true;
+
+            // Initialize new fields
+            po.deliveredQuantities = po.deliveredQuantities || {};
+            po.remainingQuantities = po.remainingQuantities || {};
+            po.receipts = po.receipts || [];
+
+            const poStatus = (po.status || 'Brouillon').toLowerCase();
+
+            if (poStatus === 'reçu' || po.status === 'Reçu') {
+                // Assume full receipt for already received POs
+                (po.items || []).forEach(item => {
+                    po.deliveredQuantities[item.ref] = item.qty;
+                    po.remainingQuantities[item.ref] = 0;
+                });
+            } else {
+                // For draft/sent POs, all quantities are remaining
+                (po.items || []).forEach(item => {
+                    po.deliveredQuantities[item.ref] = 0;
+                    po.remainingQuantities[item.ref] = item.qty;
+                });
+            }
+        }
+    });
+
+    if (migrated) {
+        localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
+        console.log('✓ Migrated purchase orders to support partial receipts');
+    }
+}
+
+function migrateReceivedOrdersToPartial() {
+    const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+    let migrated = false;
+
+    orders.forEach(order => {
+        // Check if migration is needed
+        if (!order.deliveredQuantities || !order.remainingQuantities || !order.deliveries) {
+            migrated = true;
+
+            // Initialize new fields
+            order.deliveredQuantities = order.deliveredQuantities || {};
+            order.remainingQuantities = order.remainingQuantities || {};
+            order.deliveries = order.deliveries || [];
+
+            const orderStatus = (order.status || 'new').toLowerCase().trim();
+
+            if (orderStatus === 'delivered') {
+                // Assume full delivery for already delivered orders
+                Object.keys(order.quantities || {}).forEach(model => {
+                    order.deliveredQuantities[model] = order.quantities[model] || 0;
+                    order.remainingQuantities[model] = 0;
+                });
+            } else {
+                // For new/confirmed orders, all quantities are remaining
+                Object.keys(order.quantities || {}).forEach(model => {
+                    order.deliveredQuantities[model] = 0;
+                    order.remainingQuantities[model] = order.quantities[model] || 0;
+                });
+            }
+        }
+    });
+
+    if (migrated) {
+        localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
+        console.log('✓ Migrated received orders to support partial deliveries');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     currentLang = localStorage.getItem('navalo_lang') || 'fr';
     document.getElementById('languageSelect').value = currentLang;
-    
+
     // Initialize dynamic PAC model UI elements
     initializePacModelUI();
-    
+
     await storage.init();
+
+    // Run migrations for partial deliveries & receipts
+    migratePurchaseOrdersToPartial();
+    migrateReceivedOrdersToPartial();
     
     const statusEl = document.getElementById('syncStatus');
     if (storage.getMode() === 'googlesheets') {
@@ -362,6 +510,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateSupplierSelects();
     populateClientSelects();
     updateAllLabels();
+
+    // Initialize sync indicator for hybrid mode
+    if (storage.isHybridMode()) {
+        updateSyncIndicator();
+        console.log('⚡ Mode hybride activé - synchronisation automatique toutes les', storage.syncInterval / 1000, 's');
+    }
+
+    // Event listener for contact type change (show/hide manufacturers field)
+    const contactTypeSelect = document.getElementById('contactType');
+    if (contactTypeSelect) {
+        contactTypeSelect.addEventListener('change', function() {
+            const manufacturersField = document.getElementById('manufacturersFieldGroup');
+            const type = this.value;
+            if (type === 'supplier' || type === 'both') {
+                manufacturersField.style.display = 'block';
+            } else {
+                manufacturersField.style.display = 'none';
+            }
+        });
+    }
     
     const today = new Date().toISOString().split('T')[0];
     if (document.getElementById('entryDate')) document.getElementById('entryDate').value = today;
@@ -506,6 +674,7 @@ async function refreshAllData() {
         await updateInvoicesDisplay();
         await updateReceivedInvoicesDisplay();
         await updateReceivedOrdersDisplay();
+        await updateAdjustmentsDisplay();
         await loadContactsFromStorage();
         updateContactsDisplay();
         updateBomDisplay();
@@ -514,6 +683,7 @@ async function refreshAllData() {
         updateSuggestedOrders();
         populateLinkedPOSelect();
         populateComponentSelects();
+        populateDeliveryOrderSelect(); // Update delivery orders dropdown
     } catch (e) {
         console.error('Refresh error:', e);
     }
@@ -529,15 +699,20 @@ function updateStockDisplay() {
     const filter = document.getElementById('stockFilter')?.value || 'all';
     
     if (!currentStock) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-muted text-center">${t('noData')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
     }
     
     const pendingQty = {};
     const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
-    pos.filter(p => p.status === 'Envoyé' || p.status === 'Brouillon').forEach(po => {
+    // Include Brouillon, Envoyé, and Partiel (partial receipts)
+    pos.filter(p => p.status === 'Envoyé' || p.status === 'Brouillon' || p.status === 'Partiel').forEach(po => {
         (po.items || []).forEach(item => {
-            pendingQty[item.ref] = (pendingQty[item.ref] || 0) + item.qty;
+            // Use remainingQuantities instead of total qty
+            const remainingQty = po.remainingQuantities?.[item.ref] ?? item.qty;
+            if (remainingQty > 0) {
+                pendingQty[item.ref] = (pendingQty[item.ref] || 0) + remainingQty;
+            }
         });
     });
     
@@ -561,14 +736,17 @@ function updateStockDisplay() {
         const minQty = data.min || 0;
         const value = data.value || 0;
         const cat = categories[data.category] || data.category || '-';
-        
+
         let statusClass = 'status-ok', statusText = t('statusOk');
         if (qty <= 0) { statusClass = 'status-critical'; statusText = t('statusCritical'); }
         else if (totalAvail <= minQty) { statusClass = 'status-low'; statusText = t('statusLow'); }
-        
+
+        const manufacturerDisplay = data.manufacturer || '-';
+
         return `<tr class="${qty <= 0 ? 'row-error' : totalAvail <= minQty ? 'row-warning' : ''}">
             <td><code>${ref}</code></td>
             <td>${data.name || ref}</td>
+            <td class="text-muted">${manufacturerDisplay}</td>
             <td>${cat}</td>
             <td class="text-right font-bold">${qty}</td>
             <td class="text-right ${onOrder > 0 ? 'text-info' : ''}">${onOrder > 0 ? '+' + onOrder : '-'}</td>
@@ -576,6 +754,11 @@ function updateStockDisplay() {
             <td class="text-right text-muted">${minQty}</td>
             <td class="text-right">${formatCurrency(value)}</td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+            <td>
+                <button class="btn-icon" onclick="openAdjustmentModal('${ref}')" title="${t('adjustStock')}">
+                    ⚙️
+                </button>
+            </td>
         </tr>`;
     }).join('');
 }
@@ -683,6 +866,13 @@ function openContactModal(type = 'supplier') {
     document.getElementById('contactModalTitle').textContent = t('newContact');
     document.getElementById('contactForm').reset();
     document.getElementById('contactType').value = type;
+    // Show manufacturers field for suppliers
+    const manufacturersField = document.getElementById('manufacturersFieldGroup');
+    if (type === 'supplier' || type === 'both') {
+        manufacturersField.style.display = 'block';
+    } else {
+        manufacturersField.style.display = 'none';
+    }
     document.getElementById('contactModal').classList.add('active');
 }
 
@@ -695,7 +885,7 @@ function editContact(id) {
     const contacts = getContacts();
     const contact = contacts.find(c => c.id === id);
     if (!contact) return;
-    
+
     editingContactId = id;
     document.getElementById('contactModalTitle').textContent = t('editContact');
     document.getElementById('contactType').value = contact.type || 'supplier';
@@ -710,13 +900,23 @@ function editContact(id) {
     document.getElementById('contactIban').value = contact.iban || '';
     document.getElementById('contactBic').value = contact.bic || '';
     document.getElementById('contactNotes').value = contact.notes || '';
+    document.getElementById('contactManufacturers').value = contact.manufacturers || '';
+    // Show manufacturers field for suppliers
+    const manufacturersField = document.getElementById('manufacturersFieldGroup');
+    const type = contact.type || 'supplier';
+    if (type === 'supplier' || type === 'both') {
+        manufacturersField.style.display = 'block';
+    } else {
+        manufacturersField.style.display = 'none';
+    }
     document.getElementById('contactModal').classList.add('active');
 }
 
 async function saveContact() {
+    const type = document.getElementById('contactType').value;
     const contact = {
         id: editingContactId || null,
-        type: document.getElementById('contactType').value,
+        type: type,
         name: document.getElementById('contactName').value,
         address: document.getElementById('contactAddress').value,
         ico: document.getElementById('contactIco').value,
@@ -728,6 +928,7 @@ async function saveContact() {
         iban: document.getElementById('contactIban').value,
         bic: document.getElementById('contactBic').value,
         notes: document.getElementById('contactNotes').value,
+        manufacturers: (type === 'supplier' || type === 'both') ? document.getElementById('contactManufacturers').value : '',
         updatedAt: new Date().toISOString()
     };
 
@@ -924,39 +1125,73 @@ function onSupplierChange(selectId) {
 // Populate component selects filtered by supplier/manufacturer
 function populateComponentSelectsBySupplier(containerId, supplierName) {
     if (!currentStock) return;
-    
+
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
+    console.log('🔍 Filtering components for supplier:', supplierName);
+
     container.querySelectorAll('.item-ref').forEach(select => {
         const current = select.value;
         select.innerHTML = `<option value="">${t('refPlaceholder')}</option>`;
-        
+
         // Filter components by manufacturer if supplier is selected
         let components = Object.entries(currentStock).sort((a, b) => a[0].localeCompare(b[0]));
-        
+        const totalBefore = components.length;
+
         if (supplierName) {
-            // Get components that match the supplier/manufacturer
+            // Get the contact to check if it has manufacturers specified
+            const contacts = getContacts();
+            const contact = contacts.find(c => c.name === supplierName);
+            const contactManufacturers = contact && contact.manufacturers ?
+                contact.manufacturers.split(',').map(m => m.trim().toLowerCase()).filter(m => m) :
+                [];
+
+            console.log('  → Contact manufacturers:', contactManufacturers.length > 0 ? contactManufacturers : 'none specified');
+
             const supplierLower = supplierName.toLowerCase();
             components = components.filter(([ref, data]) => {
-                const manufacturer = (data.manufacturer || '').toLowerCase();
+                const manufacturer = (data.manufacturer || '').toLowerCase().trim();
                 const name = (data.name || '').toLowerCase();
-                // Match if manufacturer contains supplier name or vice versa
-                return manufacturer.includes(supplierLower) || 
+
+                // If contact has manufacturers specified, use that list
+                if (contactManufacturers.length > 0) {
+                    // Include components without manufacturer (generic items)
+                    if (!manufacturer) {
+                        return true;
+                    }
+                    // Include components matching the specified manufacturers
+                    return contactManufacturers.some(cm =>
+                        manufacturer.includes(cm) || cm.includes(manufacturer)
+                    );
+                }
+
+                // If no manufacturers specified in contact, use strict matching
+                // Only include components that match the supplier name in manufacturer or name
+                if (!manufacturer) {
+                    // Don't include ALL empty manufacturers - only if name contains supplier
+                    return name.includes(supplierLower);
+                }
+
+                return manufacturer.includes(supplierLower) ||
                        supplierLower.includes(manufacturer) ||
                        name.includes(supplierLower);
             });
+
+            console.log(`  → Filtered from ${totalBefore} to ${components.length} components`);
+            console.log('  → Sample manufacturers:', components.slice(0, 5).map(([r, d]) => d.manufacturer || '(vide)'));
         }
-        
+
         components.forEach(([ref, data]) => {
             const opt = document.createElement('option');
             opt.value = ref;
             const price = getComponentPrice(ref, 'EUR');
             const priceStr = price ? ` (${formatCurrency(price)} €)` : '';
-            opt.textContent = `${ref} - ${data.name || ref}${priceStr}`;
+            const manufacturer = data.manufacturer ? ` [${data.manufacturer}]` : '';
+            opt.textContent = `${ref} - ${data.name || ref}${manufacturer}${priceStr}`;
             select.appendChild(opt);
         });
-        
+
         if (current) select.value = current;
     });
 }
@@ -1014,34 +1249,202 @@ function updateBomPreview() {
 }
 
 async function processDelivery() {
-    const quantities = getDeliveryQuantities();
-    
-    if (!Object.values(quantities).some(q => q > 0)) {
-        showToast(t('selectAtLeastOne'), 'error');
+    const items = getDeliveryItems();
+
+    // Check if at least one item is selected
+    const hasPac = Object.values(items.pac).some(q => q > 0);
+    const hasComponents = items.components.length > 0;
+    const hasCustom = items.custom.length > 0;
+
+    if (!hasPac && !hasComponents && !hasCustom) {
+        showToast('Veuillez sélectionner au moins un article à livrer', 'error');
         return;
     }
-    
+
+    const linkedOrderId = document.getElementById('deliveryLinkedOrder')?.value || '';
+
+    // Validate partial delivery if order is linked (only for PAC)
+    if (linkedOrderId && hasPac) {
+        const validation = storage.validatePartialDelivery(linkedOrderId, items.pac);
+        if (!validation.valid) {
+            showToast('Livraison impossible: ' + validation.errors.join('; '), 'error');
+            return;
+        }
+    }
+
     const data = {
         client: document.getElementById('deliveryClient').value,
         clientAddress: document.getElementById('deliveryClientAddress').value,
         date: document.getElementById('deliveryDate').value,
-        linkedOrderId: document.getElementById('deliveryLinkedOrder')?.value || '',
+        linkedOrderId,
         clientOrderNumber: document.getElementById('deliveryClientOrderNum')?.value || '',
-        quantities
+        items // Pass all items: { pac: {}, components: [], custom: [] }
     };
-    
+
     try {
         const result = await storage.processDelivery(data);
         if (result.success) {
-            showToast(`BL ${result.blNumber} - ${result.totalPac} PAC`, 'success');
-            currentDelivery = { ...data, blNumber: result.blNumber, total: result.totalPac, value: result.totalValue };
+            const totalItems = result.totalPac + result.totalComponents + result.totalCustom;
+            showToast(`BL ${result.blNumber} - ${totalItems} articles livrés`, 'success');
+            currentDelivery = { ...data, blNumber: result.blNumber, value: result.totalValue };
             showDeliveryNote(currentDelivery);
             clearDeliveryForm();
             await refreshAllData();
         } else {
-            showToast(t('insufficientStock'), 'error');
+            if (result.errors) {
+                const errorMsg = result.errors.map(e => `${e.name}: requis ${e.required}, disponible ${e.available}`).join('\n');
+                showToast('Stock insuffisant:\n' + errorMsg, 'error');
+            } else {
+                showToast(t('insufficientStock'), 'error');
+            }
         }
-    } catch (e) { showToast(t('error'), 'error'); }
+    } catch (e) {
+        console.error('Delivery error:', e);
+        showToast(t('error') + ': ' + e.message, 'error');
+    }
+}
+
+// ========================================
+// DELIVERY - FLEXIBLE ITEMS (Components + Custom)
+// ========================================
+
+function addDeliveryComponentRow(ref = '', qty = '') {
+    const container = document.getElementById('deliveryComponentsContainer');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.style.cssText = 'display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;';
+
+    // Create select with stock components
+    const select = document.createElement('select');
+    select.className = 'item-ref';
+    select.style.flex = '2';
+    select.innerHTML = `<option value="">Sélectionner un composant...</option>`;
+
+    // Populate with current stock
+    Object.entries(currentStock || {}).forEach(([compRef, data]) => {
+        const opt = document.createElement('option');
+        opt.value = compRef;
+        opt.textContent = `${data.name || compRef} (Stock: ${data.qty || 0})`;
+        opt.dataset.available = data.qty || 0;
+        select.appendChild(opt);
+    });
+
+    if (ref) select.value = ref;
+
+    // Create quantity input
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.className = 'item-qty';
+    qtyInput.placeholder = 'Qté';
+    qtyInput.min = '1';
+    qtyInput.style.flex = '1';
+    qtyInput.value = qty || '';
+
+    // Update max based on selected component
+    select.addEventListener('change', function() {
+        const selectedOpt = this.options[this.selectedIndex];
+        const available = selectedOpt.dataset.available || 0;
+        qtyInput.max = available;
+        qtyInput.placeholder = `Max: ${available}`;
+    });
+
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-icon btn-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = () => row.remove();
+
+    row.appendChild(select);
+    row.appendChild(qtyInput);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+}
+
+function addDeliveryCustomItemRow(name = '', qty = '') {
+    const container = document.getElementById('deliveryCustomItemsContainer');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.style.cssText = 'display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;';
+
+    // Name input
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'item-custom-name';
+    nameInput.placeholder = 'Description (ex: Entretien machine TX9)';
+    nameInput.style.flex = '2';
+    nameInput.value = name || '';
+
+    // Quantity input
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.className = 'item-qty';
+    qtyInput.placeholder = 'Qté';
+    qtyInput.min = '1';
+    qtyInput.style.flex = '1';
+    qtyInput.value = qty || '';
+
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-icon btn-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = () => row.remove();
+
+    row.appendChild(nameInput);
+    row.appendChild(qtyInput);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+}
+
+function getDeliveryItems() {
+    const items = {
+        pac: {},
+        components: [],
+        custom: []
+    };
+
+    // Get PAC quantities (existing)
+    getPacModels().forEach(m => {
+        const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
+        const qty = parseInt(input?.value || 0);
+        if (qty > 0) {
+            items.pac[m.id] = qty;
+        }
+    });
+
+    // Get stock components
+    const componentRows = document.querySelectorAll('#deliveryComponentsContainer .item-row');
+    componentRows.forEach(row => {
+        const select = row.querySelector('.item-ref');
+        const qtyInput = row.querySelector('.item-qty');
+        const ref = select?.value;
+        const qty = parseInt(qtyInput?.value || 0);
+
+        if (ref && qty > 0) {
+            const opt = select.options[select.selectedIndex];
+            items.components.push({
+                ref,
+                name: opt.textContent.split(' (Stock:')[0],
+                qty
+            });
+        }
+    });
+
+    // Get custom items
+    const customRows = document.querySelectorAll('#deliveryCustomItemsContainer .item-row');
+    customRows.forEach(row => {
+        const nameInput = row.querySelector('.item-custom-name');
+        const qtyInput = row.querySelector('.item-qty');
+        const name = nameInput?.value.trim();
+        const qty = parseInt(qtyInput?.value || 0);
+
+        if (name && qty > 0) {
+            items.custom.push({ name, qty });
+        }
+    });
+
+    return items;
 }
 
 function clearDeliveryForm() {
@@ -1052,6 +1455,14 @@ function clearDeliveryForm() {
     document.getElementById('bomPreviewSection').style.display = 'none';
     document.getElementById('deliveryLinkedOrder').value = '';
     document.getElementById('deliveryClientOrderNum').value = '';
+
+    // Clear component and custom item rows
+    document.getElementById('deliveryComponentsContainer').innerHTML = '';
+    document.getElementById('deliveryCustomItemsContainer').innerHTML = '';
+
+    // Hide order status
+    const statusDiv = document.getElementById('deliveryOrderStatus');
+    if (statusDiv) statusDiv.style.display = 'none';
 }
 
 async function deleteDelivery(id) {
@@ -1124,29 +1535,82 @@ async function deleteDelivery(id) {
 
 function populateDeliveryOrderSelect() {
     const select = document.getElementById('deliveryLinkedOrder');
-    if (!select) return;
-    
+    if (!select) {
+        console.warn('deliveryLinkedOrder select not found');
+        return;
+    }
+
     const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+    console.log('📋 Loading orders for delivery dropdown:', orders.length);
     select.innerHTML = `<option value="">${t('none')}</option>`;
-    
-    // Show only non-delivered orders
-    orders.filter(o => !o.delivered && o.status !== 'Livré').forEach(order => {
-        const opt = document.createElement('option');
-        opt.value = order.id;
-        opt.dataset.client = order.client;
-        opt.dataset.address = order.address;
-        opt.dataset.clientOrderNumber = order.clientOrderNumber || '';
-        opt.dataset.quantities = JSON.stringify(order.quantities || {});
-        opt.textContent = `${order.orderNumber} - ${order.client} (${order.clientOrderNumber || 'N/A'})`;
-        select.appendChild(opt);
+
+    let needsSave = false;
+
+    // Filter: show only orders with remaining quantities > 0 OR status is not delivered
+    orders.forEach(order => {
+        // Initialize remaining quantities if not present (retrocompatibility)
+        if (!order.remainingQuantities) {
+            order.remainingQuantities = { ...order.quantities };
+            needsSave = true;
+        }
+        if (!order.deliveredQuantities) {
+            order.deliveredQuantities = {};
+            needsSave = true;
+        }
+        if (!order.deliveries) {
+            order.deliveries = [];
+            needsSave = true;
+        }
+
+        // Check if there are remaining quantities OR order is not fully delivered
+        const hasRemaining = Object.values(order.remainingQuantities || {}).some(q => q > 0);
+        const notDelivered = order.status !== 'delivered' && !order.delivered;
+
+        console.log(`📋 Order ${order.orderNumber}: hasRemaining=${hasRemaining}, notDelivered=${notDelivered}, status=${order.status}, remaining:`, order.remainingQuantities);
+
+        if (hasRemaining || notDelivered) {
+            const opt = document.createElement('option');
+            opt.value = order.id;
+            opt.dataset.client = order.client;
+            opt.dataset.address = order.address;
+            opt.dataset.clientOrderNumber = order.clientOrderNumber || '';
+            opt.dataset.quantities = JSON.stringify(order.quantities || {});
+            opt.dataset.remainingQuantities = JSON.stringify(order.remainingQuantities || {});
+            opt.dataset.deliveredQuantities = JSON.stringify(order.deliveredQuantities || {});
+
+            // Build progression display: "OP2026001 - Client [TX9:2/5, TX12-3PH:0/3]"
+            const progressParts = [];
+            Object.keys(order.quantities || {}).forEach(model => {
+                const total = order.quantities[model] || 0;
+                const delivered = (order.deliveredQuantities || {})[model] || 0;
+                if (total > 0) {
+                    progressParts.push(`${model}:${delivered}/${total}`);
+                }
+            });
+
+            const progressText = progressParts.length > 0 ? ` [${progressParts.join(', ')}]` : '';
+            opt.textContent = `${order.orderNumber} - ${order.client}${progressText}`;
+
+            select.appendChild(opt);
+        }
     });
+
+    // Save changes if any orders were initialized
+    if (needsSave) {
+        localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
+        console.log('✅ Orders initialized with partial delivery fields');
+    }
 }
 
 function onDeliveryOrderChange() {
     const select = document.getElementById('deliveryLinkedOrder');
     const opt = select.options[select.selectedIndex];
-    
+
     if (opt && opt.value) {
+        // Get full order data from localStorage
+        const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+        const order = orders.find(o => o.id === opt.value);
+
         // Pre-fill client info
         if (opt.dataset.client) {
             document.getElementById('deliveryClient').value = opt.dataset.client;
@@ -1158,18 +1622,99 @@ function onDeliveryOrderChange() {
         if (opt.dataset.clientOrderNumber) {
             document.getElementById('deliveryClientOrderNum').value = opt.dataset.clientOrderNumber;
         }
-        
-        // Pre-fill quantities
+
+        // Pre-fill stock components from order
+        if (order && order.stockComponents && order.stockComponents.length > 0) {
+            // Clear existing components
+            document.getElementById('deliveryComponentsContainer').innerHTML = '';
+            // Add each component
+            order.stockComponents.forEach(item => {
+                addDeliveryComponentRow(item.ref, item.qty);
+            });
+        } else {
+            // Clear if no components
+            document.getElementById('deliveryComponentsContainer').innerHTML = '';
+        }
+
+        // Pre-fill custom items from order
+        if (order && order.customItems && order.customItems.length > 0) {
+            // Clear existing items
+            document.getElementById('deliveryCustomItemsContainer').innerHTML = '';
+            // Add each item
+            order.customItems.forEach(item => {
+                addDeliveryCustomItemRow(item.name, item.qty);
+            });
+        } else {
+            // Clear if no items
+            document.getElementById('deliveryCustomItemsContainer').innerHTML = '';
+        }
+
+        // Pre-fill quantities with REMAINING quantities instead of total quantities
         try {
-            const quantities = JSON.parse(opt.dataset.quantities || '{}');
+            const remainingQuantities = JSON.parse(opt.dataset.remainingQuantities || '{}');
+            const deliveredQuantities = JSON.parse(opt.dataset.deliveredQuantities || '{}');
+
             getPacModels().forEach(m => {
                 const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
-                if (input && quantities[m.id]) {
-                    input.value = quantities[m.id];
+                if (input) {
+                    const remaining = remainingQuantities[m.id] || 0;
+                    const delivered = deliveredQuantities[m.id] || 0;
+
+                    // Pre-fill with remaining quantity
+                    input.value = remaining;
+
+                    // Set max attribute to prevent over-delivery
+                    input.setAttribute('max', remaining);
                 }
             });
+
+            // Show delivery status info
+            const statusDiv = document.getElementById('deliveryOrderStatus');
+            const statusContent = document.getElementById('deliveryOrderStatusContent');
+            if (statusDiv && statusContent) {
+                let statusHtml = '<div class="partial-delivery-info">';
+                statusHtml += '<strong>Restant à livrer:</strong> ';
+                const remainingParts = [];
+                Object.entries(remainingQuantities).forEach(([model, qty]) => {
+                    if (qty > 0) {
+                        remainingParts.push(`${model}: ${qty}`);
+                    }
+                });
+                statusHtml += remainingParts.join(', ') || 'Aucun';
+
+                if (Object.keys(deliveredQuantities).length > 0) {
+                    statusHtml += '<br><strong>Déjà livré:</strong> ';
+                    const deliveredParts = [];
+                    Object.entries(deliveredQuantities).forEach(([model, qty]) => {
+                        if (qty > 0) {
+                            deliveredParts.push(`${model}: ${qty}`);
+                        }
+                    });
+                    statusHtml += deliveredParts.join(', ');
+                }
+                statusHtml += '</div>';
+
+                statusContent.innerHTML = statusHtml;
+                statusDiv.style.display = 'block';
+            }
+
             updateBomPreview();
-        } catch(e) {}
+        } catch(e) {
+            console.error('Error in onDeliveryOrderChange:', e);
+        }
+    } else {
+        // Clear status info when no order selected
+        const statusDiv = document.getElementById('deliveryOrderStatus');
+        if (statusDiv) {
+            statusDiv.style.display = 'none';
+        }
+        // Remove max attributes
+        getPacModels().forEach(m => {
+            const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
+            if (input) {
+                input.removeAttribute('max');
+            }
+        });
     }
 }
 
@@ -1177,35 +1722,59 @@ async function viewDelivery(id) {
     const deliveries = await storage.getDeliveries(100);
     const d = deliveries.find(x => x.id === id);
     if (d) {
-        // Build quantities from stored data
-        const quantities = d.quantities || {};
-        // Backwards compatibility: also check old field names
-        if (d.tx9 !== undefined) quantities['TX9'] = d.tx9;
-        if (d.tx12_3ph !== undefined) quantities['TX12-3PH'] = d.tx12_3ph;
-        if (d.tx12_1ph !== undefined) quantities['TX12-1PH'] = d.tx12_1ph;
-        currentDelivery = { ...d, quantities };
+        // Support new format (items) and old format (quantities)
+        if (!d.items && !d.quantities) {
+            // Build quantities from old field names for backwards compatibility
+            const quantities = {};
+            if (d.tx9 !== undefined) quantities['TX9'] = d.tx9;
+            if (d.tx12_3ph !== undefined) quantities['TX12-3PH'] = d.tx12_3ph;
+            if (d.tx12_1ph !== undefined) quantities['TX12-1PH'] = d.tx12_1ph;
+            if (d.th11 !== undefined) quantities['TH11'] = d.th11;
+            d.quantities = quantities;
+        }
+        currentDelivery = d;
         showDeliveryNote(currentDelivery);
     }
 }
 
 function showDeliveryNote(d) {
     const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
-    const q = d.quantities || {};
+
+    // Support both old format (quantities) and new format (items)
+    const q = d.items?.pac || d.quantities || {};
+    const components = d.items?.components || [];
+    const customItems = d.items?.custom || [];
+
     const models = getPacModels();
-    const total = models.reduce((sum, m) => sum + (q[m.id] || 0), 0);
+    const totalPac = models.reduce((sum, m) => sum + (q[m.id] || 0), 0);
+    const totalComponents = components.reduce((sum, c) => sum + c.qty, 0);
+    const totalCustom = customItems.reduce((sum, c) => sum + c.qty, 0);
+    const total = totalPac + totalComponents + totalCustom;
     const pcs = t('pieces');
-    
+
     // Get linked order info if available
     let orderInfo = '';
     if (d.linkedOrderNumber || d.clientOrderNumber) {
         orderInfo = `<p><strong>${t('clientOrderNum')}:</strong> ${d.clientOrderNumber || d.linkedOrderNumber}</p>`;
     }
-    
-    // Generate items rows dynamically
-    const itemsHtml = models.map(m => {
+
+    // Generate PAC items rows
+    const pacItemsHtml = models.map(m => {
         const qty = q[m.id] || 0;
         return qty > 0 ? `<tr><td>${m.fullName}</td><td>${qty}</td><td>${pcs}</td></tr>` : '';
     }).join('');
+
+    // Generate component items rows
+    const componentItemsHtml = components.map(c =>
+        `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
+    ).join('');
+
+    // Generate custom items rows
+    const customItemsHtml = customItems.map(c =>
+        `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
+    ).join('');
+
+    const itemsHtml = pacItemsHtml + componentItemsHtml + customItemsHtml;
     
     // NO FIFO VALUE on BL
     document.getElementById('deliveryPreview').innerHTML = `
@@ -2277,7 +2846,16 @@ async function processReceipt() {
     });
     
     if (items.length === 0) { showToast(t('selectAtLeastOne'), 'error'); return; }
-    
+
+    // Validate partial receipt if PO is linked
+    if (linkedPO) {
+        const validation = storage.validatePartialReceipt(linkedPO, items);
+        if (!validation.valid) {
+            showToast('Réception impossible: ' + validation.errors.join('; '), 'error');
+            return;
+        }
+    }
+
     try {
         const result = await storage.processReceipt({ bonNum, items, supplier, date, currency, linkedPO });
         if (result.success) {
@@ -2285,7 +2863,7 @@ async function processReceipt() {
             if (bonNum.startsWith('PŘ')) {
                 await getNextReceiptNumber(true); // Increment the counter
             }
-            if (linkedPO) await storage.updatePurchaseOrder({ poId: linkedPO, status: 'Reçu' });
+            // Note: PO status is now automatically updated in storage.processReceipt
             showToast(`${bonNum} ${t('saved')}`, 'success');
             await clearEntryForm();
             await refreshAllData();
@@ -2351,12 +2929,39 @@ function populateLinkedPOSelect(supplierFilter = null) {
         return;
     }
     
-    const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+    let pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
     select.innerHTML = `<option value="">${t('none')}</option>`;
-    
-    // Filter by status "Envoyé" and by supplier
-    let filtered = pos.filter(p => p.status === 'Envoyé' && p.supplier === supplierFilter);
-    
+
+    let needsSave = false;
+
+    // Filter by supplier and status (Envoyé or Partiel, not Reçu)
+    let filtered = pos.filter(p => {
+        if (p.supplier !== supplierFilter) return false;
+
+        // Initialize fields if missing
+        if (!p.remainingQuantities) {
+            p.remainingQuantities = {};
+            (p.items || []).forEach(item => {
+                p.remainingQuantities[item.ref] = item.qty;
+            });
+            needsSave = true;
+        }
+        if (!p.deliveredQuantities) {
+            p.deliveredQuantities = {};
+            needsSave = true;
+        }
+        if (!p.receipts) {
+            p.receipts = [];
+            needsSave = true;
+        }
+
+        // Show POs that are not fully received
+        const hasRemaining = Object.values(p.remainingQuantities || {}).some(q => q > 0);
+        const notFullyReceived = p.status !== 'Reçu';
+
+        return hasRemaining || notFullyReceived;
+    });
+
     if (filtered.length === 0) {
         const opt = document.createElement('option');
         opt.value = "";
@@ -2367,11 +2972,30 @@ function populateLinkedPOSelect(supplierFilter = null) {
         filtered.forEach(po => {
             const opt = document.createElement('option');
             opt.value = po.id;
-            opt.textContent = `${po.poNumber} (${formatDate(po.date)})`;
+
+            // Build progression display
+            const progressParts = [];
+            (po.items || []).forEach(item => {
+                const total = item.qty;
+                const delivered = (po.deliveredQuantities || {})[item.ref] || 0;
+                if (total > 0) {
+                    progressParts.push(`${item.ref}:${delivered}/${total}`);
+                }
+            });
+
+            const progressText = progressParts.length > 0 ? ` [${progressParts.join(', ')}]` : '';
+            opt.textContent = `${po.poNumber} (${formatDate(po.date)})${progressText}`;
+
             opt.dataset.supplier = po.supplier;
             opt.dataset.currency = po.currency;
             select.appendChild(opt);
         });
+    }
+
+    // Save changes if any POs were initialized
+    if (needsSave) {
+        localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
+        console.log('✅ POs initialized with partial receipt fields');
     }
 }
 
@@ -2424,23 +3048,61 @@ async function loadPOItems() {
         
         document.getElementById('entryCurrency').value = po.currency;
         // Keep the PŘ number, don't overwrite with PO number
-        
+
+        // Initialize remainingQuantities if not present
+        if (!po.remainingQuantities) {
+            po.remainingQuantities = {};
+            (po.items || []).forEach(item => {
+                po.remainingQuantities[item.ref] = item.qty;
+            });
+        }
+        if (!po.deliveredQuantities) {
+            po.deliveredQuantities = {};
+        }
+
         const container = document.getElementById('entryItems');
         container.innerHTML = '';
         (po.items || []).forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'item-row';
-            row.innerHTML = `
-                <select class="item-ref" required><option value="">${t('refPlaceholder')}</option></select>
-                <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" required value="${item.qty}">
-                <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${item.price || ''}">
-                <button type="button" class="btn-icon btn-remove" onclick="removeItemRow(this)">✕</button>`;
-            container.appendChild(row);
+            const remainingQty = po.remainingQuantities[item.ref] || 0;
+            const deliveredQty = po.deliveredQuantities[item.ref] || 0;
+
+            // Only show items with remaining quantity > 0
+            if (remainingQty > 0) {
+                const row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <select class="item-ref" required><option value="">${t('refPlaceholder')}</option></select>
+                    <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" max="${remainingQty}" required value="${remainingQty}">
+                    <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${item.price || ''}">
+                    <button type="button" class="btn-icon btn-remove" onclick="removeItemRow(this)">✕</button>`;
+                container.appendChild(row);
+            }
         });
         populateComponentSelects();
+
+        // Set the refs for items with remaining quantity
         const rows = container.querySelectorAll('.item-row');
-        (po.items || []).forEach((item, i) => { if (rows[i]) rows[i].querySelector('.item-ref').value = item.ref; });
-        showToast(`${po.poNumber}`, 'info');
+        let rowIndex = 0;
+        (po.items || []).forEach(item => {
+            const remainingQty = po.remainingQuantities[item.ref] || 0;
+            if (remainingQty > 0 && rows[rowIndex]) {
+                rows[rowIndex].querySelector('.item-ref').value = item.ref;
+                rowIndex++;
+            }
+        });
+
+        // Show status message
+        const receiptsCount = (po.receipts || []).length;
+        const statusParts = (po.items || []).map(item => {
+            const total = item.qty;
+            const delivered = po.deliveredQuantities[item.ref] || 0;
+            const remaining = po.remainingQuantities[item.ref] || total;
+            return `${item.ref}: ${delivered}/${total}`;
+        });
+        const statusMsg = receiptsCount > 0 ?
+            `${po.poNumber} - ${receiptsCount} réception(s) - ${statusParts.join(', ')}` :
+            `${po.poNumber} - Nouvelle réception`;
+        showToast(statusMsg, 'info');
     }
 }
 
@@ -2477,24 +3139,34 @@ async function updateReceiptsHistoryDisplay() {
     
     // Sort by date descending
     receipts.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     if (receipts.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
     }
-    
+
+    // Load POs once for lookup
+    const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+
     tbody.innerHTML = receipts.map(r => {
         const itemCount = r.itemCount || r.items?.length || 0;
         const totalValue = r.totalValue || (r.items || []).reduce((sum, item) => sum + (item.qty * (item.price || 0)), 0);
         const itemsPreview = (r.items || []).slice(0, 2).map(i => `${i.ref}: ${i.qty}`).join(', ');
         const moreItems = itemCount > 2 ? ` +${itemCount - 2}` : '';
         const safeKey = (r.id || r._key || r.receiptNumber).replace(/'/g, "\\'");
-        
+
+        // Look up PO number instead of showing internal ID
+        let poDisplay = '-';
+        if (r.linkedPO) {
+            const po = pos.find(p => p.id === r.linkedPO);
+            poDisplay = po ? po.poNumber : r.linkedPO;
+        }
+
         return `<tr>
             <td><strong>${r.receiptNumber}</strong></td>
             <td>${formatDate(r.date)}</td>
             <td>${r.supplier}</td>
-            <td>${r.linkedPO || '-'}</td>
+            <td>${poDisplay}</td>
             <td title="${(r.items || []).map(i => `${i.ref}: ${i.qty}`).join('\n')}">${itemsPreview}${moreItems}</td>
             <td class="text-right">${totalValue > 0 ? formatCurrency(totalValue) : '-'}</td>
             <td>${r.currency}</td>
@@ -2588,13 +3260,21 @@ function viewReceiptDetails(key) {
 }
 
 function showReceiptModal(docNum, date, supplier, linkedPO, currency, itemsHtml, totalValue) {
+    // Look up actual PO number instead of displaying internal ID
+    let poNumber = linkedPO;
+    if (linkedPO) {
+        const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+        const po = pos.find(p => p.id === linkedPO);
+        if (po) poNumber = po.poNumber;
+    }
+
     const content = `
         <div class="receipt-details">
             <div class="receipt-header">
                 <h2>${docNum}</h2>
                 <p><strong>${t('date')}:</strong> ${formatDate(date)}</p>
                 <p><strong>${t('supplier')}:</strong> ${supplier}</p>
-                ${linkedPO ? `<p><strong>${t('linkPO')}:</strong> ${linkedPO}</p>` : ''}
+                ${linkedPO ? `<p><strong>${t('linkPO')}:</strong> ${poNumber}</p>` : ''}
             </div>
             <table class="data-table">
                 <thead>
@@ -2729,16 +3409,30 @@ async function updateDeliveriesDisplay() {
         tbody.innerHTML = deliveries.map(d => {
             const invoiced = d.invoiceNumber ? true : false;
             const clientOrderNum = d.clientOrderNumber || d.linkedOrderNumber || '';
+
+            // Build linked order info
+            let linkedOrderInfo = '';
+            if (d.linkedOrderNumber) {
+                linkedOrderInfo = `<small>📋 ${d.linkedOrderNumber}</small>`;
+            }
+
+            // Build partial delivery badge
+            let partialBadge = '';
+            if (d.isPartial) {
+                partialBadge = ' <span class="badge badge-warning-alt" style="font-size: 0.7em;">Partielle</span>';
+            }
+
             return `<tr>
-                <td><strong>${d.blNumber}</strong></td>
+                <td><strong>${d.blNumber}</strong>${partialBadge}</td>
                 <td>${formatDate(d.date)}</td>
-                <td>${d.client}</td>
+                <td>${d.client}${linkedOrderInfo ? '<br>' + linkedOrderInfo : ''}</td>
                 <td>${clientOrderNum ? `<small>${clientOrderNum}</small>` : '-'}</td>
                 <td>${d.total} PAC</td>
                 <td>${formatCurrency(d.value || 0)} CZK</td>
                 <td>${invoiced ? `<span class="status-badge status-ok">${d.invoiceNumber}</span>` : `<span class="status-badge">${t('no')}</span>`}</td>
                 <td>
                     <button class="btn btn-outline btn-small" onclick="viewDelivery('${d.id}')" title="${t('view')}">👁️</button>
+                    ${d.linkedOrderId ? `<button class="btn btn-outline btn-small" onclick="viewOrderFromDelivery('${d.linkedOrderId}')" title="Voir commande">📋</button>` : ''}
                     ${!invoiced ? `<button class="btn btn-secondary btn-small" onclick="createInvoiceFromBL('${d.id}')" title="${t('createInvoice')}">🧾</button>` : ''}
                     <button class="btn btn-outline btn-small" onclick="deleteDelivery('${d.id}')" title="${t('delete')}">🗑️</button>
                 </td>
@@ -5584,7 +6278,8 @@ async function openReceivedOrderModal() {
     currentReceivedOrderFile = null;
     document.getElementById('recOrdFileName').textContent = '';
 
-    // Clear custom items
+    // Clear stock components and custom items
+    document.getElementById('recOrdStockComponents').innerHTML = '';
     document.getElementById('recOrdCustomItems').innerHTML = '';
 
     // Get next order number (async to check Google Sheets)
@@ -5739,6 +6434,71 @@ function getRecOrdCustomItems() {
     return items;
 }
 
+function addRecOrdStockComponent(ref = '', qty = 1, price = 0) {
+    const container = document.getElementById('recOrdStockComponents');
+    const row = document.createElement('div');
+    row.className = 'item-row item-row-stock';
+
+    // Build select with stock components
+    let selectOptions = `<option value="">-- ${t('refPlaceholder')} --</option>`;
+    if (currentStock) {
+        const sortedComponents = Object.entries(currentStock).sort((a, b) => a[0].localeCompare(b[0]));
+        sortedComponents.forEach(([compRef, data]) => {
+            const componentPrice = getComponentPrice(compRef, 'EUR');
+            const priceStr = componentPrice ? ` (${formatCurrency(componentPrice)} €)` : '';
+            const manufacturer = data.manufacturer ? ` [${data.manufacturer}]` : '';
+            const selected = ref === compRef ? 'selected' : '';
+            selectOptions += `<option value="${compRef}" data-price="${componentPrice || 0}" ${selected}>${compRef} - ${data.name || compRef}${manufacturer}${priceStr}</option>`;
+        });
+    }
+
+    row.innerHTML = `
+        <select class="recOrd-stock-ref" onchange="onRecOrdStockComponentChange(this); calculateRecOrdTotal()">
+            ${selectOptions}
+        </select>
+        <input type="number" class="recOrd-stock-qty" placeholder="Qté" min="1" value="${qty}" onchange="calculateRecOrdTotal()">
+        <input type="number" class="recOrd-stock-price" placeholder="Prix unit." min="0" step="0.01" value="${price}" onchange="calculateRecOrdTotal()" readonly class="input-readonly">
+        <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); calculateRecOrdTotal()">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+function onRecOrdStockComponentChange(select) {
+    const row = select.closest('.item-row');
+    const priceInput = row.querySelector('.recOrd-stock-price');
+    const selectedOption = select.options[select.selectedIndex];
+    const price = selectedOption.dataset.price || 0;
+    priceInput.value = parseFloat(price).toFixed(2);
+}
+
+function getRecOrdStockComponents() {
+    const items = [];
+    const rows = document.querySelectorAll('#recOrdStockComponents .item-row');
+    console.log('getRecOrdStockComponents - found rows:', rows.length);
+
+    rows.forEach((row, index) => {
+        const ref = row.querySelector('.recOrd-stock-ref')?.value || '';
+        const qty = parseFloat(row.querySelector('.recOrd-stock-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.recOrd-stock-price')?.value) || 0;
+        console.log(`Row ${index}: ref=${ref}, qty=${qty}, price=${price}`);
+
+        if (ref && qty > 0) {
+            const componentData = currentStock[ref];
+            items.push({
+                ref,
+                name: componentData?.name || ref,
+                qty,
+                price,
+                total: qty * price
+            });
+        }
+    });
+    console.log('getRecOrdStockComponents - returning:', items);
+    return items;
+}
+
+window.addRecOrdStockComponent = addRecOrdStockComponent;
+
 function calculateRecOrdTotal() {
     const models = getPacModels();
     let subtotal = 0;
@@ -5747,6 +6507,13 @@ function calculateRecOrdTotal() {
     models.forEach(model => {
         const qty = parseInt(document.getElementById(`recOrdQty-${model.id}`)?.value) || 0;
         const price = parseFloat(document.getElementById(`recOrdPrice-${model.id}`)?.value) || 0;
+        subtotal += qty * price;
+    });
+
+    // Stock components
+    document.querySelectorAll('#recOrdStockComponents .item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.recOrd-stock-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.recOrd-stock-price')?.value) || 0;
         subtotal += qty * price;
     });
 
@@ -5787,11 +6554,21 @@ async function saveReceivedOrder() {
         if (qty > 0) hasQty = true;
     });
 
-    // Check if there are custom items
+    // Check if there are stock components and custom items
+    const stockComponents = getRecOrdStockComponents();
     const customItems = getRecOrdCustomItems();
+
+    // Debug
+    console.log('=== SAVE RECEIVED ORDER DEBUG ===');
+    console.log('Stock components:', stockComponents);
+    console.log('Custom items:', customItems);
+    console.log('Quantities:', quantities);
+    console.log('================================');
+
+    const hasStockComponents = stockComponents.length > 0;
     const hasCustomItems = customItems.length > 0;
 
-    if (!hasQty && !hasCustomItems) {
+    if (!hasQty && !hasStockComponents && !hasCustomItems) {
         showToast(t('selectAtLeastOne'), 'error');
         return;
     }
@@ -5830,6 +6607,7 @@ async function saveReceivedOrder() {
         currency: document.getElementById('recOrdCurrency').value,
         quantities: quantities,
         prices: prices,
+        stockComponents: stockComponents,
         customItems: customItems,
         subtotal: parseFloat(document.getElementById('recOrdSubtotal').value) || 0,
         total: parseFloat(document.getElementById('recOrdTotal').value) || 0,
@@ -5853,10 +6631,12 @@ async function saveReceivedOrder() {
     }
     
     localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
-    
+
     // Sync to Google Sheets if connected
+    // TEMPORARILY DISABLED: Google Sheets API doesn't support stockComponents/customItems yet
+    // To avoid data loss, we keep orders local-only for now
     try {
-        if (storage.getMode() === 'googlesheets') {
+        if (false && storage.getMode() === 'googlesheets') {
             if (editingRecOrderId) {
                 // Update existing order
                 const result = await storage.updateReceivedOrder({ 
@@ -5919,6 +6699,14 @@ function editReceivedOrder(id) {
         });
     }
 
+    // Load stock components
+    document.getElementById('recOrdStockComponents').innerHTML = '';
+    if (order.stockComponents && order.stockComponents.length > 0) {
+        order.stockComponents.forEach(item => {
+            addRecOrdStockComponent(item.ref, item.qty, item.price);
+        });
+    }
+
     // Display existing file if any
     currentReceivedOrderFile = null;
     document.getElementById('recOrdFileName').textContent = order.fileName || '';
@@ -5943,12 +6731,24 @@ async function updateReceivedOrdersDisplay() {
             try {
                 const remoteOrders = await storage.getReceivedOrders(100);
                 if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
-                    // Preserve local file data (not stored in Google Sheets)
+                    // Preserve local data not stored in Google Sheets
                     const localOrders = orders;
                     orders = remoteOrders.map(remote => {
                         const local = localOrders.find(l => l.id === remote.id || l.orderNumber === remote.orderNumber);
-                        if (local && local.fileData && !remote.fileData) {
-                            return { ...remote, fileData: local.fileData, fileName: local.fileName, fileType: local.fileType };
+                        if (local) {
+                            // Preserve file data
+                            if (local.fileData && !remote.fileData) {
+                                remote.fileData = local.fileData;
+                                remote.fileName = local.fileName;
+                                remote.fileType = local.fileType;
+                            }
+                            // Preserve stock components and custom items (not supported by Google Sheets API yet)
+                            if (local.stockComponents && !remote.stockComponents) {
+                                remote.stockComponents = local.stockComponents;
+                            }
+                            if (local.customItems && !remote.customItems) {
+                                remote.customItems = local.customItems;
+                            }
                         }
                         return remote;
                     });
@@ -6164,22 +6964,22 @@ function updateReceivedOrdersDisplayLocal() {
     
     const tbody = document.getElementById('receivedOrdersTableBody');
     if (!tbody) return;
-    
-    const numCols = 6 + models.length + 3;
+
+    const numCols = 6 + models.length + 4; // Added 1 for Progression column
     
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${numCols}" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
     }
     
-    const statusLabels = { new: t('recOrdNew'), confirmed: t('recOrdConfirmed'), delivered: t('recOrdDelivered'), invoiced: t('recOrdInvoiced') };
-    const statusClasses = { new: 'badge-warning', confirmed: 'badge-info', delivered: 'badge-success', invoiced: 'badge-success' };
-    
+    const statusLabels = { new: t('recOrdNew'), confirmed: t('recOrdConfirmed'), partial: 'Partielle', delivered: t('recOrdDelivered'), invoiced: t('recOrdInvoiced') };
+    const statusClasses = { new: 'badge-warning', confirmed: 'badge-info', partial: 'badge-warning-alt', delivered: 'badge-success', invoiced: 'badge-success' };
+
     tbody.innerHTML = filtered.map(order => {
-        const modelCells = models.map(model => 
+        const modelCells = models.map(model =>
             `<td class="text-center">${order.quantities?.[model.id] || 0}</td>`
         ).join('');
-        
+
         const orderStatus = (order.status || 'new').toLowerCase().trim();
         const canConfirm = orderStatus === 'new' || orderStatus === '' || !order.status;
         const canDeliver = orderStatus === 'confirmed';
@@ -6193,6 +6993,21 @@ function updateReceivedOrdersDisplayLocal() {
             driveButtons = `<button class="btn-icon" onclick="uploadReceivedOrderToDrive('${order.id}')" title="Nahrát na Google Drive">☁️</button>`;
         }
 
+        // Build progression cell
+        let progressionCell = '<td class="text-center">-</td>';
+        if (order.deliveries && order.deliveries.length > 0) {
+            const progressParts = [];
+            Object.keys(order.quantities || {}).forEach(model => {
+                const total = order.quantities[model] || 0;
+                const delivered = (order.deliveredQuantities || {})[model] || 0;
+                if (total > 0) {
+                    progressParts.push(`${model}:${delivered}/${total}`);
+                }
+            });
+            const deliveryCount = order.deliveries.length;
+            progressionCell = `<td class="text-center"><small>${deliveryCount} livraison${deliveryCount > 1 ? 's' : ''}<br>${progressParts.join(', ')}</small></td>`;
+        }
+
         return `
         <tr>
             <td><strong>${order.orderNumber}</strong>${hasFileLocal ? ' 📎' : ''}${hasFileDrive ? ' ☁️' : ''}</td>
@@ -6202,6 +7017,7 @@ function updateReceivedOrdersDisplayLocal() {
             <td>${formatDate(order.deliveryDate)}</td>
             ${modelCells}
             <td class="text-right">${formatCurrency(order.total)} ${order.currency}</td>
+            ${progressionCell}
             <td><span class="badge ${statusClasses[orderStatus] || 'badge-warning'}">${statusLabels[orderStatus] || t('recOrdNew')}</span></td>
             <td>
                 <button class="btn-icon" onclick="viewOrderConfirmation('${order.id}')" title="${t('view')}">👁️</button>
@@ -6255,11 +7071,36 @@ function exportReceivedOrders() {
     downloadCSV(csv, `objednavky_prijate_${new Date().toISOString().split('T')[0]}.csv`);
 }
 
+function viewOrderFromDelivery(orderId) {
+    // Navigate to received orders tab and view the order
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+    const navBtn = document.querySelector('[data-tab="received-orders"]');
+    if (navBtn) navBtn.classList.add('active');
+
+    const tabContent = document.getElementById('tab-received-orders');
+    if (tabContent) tabContent.classList.add('active');
+
+    viewOrderConfirmation(orderId);
+}
+
 function viewOrderConfirmation(id) {
     const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
     const order = orders.find(o => o.id === id);
     if (!order) return;
     window.currentReceivedOrder = order;
+
+    // Debug: log order data
+    console.log('=== ORDER CONFIRMATION DEBUG ===');
+    console.log('Order ID:', id);
+    console.log('Order data:', order);
+    console.log('Quantities:', order.quantities);
+    console.log('Stock components:', order.stockComponents);
+    console.log('Custom items:', order.customItems);
+    console.log('Subtotal:', order.subtotal);
+    console.log('Total:', order.total);
+    console.log('===============================');
 
     const config = CONFIG || {};
     const company = config.COMPANY || {};
@@ -6278,6 +7119,15 @@ function viewOrderConfirmation(id) {
         }
         return '';
     }).join('');
+
+    // Add stock components
+    if (order.stockComponents && order.stockComponents.length > 0) {
+        order.stockComponents.forEach(item => {
+            const lineTotal = item.qty * item.price;
+            calculatedSubtotal += lineTotal;
+            itemsHtml += `<tr><td>${item.ref} - ${item.name}</td><td class="text-right">${item.qty}</td><td class="text-right">${formatCurrency(item.price)} ${order.currency}</td><td class="text-right">${formatCurrency(lineTotal)} ${order.currency}</td></tr>`;
+        });
+    }
 
     // Add custom items
     if (order.customItems && order.customItems.length > 0) {
@@ -6618,6 +7468,272 @@ async function clearLocalAndResync() {
 }
 
 window.clearLocalAndResync = clearLocalAndResync;
+
+// ========================================
+// STOCK ADJUSTMENTS
+// ========================================
+
+let currentAdjustmentRef = null;
+
+function openAdjustmentModal(ref) {
+    if (!currentStock || !currentStock[ref]) {
+        showToast(t('error'), 'error');
+        return;
+    }
+
+    currentAdjustmentRef = ref;
+    const data = currentStock[ref];
+    const currentQty = data.qty || 0;
+
+    document.getElementById('adjRef').value = ref;
+    document.getElementById('adjName').value = data.name || ref;
+    document.getElementById('adjCurrentQty').value = currentQty;
+    document.getElementById('adjNewQty').value = currentQty;
+    document.getElementById('adjReason').value = '';
+    document.getElementById('adjReasonText').value = '';
+    document.getElementById('adjDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('adjUserName').value = '';
+
+    document.getElementById('adjPreview').style.display = 'none';
+    updateCharCounter();
+
+    document.getElementById('adjustmentModal').classList.add('active');
+}
+
+function closeAdjustmentModal() {
+    currentAdjustmentRef = null;
+    document.getElementById('adjustmentModal').classList.remove('active');
+}
+
+function updateAdjustmentPreview() {
+    const currentQty = parseFloat(document.getElementById('adjCurrentQty').value) || 0;
+    const newQty = parseFloat(document.getElementById('adjNewQty').value);
+
+    if (isNaN(newQty)) {
+        document.getElementById('adjPreview').style.display = 'none';
+        return;
+    }
+
+    const change = newQty - currentQty;
+    const previewDiv = document.getElementById('adjPreview');
+    const previewValue = document.getElementById('adjPreviewValue');
+
+    if (change === 0) {
+        previewDiv.style.display = 'none';
+        return;
+    }
+
+    previewDiv.style.display = 'block';
+    const sign = change > 0 ? '+' : '';
+    const className = change > 0 ? 'qty-increase' : 'qty-decrease';
+    previewValue.innerHTML = `<span class="${className}">${sign}${change}</span>`;
+}
+
+function updateCharCounter() {
+    const textarea = document.getElementById('adjReasonText');
+    const counter = document.getElementById('charCount');
+    const count = textarea.value.length;
+    counter.textContent = count;
+}
+
+async function saveAdjustment() {
+    const ref = currentAdjustmentRef;
+    if (!ref) return;
+
+    const currentQty = parseFloat(document.getElementById('adjCurrentQty').value) || 0;
+    const newQty = parseFloat(document.getElementById('adjNewQty').value);
+    const reason = document.getElementById('adjReason').value;
+    const reasonText = document.getElementById('adjReasonText').value.trim();
+    const date = document.getElementById('adjDate').value;
+    const userName = document.getElementById('adjUserName').value.trim() || 'Unknown';
+
+    // Validation
+    if (isNaN(newQty) || newQty < 0) {
+        showToast(t('error') + ': ' + t('newQty'), 'error');
+        return;
+    }
+
+    if (!reason || !reasonText) {
+        showToast(t('error') + ': ' + t('reasonDetails'), 'error');
+        return;
+    }
+
+    const change = newQty - currentQty;
+
+    if (change === 0) {
+        showToast(t('noChangeError'), 'warning');
+        return;
+    }
+
+    // Confirmation for large adjustments
+    if (Math.abs(change) > 100 || (currentQty > 0 && Math.abs(change / currentQty) > 0.5)) {
+        if (!confirm(t('confirmLargeAdjustment'))) {
+            return;
+        }
+    }
+
+    try {
+        const result = await storage.processAdjustment({
+            ref,
+            newQty,
+            reason,
+            reasonText,
+            date: date ? new Date(date).toISOString() : new Date().toISOString(),
+            userName
+        });
+
+        if (result.success) {
+            showToast(t('adjustmentSaved') + ` (${result.docNum})`, 'success');
+            closeAdjustmentModal();
+            await refreshAllData();
+        } else {
+            showToast(t('error') + ': ' + (result.error || 'Unknown'), 'error');
+        }
+    } catch (e) {
+        console.error('Adjustment error:', e);
+        showToast(t('error') + ': ' + e.message, 'error');
+    }
+}
+
+async function updateAdjustmentsDisplay() {
+    try {
+        const adjustments = await storage.getAdjustments(100);
+        const tbody = document.getElementById('adjustmentsTableBody');
+        if (!tbody) return;
+
+        if (!adjustments || !Array.isArray(adjustments) || adjustments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-muted text-center">${t('noData')}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = adjustments.map(adj => {
+            const date = new Date(adj.date).toLocaleDateString(currentLang === 'cz' ? 'cs-CZ' : 'fr-FR');
+            const changeClass = adj.qtyChange > 0 ? 'qty-increase' : 'qty-decrease';
+            const changeSign = adj.qtyChange > 0 ? '+' : '';
+
+            // Get reason translation
+            const reasonKey = 'reason' + adj.reason.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+            const reasonLabel = t(reasonKey) || adj.reason;
+
+            return `<tr>
+                <td>${date}</td>
+                <td><code>${adj.docNum}</code></td>
+                <td><code>${adj.ref}</code></td>
+                <td>${adj.name}</td>
+                <td class="text-right">${adj.qtyBefore}</td>
+                <td class="text-right">${adj.qtyAfter}</td>
+                <td class="text-right ${changeClass}"><strong>${changeSign}${adj.qtyChange}</strong></td>
+                <td>${reasonLabel}</td>
+                <td class="text-right ${adj.valueImpact >= 0 ? 'qty-increase' : 'qty-decrease'}">${formatCurrency(adj.valueImpact)}</td>
+                <td>${adj.userName}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('Error loading adjustments:', e);
+    }
+}
+
+window.openAdjustmentModal = openAdjustmentModal;
+window.closeAdjustmentModal = closeAdjustmentModal;
+window.updateAdjustmentPreview = updateAdjustmentPreview;
+window.updateCharCounter = updateCharCounter;
+window.saveAdjustment = saveAdjustment;
+
+// ========================================
+// HYBRID MODE - SYNC MANAGEMENT
+// ========================================
+
+function updateSyncIndicator() {
+    if (!storage.isHybridMode()) {
+        document.getElementById('hybridSyncIndicator').style.display = 'none';
+        return;
+    }
+
+    const indicator = document.getElementById('hybridSyncIndicator');
+    const icon = document.getElementById('syncIndicatorIcon');
+    const text = document.getElementById('syncIndicatorText');
+
+    indicator.style.display = 'flex';
+
+    const syncInfo = storage.getSyncInfo();
+    if (!syncInfo) return;
+
+    const { status, queue } = syncInfo;
+    const pending = queue.filter(i => i.status === 'pending').length;
+    const errors = queue.filter(i => i.status === 'error').length;
+
+    // Update icon and text based on status
+    if (pending > 0) {
+        icon.textContent = '⏳';
+        icon.title = `${pending} opération(s) en attente`;
+        text.textContent = `${pending} en attente`;
+        text.className = 'sync-pending';
+    } else if (errors > 0) {
+        icon.textContent = '⚠️';
+        icon.title = `${errors} erreur(s) de synchronisation`;
+        text.textContent = `${errors} erreur(s)`;
+        text.className = 'sync-error';
+    } else if (status.lastSync) {
+        icon.textContent = '✓';
+        const lastSync = new Date(status.lastSync);
+        const elapsed = Math.floor((Date.now() - lastSync.getTime()) / 1000);
+        let timeStr = '';
+        if (elapsed < 60) {
+            timeStr = `${elapsed}s`;
+        } else if (elapsed < 3600) {
+            timeStr = `${Math.floor(elapsed / 60)}min`;
+        } else {
+            timeStr = `${Math.floor(elapsed / 3600)}h`;
+        }
+        icon.title = `Dernière sync: ${lastSync.toLocaleTimeString()}`;
+        text.textContent = `Sync ${timeStr}`;
+        text.className = 'sync-ok';
+    } else {
+        icon.textContent = '🔄';
+        text.textContent = 'Jamais synchronisé';
+        text.className = 'sync-pending';
+    }
+}
+
+async function syncNowManual() {
+    const btn = event.target;
+    const originalText = btn.textContent;
+
+    btn.textContent = '⟳';
+    btn.disabled = true;
+
+    try {
+        showToast(currentLang === 'cz' ? 'Synchronizace...' : 'Synchronisation...', 'info');
+        const result = await storage.syncNow();
+
+        if (result.success) {
+            showToast(currentLang === 'cz' ? 'Synchronizace dokončena' : 'Synchronisation terminée', 'success');
+            updateSyncIndicator();
+        } else {
+            showToast(result.error || 'Erreur', 'error');
+        }
+    } catch (error) {
+        console.error('Sync error:', error);
+        showToast(currentLang === 'cz' ? 'Chyba synchronizace' : 'Erreur de synchronisation', 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Listen to sync status changes
+window.addEventListener('syncStatusChanged', () => {
+    updateSyncIndicator();
+});
+
+// Update sync indicator every 10 seconds
+setInterval(() => {
+    if (storage.isHybridMode()) {
+        updateSyncIndicator();
+    }
+}, 10000);
+
+window.syncNowManual = syncNowManual;
 
 // Function to clear all local cache and reload from Google Sheets
 async function clearLocalCache() {

@@ -21,6 +21,11 @@
                 <span class="stock-value" id="totalStockValue">Valeur: -- CZK</span>
                 <span class="exchange-rate" id="exchangeRate">EUR: -- CZK</span>
                 <span class="status" id="syncStatus" onclick="manualRefresh()" style="cursor: pointer;" title="Cliquez pour actualiser">● Chargement...</span>
+                <div id="hybridSyncIndicator" style="display: none;" class="sync-indicator">
+                    <span id="syncIndicatorIcon">🔄</span>
+                    <span id="syncIndicatorText">Sync...</span>
+                    <button onclick="syncNowManual()" class="btn-sync-now" title="Synchroniser maintenant">↻</button>
+                </div>
                 <button onclick="clearLocalCache()" class="btn-cache" title="Vider le cache local et recharger depuis Google Sheets">🗑️</button>
             </div>
         </header>
@@ -37,6 +42,7 @@
             <button class="nav-btn" data-tab="contacts"><span>👥</span> <span data-i18n="navContacts">Contacts</span></button>
             <button class="nav-btn" data-tab="bom"><span>📋</span> <span data-i18n="navBom">BOM</span></button>
             <button class="nav-btn" data-tab="historique"><span>📊</span> <span data-i18n="navHistorique">Historique</span></button>
+            <button class="nav-btn" data-tab="adjustments"><span>⚙️</span> <span data-i18n="navAdjustments">Ajustements</span></button>
         </nav>
 
         <main class="main-content">
@@ -83,6 +89,7 @@
                             <tr>
                                 <th data-i18n="reference">Référence</th>
                                 <th data-i18n="designation">Désignation</th>
+                                <th data-i18n="manufacturer">Fabricant</th>
                                 <th data-i18n="category">Catégorie</th>
                                 <th data-i18n="inStock">En Stock</th>
                                 <th data-i18n="onOrder">En Cmd</th>
@@ -90,6 +97,7 @@
                                 <th data-i18n="min">Min</th>
                                 <th data-i18n="valueCZK">Valeur (CZK)</th>
                                 <th data-i18n="status">Statut</th>
+                                <th data-i18n="actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="stockTableBody"></tbody>
@@ -222,17 +230,41 @@
                                 <input type="text" id="deliveryClientOrderNum" placeholder="Ex: PO-12345">
                             </div>
                         </div>
+
+                        <!-- Partial Delivery Status Info -->
+                        <div id="deliveryOrderStatus" class="info-box" style="display: none; margin-top: 1rem; padding: 1rem; background: #f0f8ff; border-left: 4px solid #0066cc; border-radius: 4px;">
+                            <strong>Statut commande :</strong>
+                            <div id="deliveryOrderStatusContent"></div>
+                        </div>
                     </div>
 
                     <div class="pac-selection">
-                        <h3>🚚 PAC</h3>
+                        <h3>🚚 PAC (Heat Pumps)</h3>
                         <div class="delivery-cards" id="deliveryCardsContainer">
                             <!-- Generated dynamically -->
                         </div>
                     </div>
 
+                    <!-- Stock Components Section -->
+                    <div class="pac-selection" style="margin-top: 1.5rem;">
+                        <h3>📦 Composants du Stock</h3>
+                        <div id="deliveryComponentsContainer" style="margin-top: 1rem;">
+                            <!-- Component rows will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-outline btn-small" onclick="addDeliveryComponentRow()" style="margin-top: 0.5rem;">+ Ajouter un composant</button>
+                    </div>
+
+                    <!-- Custom Items Section -->
+                    <div class="pac-selection" style="margin-top: 1.5rem;">
+                        <h3>✏️ Articles Personnalisés (Entretien, Services, etc.)</h3>
+                        <div id="deliveryCustomItemsContainer" style="margin-top: 1rem;">
+                            <!-- Custom item rows will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-outline btn-small" onclick="addDeliveryCustomItemRow()" style="margin-top: 0.5rem;">+ Ajouter un article</button>
+                    </div>
+
                     <div class="bom-preview-section" id="bomPreviewSection" style="display:none;">
-                        <h3>⚠️ <span data-i18n="bomPreview">Composants à déduire</span></h3>
+                        <h3>⚠️ <span data-i18n="bomPreview">Composants à déduire (PAC)</span></h3>
                         <div id="bomPreviewContent"></div>
                     </div>
 
@@ -591,6 +623,7 @@
                                 <th data-i18n="deliveryDate">Datum dodání</th>
                                 <!-- Model columns generated dynamically -->
                                 <th data-i18n="totalValue">Hodnota</th>
+                                <th data-i18n="deliveryProgress">Progression</th>
                                 <th data-i18n="status">Stav</th>
                                 <th>Akce</th>
                             </tr>
@@ -689,6 +722,33 @@
                     </table>
                 </div>
             </section>
+
+            <!-- ADJUSTMENTS TAB -->
+            <section class="tab-content" id="tab-adjustments">
+                <div class="tab-header">
+                    <h2 data-i18n="adjustmentsTitle">Ajustements de Stock</h2>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="docNumber">N° Doc</th>
+                                <th data-i18n="reference">Référence</th>
+                                <th data-i18n="designation">Désignation</th>
+                                <th data-i18n="qtyBefore">Qté avant</th>
+                                <th data-i18n="qtyAfter">Qté après</th>
+                                <th data-i18n="qtyChange">Changement</th>
+                                <th data-i18n="reason">Raison</th>
+                                <th data-i18n="valueImpact">Impact valeur</th>
+                                <th data-i18n="userName">Utilisateur</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adjustmentsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -760,6 +820,11 @@
                         <label data-i18n="bic">BIC</label>
                         <input type="text" id="contactBic">
                     </div>
+                </div>
+                <div class="form-group" id="manufacturersFieldGroup" style="display: none;">
+                    <label data-i18n="manufacturers">Marques fournies</label>
+                    <input type="text" id="contactManufacturers" placeholder="Ex: Highly, Danfoss, Swep">
+                    <small class="form-hint" data-i18n="manufacturersHint">Marques/fabricants séparés par des virgules (pour filtrage dans commandes)</small>
                 </div>
                 <div class="form-group">
                     <label data-i18n="notes">Notes</label>
@@ -1300,6 +1365,11 @@
                     </div>
                 </div>
                 <div class="items-section">
+                    <h4 data-i18n="stockComponents">Composants du stock</h4>
+                    <div id="recOrdStockComponents"></div>
+                    <button type="button" class="btn btn-outline" onclick="addRecOrdStockComponent()">+ <span data-i18n="addStockComponent">Composant</span></button>
+                </div>
+                <div class="items-section">
                     <h4 data-i18n="customItems">Articles libres</h4>
                     <div id="recOrdCustomItems"></div>
                     <button type="button" class="btn btn-outline" onclick="addRecOrdCustomItem()">+ Article libre</button>
@@ -1343,6 +1413,74 @@
                 <button class="btn btn-outline" onclick="closeOrderConfirmModal()" data-i18n="cancel">Zavřít</button>
                 <button class="btn btn-primary" onclick="printOrderConfirm()">🖨️ <span data-i18n="print">Tisknout</span></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Adjustment Modal -->
+    <div class="modal" id="adjustmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="adjustmentTitle">Ajustement de stock</h3>
+                <button class="modal-close" onclick="closeAdjustmentModal()">✕</button>
+            </div>
+            <form id="adjustmentForm" onsubmit="event.preventDefault(); saveAdjustment();">
+                <div class="form-group">
+                    <label data-i18n="reference">Référence</label>
+                    <input type="text" id="adjRef" readonly class="input-readonly">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="designation">Désignation</label>
+                    <input type="text" id="adjName" readonly class="input-readonly">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="currentQty">Qté actuelle</label>
+                        <input type="number" id="adjCurrentQty" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="newQty">Nouvelle quantité *</label>
+                        <input type="number" id="adjNewQty" min="0" required oninput="updateAdjustmentPreview()">
+                    </div>
+                </div>
+                <div id="adjPreview" class="adjustment-preview" style="display: none;">
+                    <div class="preview-label" data-i18n="changePreview">Changement:</div>
+                    <div id="adjPreviewValue" class="preview-value"></div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="reason">Raison *</label>
+                    <select id="adjReason" required>
+                        <option value="">-- Sélectionner --</option>
+                        <option value="inventory_count" data-i18n="reasonInventory">Inventaire physique</option>
+                        <option value="damage" data-i18n="reasonDamage">Dommage/casse</option>
+                        <option value="theft" data-i18n="reasonTheft">Vol/perte</option>
+                        <option value="found" data-i18n="reasonFound">Trouvé/retrouvé</option>
+                        <option value="error_correction" data-i18n="reasonError">Correction erreur</option>
+                        <option value="obsolete" data-i18n="reasonObsolete">Obsolète/périmé</option>
+                        <option value="other" data-i18n="reasonOther">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="reasonDetails">Détails (max 500 caractères) *</label>
+                    <textarea id="adjReasonText" rows="3" maxlength="500" required oninput="updateCharCounter()"></textarea>
+                    <div class="char-counter">
+                        <span id="charCount">0</span> / 500
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label data-i18n="date">Date *</label>
+                        <input type="date" id="adjDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="userName">Utilisateur</label>
+                        <input type="text" id="adjUserName" placeholder="Optionnel" data-i18n-placeholder="optional">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeAdjustmentModal()" data-i18n="cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                </div>
+            </form>
         </div>
     </div>
 
