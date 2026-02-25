@@ -6738,7 +6738,8 @@ async function updateReceivedOrdersDisplay() {
                     const localOrders = orders;
                     console.log('🔄 Merging remote orders with local data. Local:', localOrders.length, 'Remote:', remoteOrders.length);
 
-                    orders = remoteOrders.map(remote => {
+                    // Update existing orders from Google Sheets
+                    const mergedOrders = remoteOrders.map(remote => {
                         const local = localOrders.find(l => l.id === remote.id || l.orderNumber === remote.orderNumber);
 
                         if (local) {
@@ -6764,6 +6765,18 @@ async function updateReceivedOrdersDisplay() {
                         }
                         return remote;
                     });
+
+                    // Add local-only orders (not yet in Google Sheets)
+                    const localOnlyOrders = localOrders.filter(local =>
+                        !remoteOrders.find(r => r.id === local.id || r.orderNumber === local.orderNumber)
+                    );
+
+                    if (localOnlyOrders.length > 0) {
+                        console.log(`📦 Keeping ${localOnlyOrders.length} local-only orders:`, localOnlyOrders.map(o => o.orderNumber));
+                        mergedOrders.push(...localOnlyOrders);
+                    }
+
+                    orders = mergedOrders;
                     localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
                 }
             } catch (e) {
