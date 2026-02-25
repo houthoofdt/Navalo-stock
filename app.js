@@ -6727,9 +6727,12 @@ async function updateReceivedOrdersDisplay() {
         let orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
 
         // Load from Google Sheets if connected
+        console.log('📋 Checking received orders sync. Mode:', storage.getMode());
         if (storage.getMode() === 'googlesheets') {
             try {
+                console.log('📋 Fetching received orders from Google Sheets...');
                 const remoteOrders = await storage.getReceivedOrders(100);
+                console.log('📋 Received orders from API:', remoteOrders ? remoteOrders.length : 'null/undefined', 'Array?', Array.isArray(remoteOrders));
                 if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
                     // Preserve local data not stored in Google Sheets
                     const localOrders = orders;
