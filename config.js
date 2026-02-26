@@ -16,7 +16,8 @@ const CONFIG = {
 
     // Intervalle de synchronisation en millisecondes (par défaut 5 minutes)
     // 60000 = 1 min, 300000 = 5 min, 600000 = 10 min
-    SYNC_INTERVAL: 300000,
+    // ⚡ Réduit à 30s pour sync plus rapide
+    SYNC_INTERVAL: 30000,
 
     // Informations entreprise
     COMPANY: {

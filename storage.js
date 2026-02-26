@@ -268,10 +268,24 @@ class StorageAdapter {
     // ========================================
 
     async apiGet(action, params = {}) {
+        // Mode local : lire localement uniquement
         if (this.mode === 'local') {
             return this.localGet(action, params);
         }
 
+        // Mode hybride : lire localement (rapide) + sync en arrière-plan
+        if (this.hybridMode) {
+            // Retourner les données locales immédiatement (rapide !)
+            const localData = this.localGet(action, params);
+
+            // Optionnel : sync en arrière-plan pour mettre à jour (ne bloque pas l'UI)
+            // Désactivé pour éviter les appels constants - la sync périodique suffit
+            // setTimeout(() => this.backgroundFetch(action, params), 0);
+
+            return localData;
+        }
+
+        // Mode Google Sheets pur : appel API direct (lent)
         const url = new URL(this.apiUrl);
         url.searchParams.append('action', action);
         Object.entries(params).forEach(([key, value]) => {
