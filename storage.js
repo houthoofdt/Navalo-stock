@@ -278,9 +278,17 @@ class StorageAdapter {
             const localData = this.localGet(action, params);
 
             // Si localStorage est vide (après reset), charger depuis Google Sheets
-            const isEmpty = Array.isArray(localData) ? localData.length === 0 :
-                           typeof localData === 'object' ? Object.keys(localData).length === 0 :
-                           !localData;
+            let isEmpty = false;
+
+            if (localData === null || localData === undefined) {
+                isEmpty = true;
+            } else if (Array.isArray(localData)) {
+                isEmpty = localData.length === 0;
+            } else if (typeof localData === 'object') {
+                isEmpty = Object.keys(localData).length === 0;
+            } else {
+                isEmpty = !localData;
+            }
 
             if (isEmpty) {
                 console.log('📥 localStorage vide, chargement depuis Google Sheets:', action);
