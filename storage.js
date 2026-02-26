@@ -273,19 +273,37 @@ class StorageAdapter {
             return this.localGet(action, params);
         }
 
-        // Mode hybride : lire localement (rapide) + sync en arrière-plan
+        // Mode hybride : lire localement (rapide) + fetch Google Sheets si vide
         if (this.hybridMode) {
-            // Retourner les données locales immédiatement (rapide !)
             const localData = this.localGet(action, params);
 
-            // Optionnel : sync en arrière-plan pour mettre à jour (ne bloque pas l'UI)
-            // Désactivé pour éviter les appels constants - la sync périodique suffit
-            // setTimeout(() => this.backgroundFetch(action, params), 0);
+            // Si localStorage est vide (après reset), charger depuis Google Sheets
+            const isEmpty = Array.isArray(localData) ? localData.length === 0 :
+                           typeof localData === 'object' ? Object.keys(localData).length === 0 :
+                           !localData;
+
+            if (isEmpty) {
+                console.log('📥 localStorage vide, chargement depuis Google Sheets:', action);
+                // Fetch from Google Sheets and cache locally
+                try {
+                    const remoteData = await this.fetchFromGoogleSheets(action, params);
+                    // Cache it locally for next time
+                    this.cacheDataLocally(action, remoteData);
+                    return remoteData;
+                } catch (error) {
+                    console.error('Failed to fetch from Google Sheets:', error);
+                    return localData; // Return empty local data as fallback
+                }
+            }
 
             return localData;
         }
 
         // Mode Google Sheets pur : appel API direct (lent)
+        return await this.fetchFromGoogleSheets(action, params);
+    }
+
+    async fetchFromGoogleSheets(action, params = {}) {
         const url = new URL(this.apiUrl);
         url.searchParams.append('action', action);
         Object.entries(params).forEach(([key, value]) => {
@@ -298,6 +316,39 @@ class StorageAdapter {
         } catch (error) {
             console.error('API Error:', error);
             throw error;
+        }
+    }
+
+    cacheDataLocally(action, data) {
+        // Cache fetched data to localStorage based on action type
+        switch(action) {
+            case 'getReceivedOrders':
+                localStorage.setItem('navalo_received_orders', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'received orders to localStorage');
+                break;
+            case 'getDeliveries':
+                localStorage.setItem('navalo_deliveries', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'deliveries to localStorage');
+                break;
+            case 'getStock':
+                if (data?.components) {
+                    localStorage.setItem('navalo_stock', JSON.stringify(data.components));
+                    console.log('💾 Cached stock to localStorage');
+                }
+                break;
+            case 'getHistory':
+                localStorage.setItem('navalo_history', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'history entries to localStorage');
+                break;
+            case 'getAdjustments':
+                localStorage.setItem('navalo_adjustments', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'adjustments to localStorage');
+                break;
+            case 'getContacts':
+                localStorage.setItem('navalo_contacts', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'contacts to localStorage');
+                break;
+            // Add more cases as needed
         }
     }
 
