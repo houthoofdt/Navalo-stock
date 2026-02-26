@@ -6688,6 +6688,7 @@ async function saveReceivedOrder() {
     
     closeReceivedOrderModal();
     await updateReceivedOrdersDisplay();
+    populateDeliveryOrderSelect(); // Refresh delivery order dropdown immediately
     showToast(`${order.orderNumber} ${t('saved')}`, 'success');
 }
 
