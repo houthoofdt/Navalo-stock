@@ -669,7 +669,7 @@ async function refreshAllData() {
         updateStockDisplay();
         await updateHistoryDisplay();
         await updateReceiptsHistoryDisplay();
-        updateDeliveriesDisplay();
+        await updateDeliveriesDisplay();
         await updatePurchaseOrdersDisplay();
         await updateInvoicesDisplay();
         await updateReceivedInvoicesDisplay();
