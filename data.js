@@ -432,41 +432,83 @@ function generateInitialStock() {
 // ========================================
 // REPAIR PRICE LIST (for Quotes/Devis)
 // ========================================
+// Prix de réparation hors garantie (After-Sales Prices)
+// Source: Liste de prix NAVALO 2026
+// Tous les prix en EUR
 const REPAIR_PRICE_LIST = {
-    categories: ['Main d\'oeuvre', 'Pièces', 'Déplacement', 'Diagnostic'],
-    items: [
-        // Main d'oeuvre
-        { id: 'labor_hour', name: 'Main d\'oeuvre (heure)', price: 500, unit: 'hod', category: 'Main d\'oeuvre' },
-        { id: 'labor_overtime', name: 'Heures supplémentaires', price: 750, unit: 'hod', category: 'Main d\'oeuvre' },
+    // Tarifs de service
+    services: {
+        labor: { price: 30, unit: 'EUR/hod', label: 'Main d\'œuvre' },
+        refrigerantR134a: { price: 25, unit: 'EUR/kg', label: 'Réfrigérant R134a' },
+        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' }
+    },
 
-        // Diagnostic
-        { id: 'diagnostic', name: 'Diagnostic standard', price: 800, unit: 'ks', category: 'Diagnostic' },
-        { id: 'diagnostic_advanced', name: 'Diagnostic approfondi', price: 1500, unit: 'ks', category: 'Diagnostic' },
+    // Composants T9/T11
+    componentsT9T11: [
+        { ref: 'C-SBS120H38A', name: 'Compresseur Sanyo', price: 424, currency: 'EUR' },
+        { ref: 'TGEN2,5_134', name: 'Ventil expanzní TGEN2.5/R134a', price: 80, currency: 'EUR' },
+        { ref: '03998_AB', name: 'Výparník sušička', price: 215, currency: 'EUR' },
+        { ref: '03999_AB', name: 'Kondenzátor sušička', price: 204, currency: 'EUR' },
+        { ref: '00062_LP_0,7', name: 'Pressostat LP', price: 12, currency: 'EUR' },
+        { ref: '00062_HP_26', name: 'Pressostat HP', price: 15, currency: 'EUR' },
+        { ref: '6.04726.0000', name: 'Filtr Emerson FDB 084S', price: 14, currency: 'EUR' },
+        { ref: '6.04677.0000', name: 'Průhledítko Sanhua 12mm SYJ-42025', price: 14, currency: 'EUR' },
+        { ref: '4715136', name: 'Presostat HP s pájecí trubičkou PS1-A5L', price: 50, currency: 'EUR' },
+        { ref: '04451_B', name: 'Chladič sušička', price: 79, currency: 'EUR' }
+    ],
 
-        // Déplacement
-        { id: 'travel_km', name: 'Déplacement (km)', price: 8, unit: 'km', category: 'Déplacement' },
-        { id: 'travel_flat', name: 'Forfait déplacement', price: 500, unit: 'ks', category: 'Déplacement' },
-
-        // Pièces courantes
-        { id: 'compressor_replace', name: 'Remplacement compresseur', price: 3500, unit: 'ks', category: 'Pièces' },
-        { id: 'refrigerant_kg', name: 'Chargement réfrigérant', price: 150, unit: 'kg', category: 'Pièces' },
-        { id: 'filter_replace', name: 'Remplacement filtre', price: 200, unit: 'ks', category: 'Pièces' },
-        { id: 'sensor_replace', name: 'Remplacement capteur', price: 350, unit: 'ks', category: 'Pièces' },
-        { id: 'valve_replace', name: 'Remplacement vanne', price: 800, unit: 'ks', category: 'Pièces' },
-        { id: 'circuit_board', name: 'Carte électronique', price: 2500, unit: 'ks', category: 'Pièces' },
-        { id: 'fan_motor', name: 'Moteur ventilateur', price: 1200, unit: 'ks', category: 'Pièces' },
-        { id: 'expansion_valve', name: 'Vanne d\'expansion', price: 650, unit: 'ks', category: 'Pièces' },
-        { id: 'pressure_switch', name: 'Pressostat HP/LP', price: 280, unit: 'ks', category: 'Pièces' },
-        { id: 'temp_sensor', name: 'Sonde température NTC', price: 180, unit: 'ks', category: 'Pièces' },
+    // Composants TX9
+    componentsTX9: [
+        { ref: 'WHP05100BSV', name: 'Compresseur HIGHLY WHP05100BSV', price: 230, currency: 'EUR' },
+        { ref: '04878', name: 'Výparník', price: 155, currency: 'EUR' },
+        { ref: '04879', name: 'Kondenzátor', price: 125, currency: 'EUR' },
+        { ref: 'B51Hx16/1P-SC-M', name: 'Deskový výměník', price: 82, currency: 'EUR' },
+        { ref: '00062_LP_0,7', name: 'Pressostat LP', price: 12, currency: 'EUR' },
+        { ref: '00062_HP_26', name: 'Pressostat HP', price: 15, currency: 'EUR' },
+        { ref: '01789', name: 'Ventil elektromagnetický ALKO, 110 RB 2T2', price: 25, currency: 'EUR' },
+        { ref: '801033', name: 'Cívka elektromagnetická 24V ESC', price: 20, currency: 'EUR' },
+        { ref: '068U2215', name: 'Ventil expanzní TUAE', price: 66, currency: 'EUR' },
+        { ref: '068U1036', name: 'Tryska k TUAE ventilu', price: 17, currency: 'EUR' },
+        { ref: 'WVFX_10', name: 'Ventil vodní 3/8"', price: 121, currency: 'EUR' },
+        { ref: '060-017166', name: 'Kapilára pro WVFX', price: 8, currency: 'EUR' },
+        { ref: 'DML_053S', name: 'Filtr dehydrátor DML 053S', price: 10, currency: 'EUR' },
+        { ref: '12384', name: 'Ventilátor radiální BL-B250B-EC-07', price: 84, currency: 'EUR' },
+        { ref: 'YCV-15009', name: 'Ventil zpětný SANHUA 10mm', price: 14, currency: 'EUR' },
+        { ref: '11547_HYDRA', name: 'Capacitator MKB MKP 50/500/2149', price: 12, currency: 'EUR' },
+        { ref: 'EPP_SADA_TX9', name: 'Opláštění sada pro TX9', price: 85, currency: 'EUR' },
+        { ref: 'TX9_kabel_svazek', name: 'Sada kabelových svazků pro sušičku TX9', price: 30, currency: 'EUR' },
+        { ref: 'vsuvka_mosaz_3/8_3/4', name: 'Vsuvka mosazná redukovaná 3/8" na 3/4"', price: 2, currency: 'EUR' },
+        { ref: 'pas_uplnaci_2,5_25mm', name: 'Upínací pás se spojkou 25mm/2,5', price: 4, currency: 'EUR' },
+        { ref: '0712174', name: 'Koncovka – svorkovnice k elektromag. Ventilu', price: 3, currency: 'EUR' },
+        { ref: 'R11780_AlMg3_1mm_A-04', name: 'Kryt pro rozběhový kondenzátor TX9 Hydra', price: 6, currency: 'EUR' },
+        { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' }
     ]
 };
 
-// Get repair price list item by ID
-function getRepairItem(id) {
-    return REPAIR_PRICE_LIST.items.find(item => item.id === id) || null;
+// Get repair component by reference
+function getRepairComponent(ref, model) {
+    if (model === 'T9' || model === 'T11' || model === 'T9/T11') {
+        return REPAIR_PRICE_LIST.componentsT9T11.find(c => c.ref === ref) || null;
+    } else if (model === 'TX9') {
+        return REPAIR_PRICE_LIST.componentsTX9.find(c => c.ref === ref) || null;
+    }
+    // Try both if model not specified
+    return REPAIR_PRICE_LIST.componentsT9T11.find(c => c.ref === ref) ||
+           REPAIR_PRICE_LIST.componentsTX9.find(c => c.ref === ref) ||
+           null;
 }
 
-// Get items by category
-function getRepairItemsByCategory(category) {
-    return REPAIR_PRICE_LIST.items.filter(item => item.category === category);
+// Get all components for a model
+function getRepairComponentsByModel(model) {
+    if (model === 'T9' || model === 'T11' || model === 'T9/T11') {
+        return REPAIR_PRICE_LIST.componentsT9T11;
+    } else if (model === 'TX9') {
+        return REPAIR_PRICE_LIST.componentsTX9;
+    }
+    return [];
+}
+
+// Get service rates
+function getServiceRates() {
+    return REPAIR_PRICE_LIST.services;
 }
