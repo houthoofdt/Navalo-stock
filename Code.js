@@ -33,7 +33,8 @@ const SHEET_NAMES = {
   CONFIG: 'Config',
   CONTACTS: 'Contacts',  // NEW: Suppliers & Clients
   COMPONENT_PRICES: 'Prix_Composants',  // NEW: Component prices
-  EXCHANGE_RATES: 'Taux_Change'
+  EXCHANGE_RATES: 'Taux_Change',
+  ADJUSTMENTS: 'Ajustements'  // NEW: Stock adjustments
 };
 
 // PAC Models configuration
@@ -108,6 +109,9 @@ function doGet(e) {
         break;
       case 'getQuotes':
         result = getQuotes(e.parameter.limit || 50);
+        break;
+      case 'getAdjustments':
+        result = getAdjustments(e.parameter.limit || 100);
         break;
       default:
         result = { error: 'Action non reconnue: ' + action };
@@ -233,7 +237,10 @@ function doPost(e) {
           break;
         case 'deleteQuote':
           result = deleteQuote(data.quoteId);
-          break;  
+          break;
+        case 'processAdjustment':
+          result = processAdjustment(data);
+          break;
       default:
         result = { error: 'Action non reconnue: ' + action };
     }
@@ -372,7 +379,8 @@ function getNextDocNumber(type) {
     'fp': 'FP',
     'pr': 'PŘ',
     'pi': 'PI',
-    'dev': 'DEV' 
+    'dev': 'DEV',
+    'adj': 'ADJ'
   };
   
   const prefix = prefixes[type] || type.toUpperCase();
@@ -391,6 +399,7 @@ function getNextDocNumber(type) {
     case 'pr': sheetName = SHEET_NAMES.RECEIPTS; numberColumn = 3; break;
     case 'pi': sheetName = SHEET_NAMES.INVOICES; numberColumn = 2; break;
     case 'dev': sheetName = 'Devis'; numberColumn = 2; break;
+    case 'adj': sheetName = SHEET_NAMES.ADJUSTMENTS; numberColumn = 3; break;
     default: sheetName = null;
   }
   
@@ -933,8 +942,23 @@ function processDelivery(data) {
   const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
   const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
   const deliveriesSheet = ss.getSheetByName(SHEET_NAMES.DELIVERIES);
-  
-  const { client, clientAddress, quantities, notes, date, linkedOrderId, clientOrderNumber } = data;
+
+  // Handle both old format (quantities) and new format (items)
+  let items;
+  if (data.items) {
+    items = data.items;
+  } else if (data.quantities) {
+    // Convert old format to new format for retrocompatibility
+    items = { pac: data.quantities, components: [], custom: [] };
+  } else {
+    return { success: false, error: 'No items specified' };
+  }
+
+  const { client, clientAddress, notes, date, linkedOrderId, clientOrderNumber } = data;
+  const quantities = items.pac || {};
+  const componentItems = items.components || [];
+  const customItems = items.custom || [];
+
   const blNumber = getNextDocNumber('bl');
   const allBom = getAllBom();
   const stockData = stockSheet.getDataRange().getValues();
@@ -1000,23 +1024,82 @@ function processDelivery(data) {
     ]);
   });
   
+  // Process direct components (not from BOM)
+  componentItems.forEach(item => {
+    const { ref, name, qty } = item;
+    if (!ref || qty <= 0) return;
+
+    // Find component in stock
+    let componentRowIndex = -1;
+    let currentQty = 0;
+    for (let i = 1; i < stockData.length; i++) {
+      if (stockData[i][0] === ref) {
+        componentRowIndex = i + 1;
+        currentQty = stockData[i][4];
+        break;
+      }
+    }
+
+    if (componentRowIndex === -1 || currentQty < qty) {
+      return; // Skip if not found or insufficient stock
+    }
+
+    // Deduct from stock using FIFO
+    let qtyToDeduct = qty;
+    const lots = getStockLots(ref);
+    let deductedValue = 0;
+
+    for (const lot of lots) {
+      if (qtyToDeduct <= 0) break;
+
+      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+      const newRemaining = lot.qtyRemaining - deductFromLot;
+
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      deductedValue += deductFromLot * lot.priceCZK;
+      qtyToDeduct -= deductFromLot;
+    }
+
+    totalValue += deductedValue;
+
+    // Update stock quantity
+    const newQty = currentQty - qty;
+    stockSheet.getRange(componentRowIndex, 5).setValue(newQty);
+    stockSheet.getRange(componentRowIndex, 8).setValue(new Date());
+
+    // Add to history
+    const avgPrice = qty > 0 ? deductedValue / qty : 0;
+    historySheet.appendRow([
+      date || new Date(), 'SORTIE', blNumber, ref, name || ref,
+      -qty, avgPrice, -deductedValue, client
+    ]);
+  });
+
   const deliveryId = Utilities.getUuid();
   const totalPac = PAC_MODELS.reduce((sum, model) => sum + (quantities[model] || 0), 0);
-  
+  const totalComponents = componentItems.reduce((sum, item) => sum + item.qty, 0);
+  const totalCustom = customItems.reduce((sum, item) => sum + item.qty, 0);
+
   deliveriesSheet.appendRow([
     deliveryId, date || new Date(), blNumber, client, clientAddress,
-    quantities['TX9'] || 0, quantities['TX12-3PH'] || 0, 
+    quantities['TX9'] || 0, quantities['TX12-3PH'] || 0,
     quantities['TX12-1PH'] || 0, quantities['TH11'] || 0,
     totalPac, Math.round(totalValue * 100) / 100, 'Créé', notes || '',
-    linkedOrderId || '', clientOrderNumber || '', '' // invoiceNumber
+    linkedOrderId || '', clientOrderNumber || '', '', // invoiceNumber
+    JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems
+    JSON.stringify(customItems.length > 0 ? customItems : []), // customItems
+    totalComponents,
+    totalCustom
   ]);
   
   getStockValuation();
-  
-  return { 
+
+  return {
     success: true, deliveryId, blNumber, totalPac,
+    totalComponents,
+    totalCustom,
     totalValue: Math.round(totalValue * 100) / 100,
-    componentsDeducted: Object.keys(required).length
+    componentsDeducted: Object.keys(required).length + componentItems.length
   };
 }
 
@@ -1136,28 +1219,40 @@ function deletePurchaseOrder(id) {
 function createReceivedOrder(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const roSheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_ORDERS);
-  
-  const { 
-    id, orderNumber, clientOrderNumber, client, address, 
+
+  const {
+    id, orderNumber, clientOrderNumber, client, address,
     quantities, prices, notes, date, deliveryDate, currency,
-    subtotal, total: totalValue, status
+    subtotal, total: totalValue, status, stockComponents, customItems
   } = data;
-  
+
   // Use provided orderNumber or generate new one
   const roNumber = orderNumber || getNextDocNumber('ro');
   const roId = id || Utilities.getUuid();
-  
+
   let total = totalValue || 0;
   if (!total) {
     PAC_MODELS.forEach(model => {
       total += (quantities[model] || 0) * (prices[model] || 0);
     });
+    // Add stock components to total
+    if (stockComponents && Array.isArray(stockComponents)) {
+      stockComponents.forEach(item => {
+        total += (item.qty || 0) * (item.price || 0);
+      });
+    }
+    // Add custom items to total
+    if (customItems && Array.isArray(customItems)) {
+      customItems.forEach(item => {
+        total += (item.qty || 0) * (item.price || 0);
+      });
+    }
   }
-  
+
   roSheet.appendRow([
-    roId, 
-    date || new Date(), 
-    roNumber, 
+    roId,
+    date || new Date(),
+    roNumber,
     clientOrderNumber || '',
     client,
     address || '',
@@ -1165,15 +1260,19 @@ function createReceivedOrder(data) {
     quantities['TX12-3PH'] || 0, prices['TX12-3PH'] || 0,
     quantities['TX12-1PH'] || 0, prices['TX12-1PH'] || 0,
     quantities['TH11'] || 0, prices['TH11'] || 0,
-    total, 
-    currency || 'EUR', 
+    total,
+    currency || 'EUR',
     deliveryDate || '',
     status || 'new',
     0, // delivered
     0, // invoiced
-    notes || ''
+    notes || '',
+    '', // driveFileId
+    '', // driveFileUrl
+    JSON.stringify(stockComponents || []), // stockComponents as JSON
+    JSON.stringify(customItems || []) // customItems as JSON
   ]);
-  
+
   return { success: true, roId, roNumber, total };
 }
 
@@ -1181,10 +1280,21 @@ function getReceivedOrders(limit) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_ORDERS);
   const data = sheet.getDataRange().getValues();
-  
+
   const orders = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
     const row = data[i];
+
+    // Parse stockComponents and customItems from JSON
+    let stockComponents = [];
+    let customItems = [];
+    try {
+      if (row[23]) stockComponents = JSON.parse(row[23]);
+    } catch (e) {}
+    try {
+      if (row[24]) customItems = JSON.parse(row[24]);
+    } catch (e) {}
+
     orders.push({
       id: row[0],
       date: row[1],
@@ -1212,7 +1322,9 @@ function getReceivedOrders(limit) {
       invoiced: row[19] || 0,
       notes: row[20] || '',
       driveFileId: row[21] || '',
-      driveFileUrl: row[22] || ''
+      driveFileUrl: row[22] || '',
+      stockComponents: stockComponents,
+      customItems: customItems
     });
   }
 
@@ -2665,19 +2777,213 @@ function createProformaInvoice(data) {
   function deleteQuote(quoteId) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const quoteSheet = ss.getSheetByName('Devis');
-    
+
     if (!quoteSheet) {
       return { success: false, error: 'Feuille Devis non trouvée' };
     }
-    
+
     const quoteData = quoteSheet.getDataRange().getValues();
-    
+
     for (let i = 1; i < quoteData.length; i++) {
       if (quoteData[i][0] === quoteId) {
         quoteSheet.deleteRow(i + 1);
         return { success: true };
       }
     }
-    
+
     return { success: false, error: 'Devis non trouvé' };
   }
+
+// ========================================
+// STOCK ADJUSTMENTS
+// ========================================
+
+/**
+ * Get stock adjustments
+ */
+function getAdjustments(limit) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let adjSheet = ss.getSheetByName(SHEET_NAMES.ADJUSTMENTS);
+
+  // Create sheet if it doesn't exist
+  if (!adjSheet) {
+    adjSheet = ss.insertSheet(SHEET_NAMES.ADJUSTMENTS);
+    adjSheet.appendRow([
+      'ID', 'Date', 'Numéro Doc', 'Référence', 'Désignation',
+      'Qté Avant', 'Qté Après', 'Changement', 'Raison', 'Raison Détails',
+      'Utilisateur', 'Lots Affectés', 'Impact Valeur', 'Créé Le'
+    ]);
+    return [];
+  }
+
+  const data = adjSheet.getDataRange().getValues();
+  const adjustments = [];
+
+  for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+    const row = data[i];
+
+    let lotsAffected = [];
+    try {
+      if (row[11]) lotsAffected = JSON.parse(row[11]);
+    } catch (e) {}
+
+    adjustments.push({
+      id: row[0],
+      date: row[1],
+      docNum: row[2],
+      ref: row[3],
+      name: row[4],
+      qtyBefore: row[5] || 0,
+      qtyAfter: row[6] || 0,
+      qtyChange: row[7] || 0,
+      reason: row[8] || '',
+      reasonText: row[9] || '',
+      userName: row[10] || '',
+      lotsAffected: lotsAffected,
+      valueImpact: row[12] || 0,
+      createdAt: row[13]
+    });
+  }
+
+  return adjustments.reverse();
+}
+
+/**
+ * Process stock adjustment
+ */
+function processAdjustment(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+  let adjSheet = ss.getSheetByName(SHEET_NAMES.ADJUSTMENTS);
+
+  // Create adjustments sheet if it doesn't exist
+  if (!adjSheet) {
+    adjSheet = ss.insertSheet(SHEET_NAMES.ADJUSTMENTS);
+    adjSheet.appendRow([
+      'ID', 'Date', 'Numéro Doc', 'Référence', 'Désignation',
+      'Qté Avant', 'Qté Après', 'Changement', 'Raison', 'Raison Détails',
+      'Utilisateur', 'Lots Affectés', 'Impact Valeur', 'Créé Le'
+    ]);
+  }
+
+  const { ref, newQty, reason, reasonText, date, userName } = data;
+
+  // Validation
+  if (!ref || typeof newQty !== 'number' || newQty < 0) {
+    return { success: false, error: 'Données invalides' };
+  }
+
+  if (!reason || !reasonText) {
+    return { success: false, error: 'Raison obligatoire' };
+  }
+
+  const stockData = stockSheet.getDataRange().getValues();
+  let stockRowIndex = -1;
+  let currentQty = 0;
+  let componentName = '';
+
+  // Find component in stock
+  for (let i = 1; i < stockData.length; i++) {
+    if (stockData[i][0] === ref) {
+      stockRowIndex = i + 1;
+      currentQty = stockData[i][4];
+      componentName = stockData[i][1];
+      break;
+    }
+  }
+
+  if (stockRowIndex === -1) {
+    return { success: false, error: 'Composant non trouvé dans le stock' };
+  }
+
+  const qtyChange = newQty - currentQty;
+
+  if (qtyChange === 0) {
+    return { success: false, error: 'Aucun changement de quantité' };
+  }
+
+  // Generate adjustment number
+  const adjNumber = getNextDocNumber('adj');
+  const adjId = Utilities.getUuid();
+  const adjustmentDate = date || new Date();
+
+  let valueImpact = 0;
+  const lotsAffected = [];
+
+  if (qtyChange > 0) {
+    // Increase: Create new lot with average price
+    const lots = getStockLots(ref);
+    let avgPrice = 0;
+
+    if (lots.length > 0) {
+      let totalValue = 0;
+      let totalQty = 0;
+      lots.forEach(lot => {
+        if (lot.qtyRemaining > 0) {
+          totalValue += lot.qtyRemaining * lot.priceCZK;
+          totalQty += lot.qtyRemaining;
+        }
+      });
+      avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
+    }
+
+    // Create new lot
+    const lotId = 'LOT-' + Date.now();
+    lotsSheet.appendRow([
+      lotId, ref, adjustmentDate, qtyChange, avgPrice, qtyChange,
+      'CZK', avgPrice, 'ADJUSTMENT', adjNumber, '', ''
+    ]);
+
+    lotsAffected.push(lotId);
+    valueImpact = qtyChange * avgPrice;
+
+  } else {
+    // Decrease: Deduct using FIFO
+    const lots = getStockLots(ref);
+    let qtyToDeduct = Math.abs(qtyChange);
+
+    for (const lot of lots) {
+      if (qtyToDeduct <= 0) break;
+
+      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+      const newRemaining = lot.qtyRemaining - deductFromLot;
+
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      valueImpact -= deductFromLot * lot.priceCZK;
+      qtyToDeduct -= deductFromLot;
+
+      lotsAffected.push(lot.id);
+    }
+  }
+
+  // Update stock quantity
+  stockSheet.getRange(stockRowIndex, 5).setValue(newQty);
+  stockSheet.getRange(stockRowIndex, 8).setValue(new Date());
+
+  // Add to history
+  historySheet.appendRow([
+    adjustmentDate, 'AJUSTEMENT', adjNumber, ref, componentName,
+    qtyChange, valueImpact / (qtyChange || 1), valueImpact,
+    'Ajustement de stock'
+  ]);
+
+  // Save adjustment record
+  adjSheet.appendRow([
+    adjId, adjustmentDate, adjNumber, ref, componentName,
+    currentQty, newQty, qtyChange, reason, reasonText,
+    userName || 'Unknown', JSON.stringify(lotsAffected),
+    Math.round(valueImpact * 100) / 100, new Date()
+  ]);
+
+  getStockValuation();
+
+  return {
+    success: true,
+    adjId,
+    docNum: adjNumber,
+    qtyChange,
+    valueImpact: Math.round(valueImpact * 100) / 100
+  };
+}
