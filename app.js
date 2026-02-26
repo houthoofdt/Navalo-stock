@@ -7789,6 +7789,21 @@ window.syncNowManual = syncNowManual;
 
 // Function to clear all local cache and reload from Google Sheets
 async function clearLocalCache() {
+    // Check for pending sync operations first
+    const syncQueue = JSON.parse(localStorage.getItem('navalo_sync_queue') || '[]');
+    const pendingSyncs = syncQueue.filter(item => item.status === 'pending' || item.status === 'error');
+
+    if (pendingSyncs.length > 0) {
+        const syncWarning = currentLang === 'cz'
+            ? `⚠️ VAROVÁNÍ: ${pendingSyncs.length} operací čeká na synchronizaci!\n\nPokud pokračujete, ZTRATÍTE tato data:\n- Nesynchronizované změny\n- Nové objednávky/dodávky\n\nDoporučujeme:\n1. Počkat 30 sekund na dokončení synchronizace\n2. Nebo kliknout na tlačítko sync (↻) pro manuální synchronizaci\n\nOpravdu chcete pokračovat a ZTRATIT tato data?`
+            : `⚠️ ATTENTION : ${pendingSyncs.length} opérations en attente de synchronisation !\n\nSi vous continuez, vous PERDREZ ces données :\n- Modifications non synchronisées\n- Nouvelles commandes/livraisons\n\nRecommandation :\n1. Attendre 30 secondes pour la synchronisation\n2. Ou cliquer sur le bouton sync (↻) pour synchroniser manuellement\n\nVoulez-vous vraiment continuer et PERDRE ces données ?`;
+
+        if (!confirm(syncWarning)) {
+            showToast(currentLang === 'cz' ? 'Synchronizujte nejprve data' : 'Synchronisez d\'abord vos données', 'warning');
+            return;
+        }
+    }
+
     const message = currentLang === 'cz'
         ? 'Smazat lokální cache a znovu načíst vše z Google Sheets?\n\nToto vymaže:\n- Všechny faktury\n- Příjemky\n- Objednávky\n- Konfiguraci číslování\n\nData v Google Sheets zůstanou zachována.'
         : 'Effacer le cache local et recharger depuis Google Sheets ?\n\nCeci effacera :\n- Toutes les factures en cache\n- Les réceptions\n- Les commandes\n- La configuration de numérotation\n\nLes données dans Google Sheets seront conservées.';
@@ -7812,7 +7827,10 @@ async function clearLocalCache() {
         'navalo_config',
         'navalo_bom',
         'navalo_pac_stock',
-        'navalo_quotes'
+        'navalo_quotes',
+        'navalo_adjustments',
+        'navalo_sync_queue',
+        'navalo_sync_status'
     ];
 
     keysToRemove.forEach(key => {
