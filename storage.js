@@ -333,10 +333,20 @@ class StorageAdapter {
             case 'getReceivedOrders':
                 localStorage.setItem('navalo_received_orders', JSON.stringify(data || []));
                 console.log('💾 Cached', data?.length || 0, 'received orders to localStorage');
+                // Rebuild order number counter
+                this.rebuildConfigCounters('ro', data);
                 break;
             case 'getDeliveries':
                 localStorage.setItem('navalo_deliveries', JSON.stringify(data || []));
                 console.log('💾 Cached', data?.length || 0, 'deliveries to localStorage');
+                // Rebuild BL number counter
+                this.rebuildConfigCounters('bl', data);
+                break;
+            case 'getPurchaseOrders':
+                localStorage.setItem('navalo_purchase_orders', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'purchase orders to localStorage');
+                // Rebuild PO number counter
+                this.rebuildConfigCounters('po', data);
                 break;
             case 'getStock':
                 if (data?.components) {
@@ -351,12 +361,55 @@ class StorageAdapter {
             case 'getAdjustments':
                 localStorage.setItem('navalo_adjustments', JSON.stringify(data || []));
                 console.log('💾 Cached', data?.length || 0, 'adjustments to localStorage');
+                // Rebuild adjustment number counter
+                this.rebuildConfigCounters('adj', data);
                 break;
             case 'getContacts':
                 localStorage.setItem('navalo_contacts', JSON.stringify(data || []));
                 console.log('💾 Cached', data?.length || 0, 'contacts to localStorage');
                 break;
             // Add more cases as needed
+        }
+    }
+
+    rebuildConfigCounters(type, documents) {
+        if (!Array.isArray(documents) || documents.length === 0) return;
+
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+        const year = new Date().getFullYear();
+
+        // Map type to document number field and config key
+        const mapping = {
+            'bl': { field: 'blNumber', key: 'next_bl' },
+            'po': { field: 'poNumber', key: 'next_po' },
+            'ro': { field: 'orderNumber', key: 'next_ro' },
+            'adj': { field: 'docNum', key: 'next_adj' }
+        };
+
+        const { field, key } = mapping[type] || {};
+        if (!field || !key) return;
+
+        // Find highest number for current year
+        let maxNum = 0;
+        const pattern = new RegExp(`^(?:BL|OP|OBJ|ADJ)?${year}(\\d+)$`);
+
+        documents.forEach(doc => {
+            const docNum = doc[field];
+            if (docNum) {
+                const match = String(docNum).match(pattern);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+        });
+
+        // Set next number to max + 1
+        if (maxNum > 0) {
+            config[key] = maxNum + 1;
+            config.year = year;
+            localStorage.setItem('navalo_config', JSON.stringify(config));
+            console.log(`🔢 Rebuilt ${key}: next number will be ${config[key]} (found max: ${maxNum})`);
         }
     }
 
