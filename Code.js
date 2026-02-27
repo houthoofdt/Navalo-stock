@@ -654,6 +654,46 @@ if (devisSheet.getLastRow() === 0) {
   return { success: true, message: 'Initialisation terminée' };
 }
 
+/**
+ * Create ONLY the Repair Quotes sheet - for testing
+ */
+function createRepairQuotesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = 'Devis_Reparations';
+
+  // Check if sheet already exists
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (sheet) {
+    Logger.log('Sheet already exists: ' + sheetName);
+    return { success: false, message: 'La feuille existe déjà' };
+  }
+
+  // Create the sheet
+  sheet = ss.insertSheet(sheetName);
+
+  // Add headers
+  sheet.appendRow([
+    'ID', 'Date', 'N° Devis', 'ID Client', 'Nom Client', 'Adresse',
+    'Statut', 'Données PACs', 'Notes', 'Sous-total', 'TVA', 'Total',
+    'Créé le', 'Mis à jour le'
+  ]);
+
+  // Format headers
+  sheet.getRange(1, 1, 1, 14)
+    .setFontWeight('bold')
+    .setBackground('#ff6f00')
+    .setFontColor('white');
+
+  // Auto-resize columns
+  for (let i = 1; i <= 14; i++) {
+    sheet.autoResizeColumn(i);
+  }
+
+  Logger.log('Repair Quotes sheet created successfully!');
+  return { success: true, message: 'Feuille Devis_Reparations créée avec succès!' };
+}
+
 // ========================================
 // STOCK OPERATIONS WITH FIFO
 // ========================================
