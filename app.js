@@ -697,6 +697,18 @@ function initializePacModelUI() {
 
 async function refreshAllData() {
     try {
+        // Force reload from Google Sheets on first page load
+        if (!sessionStorage.getItem('navalo_initial_load_done')) {
+            console.log('🔄 Premier chargement - vidage du cache local pour forcer Google Sheets');
+            Object.keys(localStorage).filter(k => k.startsWith('navalo_')).forEach(k => {
+                // Keep only language preference
+                if (k !== 'navalo_lang') {
+                    localStorage.removeItem(k);
+                }
+            });
+            sessionStorage.setItem('navalo_initial_load_done', 'true');
+        }
+
         const stockData = await storage.getStockWithValue();
         currentStock = stockData.components || {};
         
