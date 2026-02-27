@@ -368,6 +368,12 @@ class StorageAdapter {
                 localStorage.setItem('navalo_contacts', JSON.stringify(data || []));
                 console.log('💾 Cached', data?.length || 0, 'contacts to localStorage');
                 break;
+            case 'getRepairQuotes':
+                localStorage.setItem('navalo_repair_quotes', JSON.stringify(data || []));
+                console.log('💾 Cached', data?.length || 0, 'repair quotes to localStorage');
+                // Rebuild repair quote number counter
+                this.rebuildConfigCounters('rq', data);
+                break;
             // Add more cases as needed
         }
     }
@@ -383,7 +389,8 @@ class StorageAdapter {
             'bl': { field: 'blNumber', key: 'next_bl' },
             'po': { field: 'poNumber', key: 'next_po' },
             'ro': { field: 'orderNumber', key: 'next_ro' },
-            'adj': { field: 'docNum', key: 'next_adj' }
+            'adj': { field: 'docNum', key: 'next_adj' },
+            'rq': { field: 'quoteNumber', key: 'next_repair_quote' }
         };
 
         const { field, key } = mapping[type] || {};
@@ -391,7 +398,7 @@ class StorageAdapter {
 
         // Find highest number for current year
         let maxNum = 0;
-        const pattern = new RegExp(`^(?:BL|OP|OBJ|ADJ)?${year}(\\d+)$`);
+        const pattern = new RegExp(`^(?:BL|OP|OBJ|ADJ|DV)?${year}(\\d+)$`);
 
         documents.forEach(doc => {
             const docNum = doc[field];
@@ -1560,6 +1567,13 @@ class StorageAdapter {
     // ========================================
 
     async createRepairQuote(data) {
+        // Always update counter locally (for next number generation)
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+        const year = new Date().getFullYear();
+        config.next_repair_quote = (config.next_repair_quote || 1) + 1;
+        config.year = year;
+        localStorage.setItem('navalo_config', JSON.stringify(config));
+
         if (this.mode === 'local') {
             // Local mode: save to localStorage
             const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
@@ -1570,13 +1584,6 @@ class StorageAdapter {
             };
             quotes.push(quoteData);
             localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
-
-            // Update counter
-            const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
-            const year = new Date().getFullYear();
-            config.next_repair_quote = (config.next_repair_quote || 1) + 1;
-            config.year = year;
-            localStorage.setItem('navalo_config', JSON.stringify(config));
 
             return { success: true, rqId: quoteData.id, rqNumber: quoteData.quoteNumber };
         }
