@@ -3398,3 +3398,73 @@ a.btn-icon[draggable="true"]:active {
     }
 }
 
+/* ========================================
+   REPAIR QUOTE PREVIEW
+   ======================================== */
+
+.pac-separator {
+    background: #f0f9ff;
+    font-weight: 600;
+}
+
+.pac-separator td {
+    padding: 0.75rem !important;
+    border-top: 2px solid var(--primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.pac-subtotal {
+    background: #fafafa;
+    font-weight: 600;
+}
+
+.pac-subtotal td {
+    padding: 0.75rem !important;
+    border-bottom: 2px solid var(--border);
+}
+
+.dn-totals {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--light);
+    border-radius: var(--radius);
+    max-width: 400px;
+    margin-left: auto;
+}
+
+.dn-total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    font-size: 1rem;
+}
+
+.dn-total-row span:first-child {
+    color: var(--secondary);
+}
+
+.dn-total-row span:last-child {
+    font-weight: 600;
+}
+
+.dn-total-main {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 2px solid var(--border);
+    font-size: 1.25rem;
+}
+
+.dn-total-main span {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.dn-notes {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #fffbeb;
+    border-left: 4px solid var(--warning);
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+}
+

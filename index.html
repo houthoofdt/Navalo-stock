@@ -1452,6 +1452,22 @@
         </div>
     </div>
 
+    <!-- Repair Quote Preview Modal -->
+    <div class="modal" id="repairQuotePreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="repairQuote">Devis de réparation</h3>
+                <button class="modal-close" onclick="closeRepairQuotePreviewModal()">✕</button>
+            </div>
+            <div id="repairQuotePreview" class="delivery-preview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeRepairQuotePreviewModal()" data-i18n="close">Fermer</button>
+                <button class="btn btn-secondary" onclick="printRepairQuote()">🖨️ <span data-i18n="print">Imprimer</span></button>
+                <button class="btn btn-primary" onclick="convertRepairQuoteToInvoice(currentRepairQuotePreview)" data-i18n="convertToInvoice">Convertir en facture</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Received Order Modal -->
     <div class="modal" id="receivedOrderModal">
         <div class="modal-content modal-large">

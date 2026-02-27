@@ -222,6 +222,7 @@ const TRANSLATIONS = {
         // Repair Quotes
         navRepairQuotes: 'Devis Réparations',
         repairQuotesTitle: 'Devis de Réparation',
+        repairQuote: 'Devis de réparation',
         newRepairQuote: 'Nouveau devis',
         repairQuoteNumber: 'N° Devis',
         clientInfo: 'Informations client',
@@ -402,6 +403,7 @@ const TRANSLATIONS = {
         // Repair Quotes
         navRepairQuotes: 'Nabídky oprav',
         repairQuotesTitle: 'Nabídky oprav',
+        repairQuote: 'Nabídka opravy',
         newRepairQuote: 'Nová nabídka',
         repairQuoteNumber: 'Číslo nabídky',
         clientInfo: 'Informace o zákazníkovi',
@@ -8321,9 +8323,182 @@ async function updateRepairQuotesDisplay() {
     }).join('');
 }
 
+let currentRepairQuotePreview = null;
+
 function viewRepairQuote(quoteId) {
-    // TODO: Implement quote preview
-    showToast('Preview coming soon', 'info');
+    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+    const quote = quotes.find(q => q.id === quoteId);
+
+    if (!quote) {
+        showToast(t('error'), 'error');
+        return;
+    }
+
+    currentRepairQuotePreview = quoteId;
+    showRepairQuotePreview(quote);
+}
+
+function showRepairQuotePreview(quote) {
+    const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
+    const serviceRates = getServiceRates();
+
+    // Build PACs table
+    let pacsTableHtml = '';
+    let pacNumber = 1;
+
+    quote.pacs.forEach(pac => {
+        // PAC header
+        pacsTableHtml += `
+            <tr class="pac-separator">
+                <td colspan="5"><strong>PAC #${pacNumber} - ${pac.model} (${pac.serial})</strong></td>
+            </tr>
+        `;
+
+        // Components
+        if (pac.components && pac.components.length > 0) {
+            pac.components.forEach(comp => {
+                pacsTableHtml += `
+                    <tr>
+                        <td>${comp.name}</td>
+                        <td>${comp.ref}</td>
+                        <td style="text-align:center">${comp.qty}</td>
+                        <td style="text-align:right">${comp.priceUnit.toFixed(2)} EUR</td>
+                        <td style="text-align:right">${comp.total.toFixed(2)} EUR</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Services
+        if (pac.services.labor > 0) {
+            pacsTableHtml += `
+                <tr>
+                    <td>${t('laborHours')}</td>
+                    <td>SERVICE</td>
+                    <td style="text-align:center">${pac.services.labor} h</td>
+                    <td style="text-align:right">${serviceRates.labor.price} EUR/h</td>
+                    <td style="text-align:right">${(pac.services.labor * serviceRates.labor.price).toFixed(2)} EUR</td>
+                </tr>
+            `;
+        }
+
+        if (pac.services.refrigerant > 0) {
+            pacsTableHtml += `
+                <tr>
+                    <td>${t('refrigerantKg')}</td>
+                    <td>R134a</td>
+                    <td style="text-align:center">${pac.services.refrigerant} kg</td>
+                    <td style="text-align:right">${serviceRates.refrigerantR134a.price} EUR/kg</td>
+                    <td style="text-align:right">${(pac.services.refrigerant * serviceRates.refrigerantR134a.price).toFixed(2)} EUR</td>
+                </tr>
+            `;
+        }
+
+        if (pac.services.disposal > 0) {
+            pacsTableHtml += `
+                <tr>
+                    <td>${t('disposalKg')}</td>
+                    <td>SERVICE</td>
+                    <td style="text-align:center">${pac.services.disposal} kg</td>
+                    <td style="text-align:right">${serviceRates.disposal.price} EUR/kg</td>
+                    <td style="text-align:right">${(pac.services.disposal * serviceRates.disposal.price).toFixed(2)} EUR</td>
+                </tr>
+            `;
+        }
+
+        // PAC subtotal
+        pacsTableHtml += `
+            <tr class="pac-subtotal">
+                <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                <td style="text-align:right"><strong>${pac.subtotal.toFixed(2)} EUR</strong></td>
+            </tr>
+        `;
+
+        pacNumber++;
+    });
+
+    const previewHtml = `
+        <div class="delivery-note">
+            <div class="dn-header">
+                <div class="dn-company">
+                    <h2>${config.COMPANY.name}</h2>
+                    <p>${config.COMPANY.address}</p>
+                </div>
+                <div class="dn-info">
+                    <h1>${quote.quoteNumber}</h1>
+                    <p>${t('date')}: ${formatDate(quote.date)}</p>
+                </div>
+            </div>
+
+            <h2 class="dn-title">${t('repairQuotesTitle')}</h2>
+
+            <div class="dn-addresses">
+                <div class="dn-address">
+                    <h4>${t('sender')}</h4>
+                    <div class="dn-address-box">
+                        <strong>${config.COMPANY.name}</strong><br>
+                        ${config.COMPANY.address}
+                    </div>
+                </div>
+                <div class="dn-address">
+                    <h4>${t('client')}</h4>
+                    <div class="dn-address-box">
+                        <strong>${quote.client}</strong><br>
+                        ${quote.address || ''}
+                    </div>
+                </div>
+            </div>
+
+            <table class="dn-table">
+                <thead>
+                    <tr>
+                        <th>${t('designation')}</th>
+                        <th>${t('reference')}</th>
+                        <th style="text-align:center">${t('qty')}</th>
+                        <th style="text-align:right">${t('pricePerUnit')}</th>
+                        <th style="text-align:right">${t('total')}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${pacsTableHtml}
+                </tbody>
+            </table>
+
+            <div class="dn-totals">
+                <div class="dn-total-row">
+                    <span>${t('subtotalHT')}:</span>
+                    <span>${quote.subtotal.toFixed(2)} EUR</span>
+                </div>
+                <div class="dn-total-row">
+                    <span>${t('vatAmount')} (21%):</span>
+                    <span>${quote.vat.toFixed(2)} EUR</span>
+                </div>
+                <div class="dn-total-row dn-total-main">
+                    <span>${t('totalTTC')}:</span>
+                    <span>${quote.total.toFixed(2)} EUR</span>
+                </div>
+            </div>
+
+            ${quote.notes ? `<div class="dn-notes"><strong>${t('notes')}:</strong><br>${quote.notes}</div>` : ''}
+        </div>
+    `;
+
+    document.getElementById('repairQuotePreview').innerHTML = previewHtml;
+    document.getElementById('repairQuotePreviewModal').style.display = 'flex';
+}
+
+function closeRepairQuotePreviewModal() {
+    document.getElementById('repairQuotePreviewModal').style.display = 'none';
+    currentRepairQuotePreview = null;
+}
+
+function printRepairQuote() {
+    const originalTitle = document.title;
+    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+    const quote = quotes.find(q => q.id === currentRepairQuotePreview);
+    document.title = quote?.quoteNumber || 'Devis';
+    window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
 function convertRepairQuoteToInvoice(quoteId) {
@@ -8347,6 +8522,9 @@ window.calculateRepairQuoteTotal = calculateRepairQuoteTotal;
 window.saveRepairQuote = saveRepairQuote;
 window.updateRepairQuotesDisplay = updateRepairQuotesDisplay;
 window.viewRepairQuote = viewRepairQuote;
+window.showRepairQuotePreview = showRepairQuotePreview;
+window.closeRepairQuotePreviewModal = closeRepairQuotePreviewModal;
+window.printRepairQuote = printRepairQuote;
 window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
 
 // ========================================
