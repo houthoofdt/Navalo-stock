@@ -34,7 +34,8 @@ const SHEET_NAMES = {
   CONTACTS: 'Contacts',  // NEW: Suppliers & Clients
   COMPONENT_PRICES: 'Prix_Composants',  // NEW: Component prices
   EXCHANGE_RATES: 'Taux_Change',
-  ADJUSTMENTS: 'Ajustements'  // NEW: Stock adjustments
+  ADJUSTMENTS: 'Ajustements',  // NEW: Stock adjustments
+  REPAIR_QUOTES: 'Devis_Reparations'  // NEW: Repair quotes
 };
 
 // PAC Models configuration
@@ -112,6 +113,9 @@ function doGet(e) {
         break;
       case 'getAdjustments':
         result = getAdjustments(e.parameter.limit || 100);
+        break;
+      case 'getRepairQuotes':
+        result = getRepairQuotes(e.parameter.limit || 50);
         break;
       default:
         result = { error: 'Action non reconnue: ' + action };
@@ -240,6 +244,12 @@ function doPost(e) {
           break;
         case 'processAdjustment':
           result = processAdjustment(data);
+          break;
+        case 'createRepairQuote':
+          result = createRepairQuote(data);
+          break;
+        case 'updateRepairQuoteStatus':
+          result = updateRepairQuoteStatus(data.quoteId, data.status);
           break;
       default:
         result = { error: 'Action non reconnue: ' + action };
@@ -2986,4 +2996,123 @@ function processAdjustment(data) {
     qtyChange,
     valueImpact: Math.round(valueImpact * 100) / 100
   };
+}
+
+// ========================================
+// REPAIR QUOTES
+// ========================================
+
+/**
+ * Create a new repair quote
+ */
+function createRepairQuote(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let rqSheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  // Create sheet if it doesn't exist
+  if (!rqSheet) {
+    rqSheet = ss.insertSheet(SHEET_NAMES.REPAIR_QUOTES);
+    rqSheet.appendRow([
+      'ID', 'Date', 'Quote Number', 'Client ID', 'Client Name', 'Address',
+      'Status', 'PACs Data', 'Notes', 'Subtotal', 'VAT', 'Total', 'Created At', 'Updated At'
+    ]);
+    rqSheet.getRange(1, 1, 1, 14).setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+  }
+
+  const {
+    id, quoteNumber, date, clientId, client, address, pacs,
+    notes, subtotal, vat, total, status, createdAt
+  } = data;
+
+  const rqId = id || Utilities.getUuid();
+  const rqNumber = quoteNumber || getNextDocNumber('repair_quote');
+  const timestamp = new Date();
+
+  rqSheet.appendRow([
+    rqId,
+    date || timestamp,
+    rqNumber,
+    clientId || '',
+    client,
+    address || '',
+    status || 'pending',
+    JSON.stringify(pacs || []),
+    notes || '',
+    subtotal || 0,
+    vat || 0,
+    total || 0,
+    createdAt || timestamp,
+    timestamp
+  ]);
+
+  return { success: true, rqId, rqNumber };
+}
+
+/**
+ * Get repair quotes
+ */
+function getRepairQuotes(limit = 100) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  if (!sheet) {
+    return [];
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const quotes = [];
+
+  for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+    const row = data[i];
+
+    let pacs = [];
+    try {
+      if (row[7]) pacs = JSON.parse(row[7]);
+    } catch (e) {
+      console.error('Error parsing PACs data:', e);
+    }
+
+    quotes.push({
+      id: row[0],
+      date: row[1],
+      quoteNumber: row[2],
+      clientId: row[3],
+      client: row[4],
+      address: row[5],
+      status: row[6],
+      pacs: pacs,
+      notes: row[8],
+      subtotal: row[9],
+      vat: row[10],
+      total: row[11],
+      createdAt: row[12],
+      updatedAt: row[13]
+    });
+  }
+
+  return quotes;
+}
+
+/**
+ * Update repair quote status
+ */
+function updateRepairQuoteStatus(quoteId, newStatus) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  if (!sheet) {
+    return { success: false, error: 'Sheet not found' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === quoteId) {
+      sheet.getRange(i + 1, 7).setValue(newStatus);
+      sheet.getRange(i + 1, 14).setValue(new Date());
+      return { success: true };
+    }
+  }
+
+  return { success: false, error: 'Quote not found' };
 }
