@@ -7874,6 +7874,9 @@ function openRepairQuoteModal(quoteId = null) {
     form.reset();
     document.getElementById('repairPACsList').innerHTML = '';
 
+    // Populate client select
+    populateRepairQuoteClientSelect();
+
     if (quoteId) {
         // Edit mode - load existing quote
         title.textContent = t('editRepairQuote') || 'Modifier devis';
@@ -7891,6 +7894,38 @@ function openRepairQuoteModal(quoteId = null) {
     }
 
     modal.style.display = 'flex';
+}
+
+function populateRepairQuoteClientSelect() {
+    const select = document.getElementById('repairQuoteClient');
+    if (!select) return;
+
+    const contacts = getContacts();
+    const clients = contacts.filter(c => c.type === 'client' || c.type === 'both');
+
+    select.innerHTML = `<option value="">${t('selectContact') || '-- Sélectionner --'}</option>`;
+    clients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = client.name;
+        select.appendChild(option);
+    });
+}
+
+function onRepairQuoteClientChange() {
+    const select = document.getElementById('repairQuoteClient');
+    const clientId = select.value;
+    if (!clientId) {
+        document.getElementById('repairQuoteAddress').value = '';
+        return;
+    }
+
+    const contacts = getContacts();
+    const client = contacts.find(c => c.id === clientId);
+
+    if (client) {
+        document.getElementById('repairQuoteAddress').value = client.address || '';
+    }
 }
 
 function closeRepairQuoteModal() {
@@ -8136,11 +8171,17 @@ async function saveRepairQuote() {
         return;
     }
 
+    // Get client name from contacts
+    const clientSelect = document.getElementById('repairQuoteClient');
+    const clientId = clientSelect.value;
+    const clientName = clientSelect.options[clientSelect.selectedIndex].textContent;
+
     // Collect form data
     const quoteData = {
         quoteNumber: document.getElementById('repairQuoteNumber').value,
         date: document.getElementById('repairQuoteDate').value,
-        client: document.getElementById('repairQuoteClient').value,
+        clientId: clientId,
+        client: clientName,
         address: document.getElementById('repairQuoteAddress').value,
         pacs: [],
         notes: document.getElementById('repairQuoteNotes').value,
@@ -8293,6 +8334,8 @@ function convertRepairQuoteToInvoice(quoteId) {
 // Make functions globally accessible
 window.openRepairQuoteModal = openRepairQuoteModal;
 window.closeRepairQuoteModal = closeRepairQuoteModal;
+window.populateRepairQuoteClientSelect = populateRepairQuoteClientSelect;
+window.onRepairQuoteClientChange = onRepairQuoteClientChange;
 window.addPACToRepairQuote = addPACToRepairQuote;
 window.removePACFromQuote = removePACFromQuote;
 window.updateComponentsForPAC = updateComponentsForPAC;

@@ -1396,7 +1396,9 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label data-i18n="client">Client *</label>
-                            <input type="text" id="repairQuoteClient" required list="clientList">
+                            <select id="repairQuoteClient" required onchange="onRepairQuoteClientChange()">
+                                <option value="">-- Sélectionner --</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label data-i18n="address">Adresse</label>
