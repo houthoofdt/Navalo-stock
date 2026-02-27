@@ -225,6 +225,7 @@ const TRANSLATIONS = {
         repairQuote: 'Devis de réparation',
         newRepairQuote: 'Nouveau devis',
         repairQuoteNumber: 'N° Devis',
+        repairQuoteConverted: 'Devis converti en facture',
         clientInfo: 'Informations client',
         pacsList: 'Pompes à chaleur à réparer',
         addPAC: 'Ajouter PAC',
@@ -406,6 +407,7 @@ const TRANSLATIONS = {
         repairQuote: 'Nabídka opravy',
         newRepairQuote: 'Nová nabídka',
         repairQuoteNumber: 'Číslo nabídky',
+        repairQuoteConverted: 'Nabídka převedena na fakturu',
         clientInfo: 'Informace o zákazníkovi',
         pacsList: 'Tepelná čerpadla k opravě',
         addPAC: 'Přidat TČ',
@@ -8488,11 +8490,15 @@ function showRepairQuotePreview(quote) {
     `;
 
     document.getElementById('repairQuotePreview').innerHTML = previewHtml;
-    document.getElementById('repairQuotePreviewModal').style.display = 'flex';
+    const modal = document.getElementById('repairQuotePreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active'); // Enable print CSS
 }
 
 function closeRepairQuotePreviewModal() {
-    document.getElementById('repairQuotePreviewModal').style.display = 'none';
+    const modal = document.getElementById('repairQuotePreviewModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
     currentRepairQuotePreview = null;
 }
 
@@ -8505,9 +8511,83 @@ async function printRepairQuote() {
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
-function convertRepairQuoteToInvoice(quoteId) {
-    // TODO: Implement conversion to invoice
-    showToast('Conversion coming soon', 'info');
+async function convertRepairQuoteToInvoice(quoteId) {
+    // Get repair quote data
+    const quotes = await storage.getRepairQuotes(100);
+    const quote = quotes.find(q => q.id === quoteId);
+
+    if (!quote) {
+        showToast(t('error'), 'error');
+        return;
+    }
+
+    // Close preview modal
+    closeRepairQuotePreviewModal();
+
+    // Open invoice modal
+    await openFreeInvoiceModal();
+
+    // Populate client
+    const clientSelect = document.getElementById('invClient');
+    if (clientSelect && quote.clientId) {
+        clientSelect.value = quote.clientId;
+        // Trigger change event to load address
+        const event = new Event('change');
+        clientSelect.dispatchEvent(event);
+    }
+
+    // Clear default items
+    document.getElementById('invItems').innerHTML = '';
+
+    // Add items from repair quote
+    if (quote.pacs && Array.isArray(quote.pacs)) {
+        quote.pacs.forEach((pac, index) => {
+            // Add PAC header as item
+            addInvoiceItemRow(`PAC ${index + 1} - ${pac.model}`, 1, 0);
+
+            // Add components
+            if (pac.components && Array.isArray(pac.components)) {
+                pac.components.forEach(comp => {
+                    addInvoiceItemRow(`  ${comp.name || comp.ref}`, comp.qty, comp.price);
+                });
+            }
+
+            // Add services
+            if (pac.services) {
+                if (pac.services.labor && pac.services.labor.hours > 0) {
+                    addInvoiceItemRow(`  Main d'œuvre`, pac.services.labor.hours, pac.services.labor.rate);
+                }
+                if (pac.services.refrigerant && pac.services.refrigerant.qty > 0) {
+                    addInvoiceItemRow(`  Fluide frigorigène (${pac.services.refrigerant.type})`, pac.services.refrigerant.qty, pac.services.refrigerant.price);
+                }
+                if (pac.services.disposal && pac.services.disposal.enabled) {
+                    addInvoiceItemRow(`  Élimination déchets`, 1, pac.services.disposal.price);
+                }
+            }
+        });
+    }
+
+    // Set currency to EUR (repair quotes are in EUR)
+    const currencySelect = document.getElementById('invCurrency');
+    if (currencySelect) {
+        currencySelect.value = 'EUR';
+        const event = new Event('change');
+        currencySelect.dispatchEvent(event);
+    }
+
+    // Calculate total
+    calculateInvoiceTotal();
+
+    // Add note about repair quote
+    const notesField = document.getElementById('invNotes');
+    if (notesField) {
+        notesField.value = `Conversion du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim();
+    }
+
+    // Show invoice modal
+    document.getElementById('invoiceModal').classList.add('active');
+
+    showToast(t('repairQuoteConverted') || 'Devis converti en facture', 'success');
 }
 
 // Make functions globally accessible
