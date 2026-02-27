@@ -8235,46 +8235,38 @@ async function saveRepairQuote() {
 
     // Save to storage
     try {
-        // TODO: Implement storage.processRepairQuote()
-        // await storage.processRepairQuote(quoteData);
-
-        // For now, just save to localStorage directly
-        let quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
-
         if (currentRepairQuote) {
-            // Update existing
+            // Update existing - for now just update in localStorage
+            let quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
             const index = quotes.findIndex(q => q.id === currentRepairQuote);
             if (index !== -1) {
                 quoteData.id = currentRepairQuote;
+                quoteData.updatedAt = new Date().toISOString();
                 quotes[index] = quoteData;
+                localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
             }
         } else {
-            // Create new
-            quoteData.id = 'RQ-' + Date.now();
-            quoteData.createdAt = new Date().toISOString();
-            quotes.push(quoteData);
+            // Create new - use storage API
+            const result = await storage.createRepairQuote(quoteData);
 
-            // Update next quote number
-            const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
-            const year = new Date().getFullYear();
-            config.next_repair_quote = (config.next_repair_quote || 1) + 1;
-            config.year = year;
-            localStorage.setItem('navalo_config', JSON.stringify(config));
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to create repair quote');
+            }
+
+            console.log('✅ Repair quote created:', result);
         }
-
-        localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
 
         showToast(t('saved'), 'success');
         closeRepairQuoteModal();
         await updateRepairQuotesDisplay();
     } catch (error) {
         console.error('Error saving repair quote:', error);
-        showToast(t('error'), 'error');
+        showToast(t('error') + ': ' + error.message, 'error');
     }
 }
 
 async function updateRepairQuotesDisplay() {
-    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+    const quotes = await storage.getRepairQuotes(100);
 
     // Update summary cards
     const totalValue = quotes.reduce((sum, q) => sum + (q.total || 0), 0);
@@ -8325,8 +8317,8 @@ async function updateRepairQuotesDisplay() {
 
 let currentRepairQuotePreview = null;
 
-function viewRepairQuote(quoteId) {
-    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+async function viewRepairQuote(quoteId) {
+    const quotes = await storage.getRepairQuotes(100);
     const quote = quotes.find(q => q.id === quoteId);
 
     if (!quote) {
@@ -8492,9 +8484,9 @@ function closeRepairQuotePreviewModal() {
     currentRepairQuotePreview = null;
 }
 
-function printRepairQuote() {
+async function printRepairQuote() {
     const originalTitle = document.title;
-    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+    const quotes = await storage.getRepairQuotes(100);
     const quote = quotes.find(q => q.id === currentRepairQuotePreview);
     document.title = quote?.quoteNumber || 'Devis';
     window.print();

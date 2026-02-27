@@ -1555,6 +1555,66 @@ class StorageAdapter {
         }
     }
 
+    // ========================================
+    // REPAIR QUOTES
+    // ========================================
+
+    async createRepairQuote(data) {
+        if (this.mode === 'local') {
+            // Local mode: save to localStorage
+            const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+            const quoteData = {
+                ...data,
+                id: data.id || 'RQ-' + Date.now(),
+                createdAt: data.createdAt || new Date().toISOString()
+            };
+            quotes.push(quoteData);
+            localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+
+            // Update counter
+            const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+            const year = new Date().getFullYear();
+            config.next_repair_quote = (config.next_repair_quote || 1) + 1;
+            config.year = year;
+            localStorage.setItem('navalo_config', JSON.stringify(config));
+
+            return { success: true, rqId: quoteData.id, rqNumber: quoteData.quoteNumber };
+        }
+
+        // Google Sheets mode
+        return await this.apiPost('createRepairQuote', data);
+    }
+
+    async getRepairQuotes(limit = 100) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+            return quotes.slice(-limit).reverse();
+        }
+        try {
+            const result = await this.apiGet('getRepairQuotes', { limit });
+            return Array.isArray(result) ? result : [];
+        } catch (e) {
+            console.warn('Failed to get repair quotes from API, returning empty array:', e);
+            return [];
+        }
+    }
+
+    async updateRepairQuoteStatus(quoteId, status) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+            const quote = quotes.find(q => q.id === quoteId);
+            if (quote) {
+                quote.status = status;
+                quote.updatedAt = new Date().toISOString();
+                localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+                return { success: true };
+            }
+            return { success: false, error: 'Quote not found' };
+        }
+
+        return await this.apiPost('updateRepairQuoteStatus', { quoteId, status });
+    }
+
     // Google Drive methods
     async uploadToDrive(data) {
         return await this.apiPost('uploadToDrive', data);
