@@ -390,7 +390,8 @@ function getNextDocNumber(type) {
     'pr': 'PŘ',
     'pi': 'PI',
     'dev': 'DEV',
-    'adj': 'ADJ'
+    'adj': 'ADJ',
+    'repair_quote': 'DV'
   };
   
   const prefix = prefixes[type] || type.toUpperCase();
@@ -410,6 +411,7 @@ function getNextDocNumber(type) {
     case 'pi': sheetName = SHEET_NAMES.INVOICES; numberColumn = 2; break;
     case 'dev': sheetName = 'Devis'; numberColumn = 2; break;
     case 'adj': sheetName = SHEET_NAMES.ADJUSTMENTS; numberColumn = 3; break;
+    case 'repair_quote': sheetName = SHEET_NAMES.REPAIR_QUOTES; numberColumn = 3; break;
     default: sheetName = null;
   }
   
@@ -630,8 +632,21 @@ if (devisSheet.getLastRow() === 0) {
     configSheet.appendRow([`next_pr_number_${year}`, 1]);
     configSheet.appendRow([`next_pi_number_${year}`, 1]);
     configSheet.appendRow([`next_dev_number_${year}`, 1]);
+    configSheet.appendRow([`next_repair_quote_${year}`, 1]);
   }
-  
+
+  // Initialize Repair Quotes sheet
+  const repairQuotesSheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+  if (repairQuotesSheet.getLastRow() === 0) {
+    repairQuotesSheet.appendRow([
+      'ID', 'Date', 'N° Devis', 'ID Client', 'Nom Client', 'Adresse',
+      'Statut', 'Données PACs', 'Notes', 'Sous-total', 'TVA', 'Total',
+      'Créé le', 'Mis à jour le'
+    ]);
+    repairQuotesSheet.getRange(1, 1, 1, 14).setFontWeight('bold')
+      .setBackground('#ff6f00').setFontColor('white');
+  }
+
   // Fetch initial exchange rates
   fetchCNBRates();
   
