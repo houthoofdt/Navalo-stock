@@ -8512,82 +8512,92 @@ async function printRepairQuote() {
 }
 
 async function convertRepairQuoteToInvoice(quoteId) {
-    // Get repair quote data
-    const quotes = await storage.getRepairQuotes(100);
-    const quote = quotes.find(q => q.id === quoteId);
+    try {
+        // Get repair quote data
+        const quotes = await storage.getRepairQuotes(100);
+        const quote = quotes.find(q => q.id === quoteId);
 
-    if (!quote) {
-        showToast(t('error'), 'error');
-        return;
-    }
+        if (!quote) {
+            showToast(t('error') + ': Devis non trouvé', 'error');
+            return;
+        }
 
-    // Close preview modal
-    closeRepairQuotePreviewModal();
+        console.log('Converting repair quote to invoice:', quote);
 
-    // Open invoice modal
-    await openFreeInvoiceModal();
+        // Close preview modal
+        closeRepairQuotePreviewModal();
 
-    // Populate client
-    const clientSelect = document.getElementById('invClient');
-    if (clientSelect && quote.clientId) {
-        clientSelect.value = quote.clientId;
-        // Trigger change event to load address
-        const event = new Event('change');
-        clientSelect.dispatchEvent(event);
-    }
+        // Open invoice modal
+        await openFreeInvoiceModal();
 
-    // Clear default items
-    document.getElementById('invItems').innerHTML = '';
+        // Populate client
+        const clientSelect = document.getElementById('invClient');
+        if (clientSelect && quote.clientId) {
+            clientSelect.value = quote.clientId;
+            // Trigger change event to load address
+            const event = new Event('change', { bubbles: true });
+            clientSelect.dispatchEvent(event);
+        }
 
-    // Add items from repair quote
-    if (quote.pacs && Array.isArray(quote.pacs)) {
-        quote.pacs.forEach((pac, index) => {
-            // Add PAC header as item
-            addInvoiceItemRow(`PAC ${index + 1} - ${pac.model}`, 1, 0);
+        // Clear default items
+        document.getElementById('invItems').innerHTML = '';
 
-            // Add components
-            if (pac.components && Array.isArray(pac.components)) {
-                pac.components.forEach(comp => {
-                    addInvoiceItemRow(`  ${comp.name || comp.ref}`, comp.qty, comp.price);
-                });
-            }
+        // Add items from repair quote
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach((pac, index) => {
+                // Add PAC header as item
+                const pacHeader = `PAC ${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'})`;
+                addInvoiceItemRow(pacHeader, 1, 0);
 
-            // Add services
-            if (pac.services) {
-                if (pac.services.labor && pac.services.labor.hours > 0) {
-                    addInvoiceItemRow(`  Main d'œuvre`, pac.services.labor.hours, pac.services.labor.rate);
+                // Add components
+                if (pac.components && Array.isArray(pac.components)) {
+                    pac.components.forEach(comp => {
+                        if (comp.qty > 0 && comp.priceUnit > 0) {
+                            addInvoiceItemRow(`  • ${comp.name || comp.ref}`, comp.qty, comp.priceUnit);
+                        }
+                    });
                 }
-                if (pac.services.refrigerant && pac.services.refrigerant.qty > 0) {
-                    addInvoiceItemRow(`  Fluide frigorigène (${pac.services.refrigerant.type})`, pac.services.refrigerant.qty, pac.services.refrigerant.price);
+
+                // Add services (stored as totals)
+                if (pac.services) {
+                    if (pac.services.labor > 0) {
+                        addInvoiceItemRow(`  • Main d'œuvre`, 1, pac.services.labor);
+                    }
+                    if (pac.services.refrigerant > 0) {
+                        addInvoiceItemRow(`  • Fluide frigorigène`, 1, pac.services.refrigerant);
+                    }
+                    if (pac.services.disposal > 0) {
+                        addInvoiceItemRow(`  • Élimination déchets`, 1, pac.services.disposal);
+                    }
                 }
-                if (pac.services.disposal && pac.services.disposal.enabled) {
-                    addInvoiceItemRow(`  Élimination déchets`, 1, pac.services.disposal.price);
-                }
-            }
-        });
+            });
+        }
+
+        // Set currency to EUR (repair quotes are in EUR)
+        const currencySelect = document.getElementById('invCurrency');
+        if (currencySelect) {
+            currencySelect.value = 'EUR';
+            const event = new Event('change', { bubbles: true });
+            currencySelect.dispatchEvent(event);
+        }
+
+        // Calculate total
+        calculateInvoiceTotal();
+
+        // Add note about repair quote
+        const notesField = document.getElementById('invNotes');
+        if (notesField) {
+            notesField.value = `Converti du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim();
+        }
+
+        // Show invoice modal
+        document.getElementById('invoiceModal').classList.add('active');
+
+        showToast(t('repairQuoteConverted') || 'Devis converti en facture', 'success');
+    } catch (error) {
+        console.error('Error converting repair quote to invoice:', error);
+        showToast('Erreur lors de la conversion: ' + error.message, 'error');
     }
-
-    // Set currency to EUR (repair quotes are in EUR)
-    const currencySelect = document.getElementById('invCurrency');
-    if (currencySelect) {
-        currencySelect.value = 'EUR';
-        const event = new Event('change');
-        currencySelect.dispatchEvent(event);
-    }
-
-    // Calculate total
-    calculateInvoiceTotal();
-
-    // Add note about repair quote
-    const notesField = document.getElementById('invNotes');
-    if (notesField) {
-        notesField.value = `Conversion du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim();
-    }
-
-    // Show invoice modal
-    document.getElementById('invoiceModal').classList.add('active');
-
-    showToast(t('repairQuoteConverted') || 'Devis converti en facture', 'success');
 }
 
 // Make functions globally accessible
