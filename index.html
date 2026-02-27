@@ -1372,6 +1372,84 @@
         </div>
     </div>
 
+    <!-- Repair Quote Modal -->
+    <div class="modal" id="repairQuoteModal">
+        <div class="modal-content modal-xlarge">
+            <div class="modal-header">
+                <h3 id="repairQuoteModalTitle" data-i18n="newRepairQuote">Nouveau devis réparation</h3>
+                <button class="modal-close" onclick="closeRepairQuoteModal()">✕</button>
+            </div>
+            <form id="repairQuoteForm" onsubmit="event.preventDefault(); saveRepairQuote();">
+                <!-- Client Information -->
+                <div class="form-section">
+                    <h4 data-i18n="clientInfo">Informations client</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="quoteNumber">Numéro devis (auto)</label>
+                            <input type="text" id="repairQuoteNumber" readonly class="input-readonly">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="date">Date *</label>
+                            <input type="date" id="repairQuoteDate" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="client">Client *</label>
+                            <input type="text" id="repairQuoteClient" required list="clientList">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="address">Adresse</label>
+                            <textarea id="repairQuoteAddress" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PACs Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <h4 data-i18n="pacsList">Pompes à chaleur à réparer</h4>
+                        <button type="button" class="btn btn-primary btn-small" onclick="addPACToRepairQuote()">
+                            + <span data-i18n="addPAC">Ajouter PAC</span>
+                        </button>
+                    </div>
+                    <div id="repairPACsList">
+                        <!-- PAC cards will be added here dynamically -->
+                    </div>
+                </div>
+
+                <!-- Totals -->
+                <div class="form-section">
+                    <div class="quote-totals">
+                        <div class="total-row">
+                            <label data-i18n="subtotalHT">Total HT:</label>
+                            <span id="repairQuoteSubtotal">0.00 EUR</span>
+                        </div>
+                        <div class="total-row">
+                            <label data-i18n="vatAmount">TVA (21%):</label>
+                            <span id="repairQuoteVAT">0.00 EUR</span>
+                        </div>
+                        <div class="total-row total-main">
+                            <label data-i18n="totalTTC">Total TTC:</label>
+                            <span id="repairQuoteTotal">0.00 EUR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div class="form-group">
+                    <label data-i18n="notes">Notes / Conditions</label>
+                    <textarea id="repairQuoteNotes" rows="3" placeholder="Conditions de paiement, garantie, etc."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeRepairQuoteModal()" data-i18n="cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Received Order Modal -->
     <div class="modal" id="receivedOrderModal">
         <div class="modal-content modal-large">

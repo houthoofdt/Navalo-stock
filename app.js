@@ -218,7 +218,41 @@ const TRANSLATIONS = {
         manufacturersHint: 'Marques/fabricants séparés par des virgules (pour filtrage dans commandes)',
         manufacturer: 'Fabricant',
         stockComponents: 'Composants du stock',
-        addStockComponent: 'Composant'
+        addStockComponent: 'Composant',
+        // Repair Quotes
+        navRepairQuotes: 'Devis Réparations',
+        repairQuotesTitle: 'Devis de Réparation',
+        newRepairQuote: 'Nouveau devis',
+        repairQuoteNumber: 'N° Devis',
+        clientInfo: 'Informations client',
+        pacsList: 'Pompes à chaleur à réparer',
+        addPAC: 'Ajouter PAC',
+        pacSerial: 'N° Série PAC',
+        pacModel: 'Modèle',
+        selectModel: 'Sélectionner modèle',
+        components: 'Composants',
+        selectComponent: 'Sélectionner composant',
+        addComponent: 'Ajouter composant',
+        services: 'Services',
+        laborHours: 'Main d\'œuvre (heures)',
+        refrigerantKg: 'Réfrigérant (kg)',
+        disposalKg: 'Élimination (kg)',
+        pacSubtotal: 'Sous-total PAC',
+        removePAC: 'Retirer cette PAC',
+        removeComponent: 'Retirer',
+        pricePerUnit: 'Prix/unité',
+        lineTotal: 'Total ligne',
+        emptyPACs: 'Aucune PAC ajoutée',
+        clickAddPAC: 'Cliquez sur "Ajouter PAC" pour commencer',
+        convertToInvoice: 'Convertir en facture',
+        quoteDate: 'Date devis',
+        totalRepairQuotes: 'Total devis',
+        pendingQuotes: 'Devis en attente',
+        acceptedQuotes: 'Devis acceptés',
+        statusPending: 'En attente',
+        statusAccepted: 'Accepté',
+        statusRejected: 'Refusé',
+        statusInvoiced: 'Facturé'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -364,7 +398,41 @@ const TRANSLATIONS = {
         manufacturersHint: 'Značky/výrobci oddělené čárkami (pro filtrování v objednávkách)',
         manufacturer: 'Výrobce',
         stockComponents: 'Skladové komponenty',
-        addStockComponent: 'Komponenta'
+        addStockComponent: 'Komponenta',
+        // Repair Quotes
+        navRepairQuotes: 'Nabídky oprav',
+        repairQuotesTitle: 'Nabídky oprav',
+        newRepairQuote: 'Nová nabídka',
+        repairQuoteNumber: 'Číslo nabídky',
+        clientInfo: 'Informace o zákazníkovi',
+        pacsList: 'Tepelná čerpadla k opravě',
+        addPAC: 'Přidat TČ',
+        pacSerial: 'Sériové č. TČ',
+        pacModel: 'Model',
+        selectModel: 'Vybrat model',
+        components: 'Komponenty',
+        selectComponent: 'Vybrat komponentu',
+        addComponent: 'Přidat komponentu',
+        services: 'Služby',
+        laborHours: 'Pracovní hodiny',
+        refrigerantKg: 'Chladivo (kg)',
+        disposalKg: 'Likvidace (kg)',
+        pacSubtotal: 'Mezisoučet TČ',
+        removePAC: 'Odebrat toto TČ',
+        removeComponent: 'Odebrat',
+        pricePerUnit: 'Cena/jednotka',
+        lineTotal: 'Celkem řádek',
+        emptyPACs: 'Žádná TČ nepřidána',
+        clickAddPAC: 'Klikněte na "Přidat TČ" pro začátek',
+        convertToInvoice: 'Převést na fakturu',
+        quoteDate: 'Datum nabídky',
+        totalRepairQuotes: 'Celkem nabídky',
+        pendingQuotes: 'Čekající nabídky',
+        acceptedQuotes: 'Přijaté nabídky',
+        statusPending: 'Čeká',
+        statusAccepted: 'Přijato',
+        statusRejected: 'Odmítnuto',
+        statusInvoiced: 'Fakturováno'
     }
 };
 
@@ -675,6 +743,7 @@ async function refreshAllData() {
         await updateReceivedInvoicesDisplay();
         await updateReceivedOrdersDisplay();
         await updateAdjustmentsDisplay();
+        await updateRepairQuotesDisplay();
         await loadContactsFromStorage();
         updateContactsDisplay();
         updateBomDisplay();
@@ -7786,6 +7855,460 @@ setInterval(() => {
 }, 10000);
 
 window.syncNowManual = syncNowManual;
+
+// ========================================
+//  REPAIR QUOTES FUNCTIONS
+// ========================================
+
+let currentRepairQuote = null;
+let pacCounter = 0;
+
+function openRepairQuoteModal(quoteId = null) {
+    currentRepairQuote = quoteId;
+    pacCounter = 0;
+
+    const modal = document.getElementById('repairQuoteModal');
+    const form = document.getElementById('repairQuoteForm');
+    const title = document.getElementById('repairQuoteModalTitle');
+
+    form.reset();
+    document.getElementById('repairPACsList').innerHTML = '';
+
+    if (quoteId) {
+        // Edit mode - load existing quote
+        title.textContent = t('editRepairQuote') || 'Modifier devis';
+        // TODO: Load quote data from storage
+    } else {
+        // New quote mode
+        title.textContent = t('newRepairQuote');
+        document.getElementById('repairQuoteDate').valueAsDate = new Date();
+
+        // Generate quote number
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+        const year = new Date().getFullYear();
+        const nextNum = config.next_repair_quote || 1;
+        document.getElementById('repairQuoteNumber').value = `DV${year}${String(nextNum).padStart(3, '0')}`;
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeRepairQuoteModal() {
+    document.getElementById('repairQuoteModal').style.display = 'none';
+    currentRepairQuote = null;
+    pacCounter = 0;
+}
+
+function addPACToRepairQuote() {
+    pacCounter++;
+    const pacsList = document.getElementById('repairPACsList');
+
+    const pacCard = document.createElement('div');
+    pacCard.className = 'pac-card';
+    pacCard.dataset.pacIndex = pacCounter;
+
+    pacCard.innerHTML = `
+        <div class="pac-card-header">
+            <div class="pac-card-title">
+                <span class="pac-card-number">${pacCounter}</span>
+                <span>PAC #${pacCounter}</span>
+            </div>
+            <button type="button" class="btn-remove-pac" onclick="removePACFromQuote(${pacCounter})" title="${t('removePAC')}">
+                ✕
+            </button>
+        </div>
+        <div class="pac-card-body">
+            <div class="pac-basic-info">
+                <div class="form-group">
+                    <label>${t('pacSerial')} *</label>
+                    <input type="text" class="pac-serial" required placeholder="TX9-2024-001">
+                </div>
+                <div class="form-group">
+                    <label>${t('pacModel')} *</label>
+                    <select class="pac-model" required onchange="updateComponentsForPAC(${pacCounter})">
+                        <option value="">${t('selectModel')}</option>
+                        <option value="TX9">TX9</option>
+                        <option value="T9">T9</option>
+                        <option value="T11">T11</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pac-components-section">
+                <h5>${t('components')}</h5>
+                <div class="pac-components-list" data-pac="${pacCounter}">
+                    <!-- Component rows will be added here -->
+                </div>
+                <button type="button" class="btn btn-secondary btn-small btn-add-component" onclick="addComponentToPAC(${pacCounter})">
+                    + ${t('addComponent')}
+                </button>
+            </div>
+
+            <div class="pac-services-section">
+                <h5>${t('services')}</h5>
+                <div class="services-grid">
+                    <div class="form-group">
+                        <label>${t('laborHours')}</label>
+                        <input type="number" class="service-labor" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <span class="component-price-display">30 EUR/hod</span>
+                    </div>
+                    <div class="form-group">
+                        <label>${t('refrigerantKg')}</label>
+                        <input type="number" class="service-refrigerant" min="0" step="0.1" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <span class="component-price-display">25 EUR/kg</span>
+                    </div>
+                    <div class="form-group">
+                        <label>${t('disposalKg')}</label>
+                        <input type="number" class="service-disposal" min="0" step="0.1" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <span class="component-price-display">17 EUR/kg</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pac-subtotal">
+                <div class="pac-subtotal-label">${t('pacSubtotal')}:</div>
+                <div class="pac-subtotal-value" id="pacSubtotal${pacCounter}">0.00 EUR</div>
+            </div>
+        </div>
+    `;
+
+    pacsList.appendChild(pacCard);
+    calculateRepairQuoteTotal();
+}
+
+function removePACFromQuote(pacIndex) {
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    if (pacCard && confirm(t('confirmDelete'))) {
+        pacCard.remove();
+        calculateRepairQuoteTotal();
+    }
+}
+
+function updateComponentsForPAC(pacIndex) {
+    // This will be called when PAC model changes
+    // Currently just trigger recalculation
+    calculatePACSubtotal(pacIndex);
+}
+
+function addComponentToPAC(pacIndex) {
+    const componentsList = document.querySelector(`.pac-components-list[data-pac="${pacIndex}"]`);
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    const modelSelect = pacCard.querySelector('.pac-model');
+    const selectedModel = modelSelect.value;
+
+    if (!selectedModel) {
+        showToast(t('selectModel'), 'warning');
+        modelSelect.focus();
+        return;
+    }
+
+    const componentIndex = componentsList.children.length;
+    const componentRow = document.createElement('div');
+    componentRow.className = 'component-row';
+    componentRow.dataset.componentIndex = componentIndex;
+
+    // Get components for selected model
+    let components = [];
+    if (selectedModel === 'TX9') {
+        components = getRepairComponentsByModel('TX9');
+    } else if (selectedModel === 'T9' || selectedModel === 'T11') {
+        components = getRepairComponentsByModel('T9T11');
+    }
+
+    let optionsHTML = `<option value="">${t('selectComponent')}</option>`;
+    components.forEach(comp => {
+        optionsHTML += `<option value="${comp.ref}" data-price="${comp.price}">${comp.name} (${comp.price} EUR)</option>`;
+    });
+
+    componentRow.innerHTML = `
+        <div class="form-group">
+            <label>${t('component')}</label>
+            <select class="component-select" onchange="updateComponentPrice(${pacIndex}, ${componentIndex})">
+                ${optionsHTML}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>${t('qty')}</label>
+            <input type="number" class="component-qty" min="1" value="1" onchange="calculatePACSubtotal(${pacIndex})">
+        </div>
+        <div class="form-group">
+            <label>${t('pricePerUnit')}</label>
+            <input type="number" class="component-price" step="0.01" value="0" readonly class="input-readonly">
+        </div>
+        <div class="form-group">
+            <label>${t('lineTotal')}</label>
+            <input type="number" class="component-total" step="0.01" value="0" readonly class="input-readonly">
+        </div>
+        <button type="button" class="btn-remove-component" onclick="removeComponentFromPAC(${pacIndex}, ${componentIndex})" title="${t('removeComponent')}">
+            ✕
+        </button>
+    `;
+
+    componentsList.appendChild(componentRow);
+}
+
+function removeComponentFromPAC(pacIndex, componentIndex) {
+    const componentsList = document.querySelector(`.pac-components-list[data-pac="${pacIndex}"]`);
+    const componentRow = componentsList.querySelector(`[data-component-index="${componentIndex}"]`);
+    if (componentRow) {
+        componentRow.remove();
+        calculatePACSubtotal(pacIndex);
+    }
+}
+
+function updateComponentPrice(pacIndex, componentIndex) {
+    const componentsList = document.querySelector(`.pac-components-list[data-pac="${pacIndex}"]`);
+    const componentRow = componentsList.querySelector(`[data-component-index="${componentIndex}"]`);
+    const select = componentRow.querySelector('.component-select');
+    const selectedOption = select.options[select.selectedIndex];
+    const price = parseFloat(selectedOption.dataset.price) || 0;
+
+    componentRow.querySelector('.component-price').value = price.toFixed(2);
+    calculatePACSubtotal(pacIndex);
+}
+
+function calculatePACSubtotal(pacIndex) {
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    if (!pacCard) return;
+
+    let subtotal = 0;
+
+    // Calculate components total
+    const componentsList = pacCard.querySelector('.pac-components-list');
+    componentsList.querySelectorAll('.component-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
+        const price = parseFloat(row.querySelector('.component-price').value) || 0;
+        const total = qty * price;
+        row.querySelector('.component-total').value = total.toFixed(2);
+        subtotal += total;
+    });
+
+    // Calculate services total
+    const labor = parseFloat(pacCard.querySelector('.service-labor').value) || 0;
+    const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
+    const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
+
+    const serviceRates = getServiceRates();
+    subtotal += labor * serviceRates.labor.price;
+    subtotal += refrigerant * serviceRates.refrigerantR134a.price;
+    subtotal += disposal * serviceRates.disposal.price;
+
+    // Update PAC subtotal display
+    const subtotalElement = document.getElementById(`pacSubtotal${pacIndex}`);
+    if (subtotalElement) {
+        subtotalElement.textContent = `${subtotal.toFixed(2)} EUR`;
+    }
+
+    calculateRepairQuoteTotal();
+}
+
+function calculateRepairQuoteTotal() {
+    let totalHT = 0;
+
+    // Sum all PAC subtotals
+    document.querySelectorAll('.pac-card').forEach(pacCard => {
+        const pacIndex = pacCard.dataset.pacIndex;
+        const subtotalText = document.getElementById(`pacSubtotal${pacIndex}`)?.textContent || '0.00 EUR';
+        const subtotal = parseFloat(subtotalText.replace(' EUR', '')) || 0;
+        totalHT += subtotal;
+    });
+
+    const vatRate = 0.21; // 21% VAT
+    const vatAmount = totalHT * vatRate;
+    const totalTTC = totalHT + vatAmount;
+
+    document.getElementById('repairQuoteSubtotal').textContent = `${totalHT.toFixed(2)} EUR`;
+    document.getElementById('repairQuoteVAT').textContent = `${vatAmount.toFixed(2)} EUR`;
+    document.getElementById('repairQuoteTotal').textContent = `${totalTTC.toFixed(2)} EUR`;
+}
+
+async function saveRepairQuote() {
+    const form = document.getElementById('repairQuoteForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    // Check if at least one PAC is added
+    const pacCards = document.querySelectorAll('.pac-card');
+    if (pacCards.length === 0) {
+        showToast(t('emptyPACs') || 'Ajoutez au moins une PAC', 'warning');
+        return;
+    }
+
+    // Collect form data
+    const quoteData = {
+        quoteNumber: document.getElementById('repairQuoteNumber').value,
+        date: document.getElementById('repairQuoteDate').value,
+        client: document.getElementById('repairQuoteClient').value,
+        address: document.getElementById('repairQuoteAddress').value,
+        pacs: [],
+        notes: document.getElementById('repairQuoteNotes').value,
+        status: 'pending'
+    };
+
+    // Collect PAC data
+    pacCards.forEach(pacCard => {
+        const pacIndex = pacCard.dataset.pacIndex;
+        const pacData = {
+            serial: pacCard.querySelector('.pac-serial').value,
+            model: pacCard.querySelector('.pac-model').value,
+            components: [],
+            services: {
+                labor: parseFloat(pacCard.querySelector('.service-labor').value) || 0,
+                refrigerant: parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0,
+                disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0
+            },
+            subtotal: parseFloat(document.getElementById(`pacSubtotal${pacIndex}`).textContent.replace(' EUR', '')) || 0
+        };
+
+        // Collect components
+        const componentsList = pacCard.querySelector('.pac-components-list');
+        componentsList.querySelectorAll('.component-row').forEach(row => {
+            const select = row.querySelector('.component-select');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption.value) {
+                pacData.components.push({
+                    ref: selectedOption.value,
+                    name: selectedOption.textContent.split(' (')[0],
+                    qty: parseFloat(row.querySelector('.component-qty').value) || 0,
+                    priceUnit: parseFloat(row.querySelector('.component-price').value) || 0,
+                    total: parseFloat(row.querySelector('.component-total').value) || 0
+                });
+            }
+        });
+
+        quoteData.pacs.push(pacData);
+    });
+
+    // Calculate totals
+    const subtotalText = document.getElementById('repairQuoteSubtotal').textContent;
+    const vatText = document.getElementById('repairQuoteVAT').textContent;
+    const totalText = document.getElementById('repairQuoteTotal').textContent;
+
+    quoteData.subtotal = parseFloat(subtotalText.replace(' EUR', '')) || 0;
+    quoteData.vat = parseFloat(vatText.replace(' EUR', '')) || 0;
+    quoteData.total = parseFloat(totalText.replace(' EUR', '')) || 0;
+
+    // Save to storage
+    try {
+        // TODO: Implement storage.processRepairQuote()
+        // await storage.processRepairQuote(quoteData);
+
+        // For now, just save to localStorage directly
+        let quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+
+        if (currentRepairQuote) {
+            // Update existing
+            const index = quotes.findIndex(q => q.id === currentRepairQuote);
+            if (index !== -1) {
+                quoteData.id = currentRepairQuote;
+                quotes[index] = quoteData;
+            }
+        } else {
+            // Create new
+            quoteData.id = 'RQ-' + Date.now();
+            quoteData.createdAt = new Date().toISOString();
+            quotes.push(quoteData);
+
+            // Update next quote number
+            const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+            const year = new Date().getFullYear();
+            config.next_repair_quote = (config.next_repair_quote || 1) + 1;
+            config.year = year;
+            localStorage.setItem('navalo_config', JSON.stringify(config));
+        }
+
+        localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+
+        showToast(t('saved'), 'success');
+        closeRepairQuoteModal();
+        await updateRepairQuotesDisplay();
+    } catch (error) {
+        console.error('Error saving repair quote:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+async function updateRepairQuotesDisplay() {
+    const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+
+    // Update summary cards
+    const totalValue = quotes.reduce((sum, q) => sum + (q.total || 0), 0);
+    const pendingCount = quotes.filter(q => q.status === 'pending').length;
+    const acceptedCount = quotes.filter(q => q.status === 'accepted').length;
+
+    const totalElement = document.getElementById('totalRepairQuotesValue');
+    const pendingElement = document.getElementById('pendingRepairQuotesCount');
+    const acceptedElement = document.getElementById('acceptedRepairQuotesCount');
+
+    if (totalElement) totalElement.textContent = `${totalValue.toFixed(0)} EUR`;
+    if (pendingElement) pendingElement.textContent = pendingCount;
+    if (acceptedElement) acceptedElement.textContent = acceptedCount;
+
+    // Update table
+    const tbody = document.getElementById('repairQuotesTableBody');
+    if (!tbody) return;
+
+    if (quotes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;">${t('noData')}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = quotes.map(quote => {
+        const statusClass = quote.status === 'accepted' ? 'status-confirmed' :
+                           quote.status === 'rejected' ? 'status-cancelled' :
+                           quote.status === 'invoiced' ? 'status-delivered' : '';
+
+        const pacCount = quote.pacs?.length || 0;
+
+        return `
+            <tr>
+                <td>${quote.date || '-'}</td>
+                <td><strong>${quote.quoteNumber || '-'}</strong></td>
+                <td>${quote.client || '-'}</td>
+                <td>${pacCount}</td>
+                <td>${quote.subtotal?.toFixed(2) || '0.00'} EUR</td>
+                <td><span class="status-badge ${statusClass}">${t('status' + quote.status.charAt(0).toUpperCase() + quote.status.slice(1)) || quote.status}</span></td>
+                <td>
+                    <button class="btn-icon" onclick="viewRepairQuote('${quote.id}')" title="${t('view')}">👁️</button>
+                    <button class="btn-icon" onclick="openRepairQuoteModal('${quote.id}')" title="${t('edit')}">✏️</button>
+                    ${quote.status === 'accepted' ? `<button class="btn-icon" onclick="convertRepairQuoteToInvoice('${quote.id}')" title="${t('convertToInvoice')}">🧾</button>` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function viewRepairQuote(quoteId) {
+    // TODO: Implement quote preview
+    showToast('Preview coming soon', 'info');
+}
+
+function convertRepairQuoteToInvoice(quoteId) {
+    // TODO: Implement conversion to invoice
+    showToast('Conversion coming soon', 'info');
+}
+
+// Make functions globally accessible
+window.openRepairQuoteModal = openRepairQuoteModal;
+window.closeRepairQuoteModal = closeRepairQuoteModal;
+window.addPACToRepairQuote = addPACToRepairQuote;
+window.removePACFromQuote = removePACFromQuote;
+window.updateComponentsForPAC = updateComponentsForPAC;
+window.addComponentToPAC = addComponentToPAC;
+window.removeComponentFromPAC = removeComponentFromPAC;
+window.updateComponentPrice = updateComponentPrice;
+window.calculatePACSubtotal = calculatePACSubtotal;
+window.calculateRepairQuoteTotal = calculateRepairQuoteTotal;
+window.saveRepairQuote = saveRepairQuote;
+window.updateRepairQuotesDisplay = updateRepairQuotesDisplay;
+window.viewRepairQuote = viewRepairQuote;
+window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
+
+// ========================================
+//  END REPAIR QUOTES FUNCTIONS
+// ========================================
 
 // Function to clear all local cache and reload from Google Sheets
 async function clearLocalCache() {
