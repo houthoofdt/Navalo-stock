@@ -37,6 +37,7 @@
             <button class="nav-btn" data-tab="commandes"><span>🛒</span> <span data-i18n="navCommandes">Commandes</span></button>
             <button class="nav-btn" data-tab="factures"><span>🧾</span> <span data-i18n="navFactures">Factures</span></button>
             <button class="nav-btn" data-tab="devis"><span>📝</span> <span data-i18n="navDevis">Devis</span></button>
+            <button class="nav-btn" data-tab="repair-quotes"><span>🔧</span> <span data-i18n="navRepairQuotes">Devis Réparations</span></button>
             <button class="nav-btn" data-tab="prijate"><span>📥</span> <span data-i18n="navPrijate">Faktury přijaté</span></button>
             <button class="nav-btn" data-tab="objprijate"><span>📋</span> <span data-i18n="navObjPrijate">Obj. přijaté</span></button>
             <button class="nav-btn" data-tab="contacts"><span>👥</span> <span data-i18n="navContacts">Contacts</span></button>
@@ -492,6 +493,74 @@
                             </tr>
                         </thead>
                         <tbody id="quotesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- REPAIR QUOTES TAB -->
+            <section class="tab-content" id="tab-repair-quotes">
+                <div class="tab-header">
+                    <h2 data-i18n="repairQuotesTitle">Devis Réparations PAC</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openRepairQuoteModal()">
+                            + <span data-i18n="newRepairQuote">Nouveau devis réparation</span>
+                        </button>
+                        <select id="repairQuoteStatusFilter" class="filter-select" onchange="updateRepairQuotesDisplay()">
+                            <option value="">Tous statuts</option>
+                            <option value="draft">Brouillon</option>
+                            <option value="sent">Envoyé</option>
+                            <option value="accepted">Accepté</option>
+                            <option value="rejected">Refusé</option>
+                            <option value="invoiced">Facturé</option>
+                        </select>
+                        <input type="month" id="repairQuoteMonthFilter" class="filter-input" onchange="updateRepairQuotesDisplay()">
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>🔧 Total Devis</h3>
+                        <div class="card-content"><span class="total-count" id="repairQuoteTotalCount">0</span></div>
+                    </div>
+                    <div class="summary-card warning">
+                        <h3>⏳ En attente</h3>
+                        <div class="card-content"><span class="total-count" id="repairQuotePendingCount">0</span></div>
+                    </div>
+                    <div class="summary-card success">
+                        <h3>✅ Acceptés</h3>
+                        <div class="card-content"><span class="total-count" id="repairQuoteAcceptedCount">0</span></div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>💰 Valeur totale</h3>
+                        <div class="card-content">
+                            <span class="total-count" id="repairQuoteValue">0</span>
+                            <span class="total-label">EUR</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="quoteNumber">N° Devis</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="client">Client</th>
+                                <th data-i18n="pacCount">Nb PAC</th>
+                                <th data-i18n="total">Total</th>
+                                <th data-i18n="currency">Devise</th>
+                                <th data-i18n="validUntil">Validité</th>
+                                <th data-i18n="status">Statut</th>
+                                <th data-i18n="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="repairQuotesTableBody">
+                            <tr>
+                                <td colspan="9" class="text-muted text-center">
+                                    <span data-i18n="noData">Aucune donnée</span>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </section>
