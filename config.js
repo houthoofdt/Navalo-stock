@@ -12,7 +12,8 @@ const CONFIG = {
 
     // Mode hybride: travail en local avec synchronisation automatique vers Google Sheets
     // ⚡ RECOMMANDÉ pour meilleures performances
-    HYBRID_MODE: true,
+    // ⚠️ DÉSACTIVÉ: force lecture depuis Google Sheets pour éviter données obsolètes
+    HYBRID_MODE: false,
 
     // Intervalle de synchronisation en millisecondes (par défaut 5 minutes)
     // 60000 = 1 min, 300000 = 5 min, 600000 = 10 min
