@@ -251,6 +251,9 @@ function doPost(e) {
         case 'updateRepairQuoteStatus':
           result = updateRepairQuoteStatus(data.quoteId, data.status);
           break;
+        case 'updateRepairQuote':
+          result = updateRepairQuote(data);
+          break;
       default:
         result = { error: 'Action non reconnue: ' + action };
     }
@@ -3170,4 +3173,49 @@ function updateRepairQuoteStatus(quoteId, newStatus) {
   }
 
   return { success: false, error: 'Quote not found' };
+}
+
+function updateRepairQuote(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  if (!sheet) {
+    return { success: false, error: 'REPAIR_QUOTES sheet not found' };
+  }
+
+  const quoteId = data.id;
+  if (!quoteId) {
+    return { success: false, error: 'Quote ID required' };
+  }
+
+  const sheetData = sheet.getDataRange().getValues();
+
+  // Find the row with this quote ID
+  for (let i = 1; i < sheetData.length; i++) {
+    if (sheetData[i][0] === quoteId) {
+      // Update quote number if provided (column 3)
+      if (data.quoteNumber) {
+        sheet.getRange(i + 1, 3).setValue(data.quoteNumber);
+      }
+
+      // Update status if provided (column 7)
+      if (data.status) {
+        sheet.getRange(i + 1, 7).setValue(data.status);
+      }
+
+      // Update full quote data if provided (all columns)
+      if (data.quote) {
+        const quote = data.quote;
+        sheet.getRange(i + 1, 3).setValue(quote.quoteNumber || sheetData[i][2]);
+        sheet.getRange(i + 1, 7).setValue(quote.status || sheetData[i][6]);
+      }
+
+      // Update timestamp
+      sheet.getRange(i + 1, 14).setValue(new Date());
+
+      return { success: true, quoteId: quoteId };
+    }
+  }
+
+  return { success: false, error: 'Quote not found with ID: ' + quoteId };
 }

@@ -8625,6 +8625,119 @@ window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
 //  END REPAIR QUOTES FUNCTIONS
 // ========================================
 
+// Function to fix duplicate repair quote numbers
+async function fixDuplicateRepairQuoteNumbers() {
+    if (!confirm('Voulez-vous renuméroter tous les devis de réparation avec des numéros uniques?\n\nCela corrigera les doublons (DV2026001, DV2026001, DV2026001) en (DV2026001, DV2026002, DV2026003)')) {
+        return;
+    }
+
+    try {
+        console.log('🔧 Fixing duplicate repair quote numbers...');
+
+        // Get all repair quotes
+        const quotes = await storage.getRepairQuotes(1000);
+
+        if (!quotes || quotes.length === 0) {
+            showToast('Aucun devis à corriger', 'info');
+            return;
+        }
+
+        console.log('Found', quotes.length, 'repair quotes');
+
+        // Sort by creation date (oldest first)
+        quotes.sort((a, b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt));
+
+        // Track numbers used per year
+        const usedNumbers = {};
+        const updates = [];
+
+        quotes.forEach((quote, index) => {
+            const quoteDate = new Date(quote.date || quote.createdAt);
+            const year = quoteDate.getFullYear();
+
+            // Initialize year counter if needed
+            if (!usedNumbers[year]) {
+                usedNumbers[year] = 0;
+            }
+
+            // Increment counter for this year
+            usedNumbers[year]++;
+
+            // Generate new unique number
+            const newNumber = `DV${year}${String(usedNumbers[year]).padStart(3, '0')}`;
+
+            // If number changed, track the update
+            if (quote.quoteNumber !== newNumber) {
+                console.log(`  Renumbering: ${quote.quoteNumber} → ${newNumber}`);
+                updates.push({
+                    id: quote.id,
+                    oldNumber: quote.quoteNumber,
+                    newNumber: newNumber,
+                    quote: quote
+                });
+            }
+        });
+
+        if (updates.length === 0) {
+            showToast('Aucun doublon trouvé', 'success');
+            return;
+        }
+
+        console.log(`Found ${updates.length} quotes to renumber`);
+
+        // Update in Google Sheets if in googlesheets mode
+        if (storage.getMode() === 'googlesheets') {
+            for (const update of updates) {
+                // Update quote number
+                update.quote.quoteNumber = update.newNumber;
+
+                // Call backend to update (we'll need to add this to Code.gs)
+                try {
+                    await storage.apiPost('updateRepairQuote', {
+                        id: update.id,
+                        quoteNumber: update.newNumber,
+                        quote: update.quote
+                    });
+                    console.log(`  ✅ Updated ${update.oldNumber} → ${update.newNumber} in Google Sheets`);
+                } catch (error) {
+                    console.error(`  ❌ Failed to update ${update.id}:`, error);
+                }
+            }
+        }
+
+        // Update in localStorage
+        let localQuotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+        updates.forEach(update => {
+            const index = localQuotes.findIndex(q => q.id === update.id);
+            if (index >= 0) {
+                localQuotes[index].quoteNumber = update.newNumber;
+            }
+        });
+        localStorage.setItem('navalo_repair_quotes', JSON.stringify(localQuotes));
+
+        // Update counter to next number
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+        const currentYear = new Date().getFullYear();
+        config.next_repair_quote = (usedNumbers[currentYear] || 0) + 1;
+        config.year = currentYear;
+        localStorage.setItem('navalo_config', JSON.stringify(config));
+
+        console.log(`✅ Fixed ${updates.length} duplicate numbers`);
+        console.log(`Next number will be: DV${currentYear}${String(config.next_repair_quote).padStart(3, '0')}`);
+
+        showToast(`${updates.length} devis renumérotés avec succès`, 'success');
+
+        // Refresh display
+        await updateRepairQuotesDisplay();
+
+    } catch (error) {
+        console.error('Error fixing duplicate numbers:', error);
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
+window.fixDuplicateRepairQuoteNumbers = fixDuplicateRepairQuoteNumbers;
+
 // Function to clear all local cache and reload from Google Sheets
 async function clearLocalCache() {
     // Check for pending sync operations first
