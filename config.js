@@ -82,10 +82,10 @@ const CONFIG = {
     // Modèles PAC - Configuration dynamique
     // Pour ajouter un modèle: ajouter ici + ajouter BOM dans data.js
     PAC_MODELS: [
-        { id: 'TX9', name: 'TX9', fullName: 'Heat Pump Module TX9' },
-        { id: 'TX12-3PH', name: 'TX12-18 3ph', fullName: 'Heat Pump Module TX12-18 (3-phase)' },
-        { id: 'TX12-1PH', name: 'TX12-18 1ph', fullName: 'Heat Pump Module TX12-18 (1-phase)' },
-        { id: 'TH11', name: 'TH11', fullName: 'Heat Pump Module TH11' }
+        { id: 'TX9', name: 'TX9', partNumber: '566255', fullName: '566255 Tepelné čerpadlo s izolaci EPP' },
+        { id: 'TX12-3PH', name: 'TX12-18 3ph', partNumber: '582489-S1', fullName: '582489-S1 HP unit TX12-18 Complete 3F' },
+        { id: 'TX12-1PH', name: 'TX12-18 1ph', partNumber: '582493-S1', fullName: '582493-S1 HP unit TX12-18 Complete 1F' },
+        { id: 'TH11', name: 'TH11', partNumber: '552661-S1', fullName: '552661-S1 Cabinet T11-16HP 380-415V 3AC 50Hz assembly' }
     ],
     
     // Catégories (FR)
