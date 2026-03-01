@@ -1475,6 +1475,25 @@ body {
         padding: 0 !important;
     }
 
+    /* When temp-print-container exists, hide everything else */
+    body:has(#temp-print-container) > *:not(#temp-print-container) {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Alternative: when body has temp-printing class */
+    body.temp-printing > *:not(#temp-print-container) {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.temp-printing {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     .modal-content {
         box-shadow: none !important;
         max-height: none !important;

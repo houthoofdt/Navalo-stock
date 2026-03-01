@@ -8689,12 +8689,16 @@ async function printRepairQuote() {
     printContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; background: white; z-index: 99999;';
     printContainer.innerHTML = previewContent.outerHTML;
 
+    // Add class to body for print-specific CSS
+    document.body.classList.add('temp-printing');
+
     // Hide main content and show print container
     document.body.appendChild(printContainer);
-    const mainContent = document.body.children;
+    const mainContent = Array.from(document.body.children);
     for (let elem of mainContent) {
         if (elem !== printContainer) {
             elem.style.display = 'none';
+            elem.style.visibility = 'hidden';
         }
     }
 
@@ -8705,9 +8709,11 @@ async function printRepairQuote() {
         // Cleanup after print
         setTimeout(() => {
             document.title = originalTitle;
+            document.body.classList.remove('temp-printing');
             printContainer.remove();
             for (let elem of mainContent) {
                 elem.style.display = '';
+                elem.style.visibility = '';
             }
         }, 500);
     }, 100);
