@@ -1446,22 +1446,26 @@ body {
         font-size: 9pt !important;
     }
 
-    body * {
-        visibility: hidden;
+    /* Hide everything except active modal content */
+    body > *:not(.modal.active) {
+        display: none !important;
     }
 
-    .modal.active,
-    .modal.active .modal-content,
-    .modal.active .modal-content * {
-        visibility: visible;
+    .modal:not(.active) {
+        display: none !important;
     }
 
     .modal.active {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+        display: flex !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
         background: white !important;
+    }
+
+    .modal.active .modal-content {
+        display: block !important;
     }
 
     .modal-content {
