@@ -4388,6 +4388,7 @@ async function openFreeInvoiceModal() {
     populateClientSelect('invClient');
     populateRecOrderSelect();
     populatePaidProformaSelect();
+    document.getElementById('invClientOrderNum').value = '';
     document.getElementById('invItems').innerHTML = '';
     addInvoiceItemRow();
 
@@ -5554,6 +5555,7 @@ function loadRecOrderToInvoice() {
     });
 
     document.getElementById('invNotes').value = `Obj.: ${order.orderNumber}`;
+    document.getElementById('invClientOrderNum').value = order.clientOrderNumber || '';
     calculateInvoiceTotal();
 
     // AUTOMATICALLY link paid proforma if exists for this order
@@ -5718,7 +5720,7 @@ async function saveIssuedInvoice() {
         notes: document.getElementById('invNotes').value,
         linkedOrder: document.getElementById('invLinkedOrder').value,
         linkedOrderNumber: '', // Will be filled from linked order
-        clientOrderNumber: '', // Will be filled from linked order
+        clientOrderNumber: document.getElementById('invClientOrderNum')?.value || '', // From form or linked order
         linkedProforma: null, // Proforma deduction info
         // Deposit/acompte info for proformas
         depositPercent: isProforma ? depositPercent : null,
@@ -5752,7 +5754,10 @@ async function saveIssuedInvoice() {
         const linkedOrderData = orders.find(o => o.id === invoice.linkedOrder);
         if (linkedOrderData) {
             invoice.linkedOrderNumber = linkedOrderData.orderNumber || '';
-            invoice.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
+            // Only fill clientOrderNumber from linked order if not already set in form
+            if (!invoice.clientOrderNumber) {
+                invoice.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
+            }
         }
     }
 
@@ -5866,6 +5871,7 @@ function editInvoice(invNumber) {
     document.getElementById('invClientAddress').value = inv.clientAddress || '';
     document.getElementById('invClientIco').value = inv.clientIco || '';
     document.getElementById('invClientDic').value = inv.clientDic || '';
+    document.getElementById('invClientOrderNum').value = inv.clientOrderNumber || '';
     // Check if this is a proforma using all indicators
     const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
     const proformaCheckbox = document.getElementById('invIsProforma');
@@ -5893,6 +5899,11 @@ function editInvoice(invNumber) {
     populateClientSelect('invClient');
     populateRecOrderSelect();
     populatePaidProformaSelect();
+
+    // Select linked order if exists
+    if (inv.linkedOrder) {
+        document.getElementById('invLinkedOrder').value = inv.linkedOrder;
+    }
 
     // Select linked proforma if exists
     if (inv.linkedProforma && inv.linkedProforma.number) {
