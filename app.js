@@ -5711,7 +5711,7 @@ async function saveIssuedInvoice() {
         vat: parseFloat(document.getElementById('invVat').value) || 0,
         total: parseFloat(document.getElementById('invTotal').value) || 0,
         currency: currency,
-        exchangeRate: currency === 'EUR' ? parseFloat(document.getElementById('invExchangeRate').value) || exchangeRate : null,
+        exchangeRate: (currency === 'EUR' && !isProforma) ? parseFloat(document.getElementById('invExchangeRate').value) || exchangeRate : null,
         paymentMethod: document.getElementById('invPaymentMethod').value,
         notes: document.getElementById('invNotes').value,
         linkedOrder: document.getElementById('invLinkedOrder').value,
