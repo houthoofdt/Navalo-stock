@@ -3601,6 +3601,7 @@ function openPOModal() {
     document.getElementById('poExpectedDate').value = '';
     document.getElementById('poModal').classList.add('active');
     document.getElementById('poItems').innerHTML = '';
+    addPOItemRow(); // Add one default item row
     updatePOTotal();
 }
 
@@ -4007,7 +4008,7 @@ async function updateInvoicesDisplay() {
     if (!tbody) return;
     
     if (invoices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-muted text-center">${t('noData')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="text-muted text-center">${t('noData')}</td></tr>`;
         updateInvoiceStats([]);
         return;
     }
@@ -4035,6 +4036,7 @@ async function updateInvoicesDisplay() {
             <td><strong>${inv.number}</strong>${proformaBadge}</td>
             <td>${formatDate(inv.date)}</td>
             <td>${inv.client}</td>
+            <td>${inv.clientOrderNumber || inv.linkedOrderNumber || '-'}</td>
             <td>${formatDate(inv.dueDate)}</td>
             <td class="text-right">${formatCurrency(inv.subtotal || 0)}</td>
             <td class="text-right">${formatCurrency(inv.vat || 0)}</td>
