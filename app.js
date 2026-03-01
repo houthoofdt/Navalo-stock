@@ -9556,7 +9556,6 @@ function previewInvoiceBeforeSave() {
         dueDate: document.getElementById('invDueDate')?.value || '',
         taxDate: document.getElementById('invTaxDate')?.value || '',
         currency: document.getElementById('invCurrency')?.value || 'CZK',
-        exchangeRate: parseFloat(document.getElementById('invExchangeRate')?.value) || null,
         items: [],
         notes: document.getElementById('invNotes')?.value || '',
         linkedOrderNumber: '',
@@ -9616,6 +9615,11 @@ function previewInvoiceBeforeSave() {
     invoiceData.type = invoiceData.isProforma ? 'proforma' : 'standard';
     if (invoiceData.isProforma) {
         invoiceData.depositPercent = parseFloat(document.getElementById('invDepositPercent')?.value) || 100;
+        // Proforma should not have exchange rate
+        invoiceData.exchangeRate = null;
+    } else if (invoiceData.currency === 'EUR') {
+        // Only non-proforma EUR invoices have exchange rate
+        invoiceData.exchangeRate = parseFloat(document.getElementById('invExchangeRate')?.value) || null;
     }
 
     // Get items from invoice form
@@ -9699,9 +9703,12 @@ function generateInvoicePreviewHTML(inv) {
     // Banking info
     const bankInfo = curr === 'EUR' ? company.bank?.EUR : company.bank?.CZK;
 
-    // CZK conversion for EUR invoices (NOT shown when there's proforma deduction, as it's handled separately)
+    // Determine document type and title
+    const isProforma = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+
+    // CZK conversion for EUR invoices (NOT shown for proforma, NOT shown when there's proforma deduction)
     let czkConversionHtml = '';
-    if (curr === 'EUR' && inv.exchangeRate && !hasProformaDeduction) {
+    if (curr === 'EUR' && inv.exchangeRate && !isProforma && !hasProformaDeduction) {
         const rate = parseFloat(inv.exchangeRate) || exchangeRate;
         const subtotalCZK = inv.subtotal * rate;
         const vatCZK = inv.vat * rate;
@@ -9718,9 +9725,6 @@ function generateInvoicePreviewHTML(inv) {
             </div>
         `;
     }
-
-    // Determine document type and title
-    const isProforma = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
     const invoiceTitle = isProforma ? 'ZÁLOHOVÁ FAKTURA (PROFORMA)' : 'DAŇOVÝ DOKLAD FAKTURA';
     const depositInfo = isProforma && inv.depositPercent && inv.depositPercent < 100 ? ` - Záloha ${inv.depositPercent}%` : '';
     const proformaBanner = isProforma ? `
@@ -9743,7 +9747,7 @@ function generateInvoicePreviewHTML(inv) {
                 </div>
                 <div class="inv-info" style="text-align: right; font-size: 10px;">
                     <p style="margin: 2px 0;">Datum vystavení: ${formatDate(inv.issueDate || inv.date)}</p>
-                    <p style="margin: 2px 0;">DUZP: ${formatDate(inv.taxDate || inv.issueDate || inv.date)}</p>
+                    ${!isProforma ? `<p style="margin: 2px 0;">DUZP: ${formatDate(inv.taxDate || inv.issueDate || inv.date)}</p>` : ''}
                     <p style="margin: 2px 0;">Splatnost: ${formatDate(inv.dueDate)}</p>
                     <p style="margin: 2px 0;">Variabilní symbol: ${varSymbol}</p>
                     ${inv.linkedOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo objednávky:</strong> ${inv.linkedOrderNumber}</p>` : ''}
