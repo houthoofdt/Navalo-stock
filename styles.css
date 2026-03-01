@@ -1452,7 +1452,9 @@ body {
 
     .modal.active,
     .modal.active .modal-content,
-    .modal.active .modal-content * {
+    .modal.active .modal-content *,
+    #temp-print-container,
+    #temp-print-container * {
         visibility: visible;
     }
 
@@ -1464,14 +1466,27 @@ body {
         background: white !important;
     }
 
+    #temp-print-container {
+        position: static !important;
+        display: block !important;
+        width: 100% !important;
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     .modal-content {
         box-shadow: none !important;
-        max-height: none;
+        max-height: none !important;
+        overflow: visible !important;
         border: none;
         margin: 0;
         padding: 0;
         width: 100% !important;
         max-width: none !important;
+        position: static !important;
+        transform: none !important;
+        height: auto !important;
     }
 
     .modal-header,
@@ -1485,10 +1500,22 @@ body {
     .delivery-preview,
     .invoice-preview,
     #orderConfirmPreview,
-    #taxDocPreview {
-        max-height: none;
-        overflow: visible;
+    #taxDocPreview,
+    #repairQuotePreview,
+    #receivedInvoicePreview,
+    #deliveryPreview,
+    #poPreview,
+    #invoicePreview,
+    #receivedOrderPreview,
+    #receiptPreview,
+    #quotePreview {
+        max-height: none !important;
+        overflow: visible !important;
         width: 100%;
+        padding: 0 !important;
+        position: static !important;
+        transform: none !important;
+        height: auto !important;
     }
 
     /* === SIMPLIFIED PRINT STYLES - FIT ON ONE A4 PAGE === */
@@ -1717,12 +1744,18 @@ body {
     .delivery-note {
         padding: 0 !important;
         font-size: 10pt !important;
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
     }
 
     .dn-header {
         border-bottom: 2px solid #000 !important;
         padding-bottom: 8px !important;
         margin-bottom: 10px !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     .dn-company h2 {
@@ -1750,11 +1783,15 @@ body {
         font-size: 12pt !important;
         margin: 10px 0 !important;
         font-weight: bold;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     .dn-addresses {
         gap: 15px !important;
         margin-bottom: 15px !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     .dn-address h4 {
@@ -1795,6 +1832,47 @@ body {
 
     .dn-total {
         background: #f0f0f0 !important;
+    }
+
+    .pac-separator {
+        background: #f0f0f0 !important;
+        page-break-after: avoid !important;
+    }
+
+    .pac-separator td {
+        border-top: 2px solid #000 !important;
+        font-weight: bold !important;
+    }
+
+    .pac-subtotal {
+        background: #f5f5f5 !important;
+        page-break-inside: avoid !important;
+    }
+
+    .pac-subtotal td {
+        border-bottom: 1px solid #000 !important;
+        font-weight: bold !important;
+    }
+
+    .dn-totals {
+        page-break-inside: avoid !important;
+        background: none !important;
+        margin-top: 15px !important;
+        padding: 10px !important;
+        border: 1px solid #000 !important;
+        border-radius: 0 !important;
+    }
+
+    .dn-total-row {
+        font-size: 9pt !important;
+        padding: 3px 0 !important;
+    }
+
+    .dn-total-main {
+        font-size: 11pt !important;
+        border-top: 1px solid #000 !important;
+        padding-top: 5px !important;
+        margin-top: 5px !important;
     }
 
     .dn-signatures {

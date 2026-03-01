@@ -8471,7 +8471,7 @@ async function updateRepairQuotesDisplay() {
 
         return `
             <tr>
-                <td>${quote.date || '-'}</td>
+                <td>${formatDate(quote.date) || '-'}</td>
                 <td><strong>${quote.quoteNumber || '-'}</strong></td>
                 <td>${quote.client || '-'}</td>
                 <td>${pacCount}</td>
@@ -8652,6 +8652,14 @@ function showRepairQuotePreview(quote) {
     const modal = document.getElementById('repairQuotePreviewModal');
     modal.style.display = 'flex';
     modal.classList.add('active'); // Enable print CSS
+
+    // Reset scroll to top when opening preview
+    setTimeout(() => {
+        const modalContent = modal.querySelector('.modal-content');
+        const previewDiv = document.getElementById('repairQuotePreview');
+        if (modalContent) modalContent.scrollTop = 0;
+        if (previewDiv) previewDiv.scrollTop = 0;
+    }, 50);
 }
 
 function closeRepairQuotePreviewModal() {
@@ -8666,8 +8674,43 @@ async function printRepairQuote() {
     const quotes = await storage.getRepairQuotes(100);
     const quote = quotes.find(q => q.id === currentRepairQuotePreview);
     document.title = quote?.quoteNumber || 'Devis';
-    window.print();
-    setTimeout(() => { document.title = originalTitle; }, 500);
+
+    // Create temporary print container outside modal
+    const previewContent = document.querySelector('#repairQuotePreview .delivery-note');
+    if (!previewContent) {
+        window.print();
+        setTimeout(() => { document.title = originalTitle; }, 500);
+        return;
+    }
+
+    // Clone content for printing
+    const printContainer = document.createElement('div');
+    printContainer.id = 'temp-print-container';
+    printContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; background: white; z-index: 99999;';
+    printContainer.innerHTML = previewContent.outerHTML;
+
+    // Hide main content and show print container
+    document.body.appendChild(printContainer);
+    const mainContent = document.body.children;
+    for (let elem of mainContent) {
+        if (elem !== printContainer) {
+            elem.style.display = 'none';
+        }
+    }
+
+    // Print
+    setTimeout(() => {
+        window.print();
+
+        // Cleanup after print
+        setTimeout(() => {
+            document.title = originalTitle;
+            printContainer.remove();
+            for (let elem of mainContent) {
+                elem.style.display = '';
+            }
+        }, 500);
+    }, 100);
 }
 
 async function convertRepairQuoteToInvoice(quoteId) {
