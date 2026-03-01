@@ -254,7 +254,17 @@ const TRANSLATIONS = {
         statusPending: 'En attente',
         statusAccepted: 'Accepté',
         statusRejected: 'Refusé',
-        statusInvoiced: 'Facturé'
+        statusInvoiced: 'Facturé',
+        // Preview
+        preview: 'Aperçu',
+        receivedOrderPreview: 'Aperçu de la commande reçue',
+        receivedInvoicePreview: 'Aperçu de la facture reçue',
+        receiptPreview: 'Aperçu de la réception',
+        stockReceipt: 'Réception de stock',
+        receivedOrder: 'COMMANDE REÇUE',
+        receivedInvoice: 'FACTURE REÇUE',
+        exchangeRate: 'Taux de change',
+        deliveryProgress: 'Progression'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -436,7 +446,17 @@ const TRANSLATIONS = {
         statusPending: 'Čeká',
         statusAccepted: 'Přijato',
         statusRejected: 'Odmítnuto',
-        statusInvoiced: 'Fakturováno'
+        statusInvoiced: 'Fakturováno',
+        // Preview
+        preview: 'Náhled',
+        receivedOrderPreview: 'Náhled přijaté objednávky',
+        receivedInvoicePreview: 'Náhled přijaté faktury',
+        receiptPreview: 'Náhled příjemky',
+        stockReceipt: 'Příjemka',
+        receivedOrder: 'PŘIJATÁ OBJEDNÁVKA',
+        receivedInvoice: 'PŘIJATÁ FAKTURA',
+        exchangeRate: 'Směnný kurz',
+        deliveryProgress: 'Postup dodávky'
     }
 };
 
@@ -1236,8 +1256,8 @@ function populateComponentSelectsBySupplier(containerId, supplierName) {
 
             const supplierLower = supplierName.toLowerCase();
             components = components.filter(([ref, data]) => {
-                const manufacturer = (data.manufacturer || '').toLowerCase().trim();
-                const name = (data.name || '').toLowerCase();
+                const manufacturer = String(data.manufacturer || '').toLowerCase().trim();
+                const name = String(data.name || '').toLowerCase();
 
                 // If contact has manufacturers specified, use that list
                 if (contactManufacturers.length > 0) {
@@ -3004,17 +3024,34 @@ function populateComponentSelects() {
     });
 }
 
-function populateLinkedPOSelect(supplierFilter = null) {
+async function populateLinkedPOSelect(supplierFilter = null) {
     const select = document.getElementById('entryLinkedPO');
     if (!select) return;
-    
+
     // If no supplier filter, show placeholder only
     if (!supplierFilter) {
         select.innerHTML = `<option value="">${t('selectSupplierFirst') || 'Vyberte dodavatele'}</option>`;
         return;
     }
-    
+
     let pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+
+    // Try to load from Google Sheets if empty
+    if (pos.length === 0 && storage.getMode() === 'googlesheets') {
+        try {
+            select.innerHTML = `<option value="">${t('loading') || 'Načítání...'}...</option>`;
+            pos = await storage.getPurchaseOrders(200);
+            if (Array.isArray(pos)) {
+                localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
+            } else {
+                pos = [];
+            }
+        } catch (e) {
+            console.warn('Failed to load POs from Google Sheets:', e);
+            pos = [];
+        }
+    }
+
     select.innerHTML = `<option value="">${t('none')}</option>`;
 
     let needsSave = false;
@@ -3085,16 +3122,16 @@ function populateLinkedPOSelect(supplierFilter = null) {
 }
 
 // Called when supplier changes in entry form
-function onEntrySupplierChange() {
+async function onEntrySupplierChange() {
     const supplierSelect = document.getElementById('entrySupplier');
     const supplierText = supplierSelect.options[supplierSelect.selectedIndex]?.text || '';
-    
+
     // Update currency based on supplier
     onSupplierChange('entrySupplier');
-    
+
     // Filter linked PO list by selected supplier
     if (supplierText && supplierText !== t('selectContact')) {
-        populateLinkedPOSelect(supplierText);
+        await populateLinkedPOSelect(supplierText);
     } else {
         // Clear the PO list if no supplier selected
         const select = document.getElementById('entryLinkedPO');
@@ -4316,7 +4353,9 @@ function viewInvoice(invNumber) {
             </div>
         </div>
     `;
-    document.getElementById('invoicePreviewModal').classList.add('active');
+    const modal = document.getElementById('invoicePreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
 }
 
 async function openFreeInvoiceModal() {
@@ -4941,7 +4980,9 @@ function closeInvoiceModal() {
 }
 
 function closeInvoicePreviewModal() {
-    document.getElementById('invoicePreviewModal').classList.remove('active');
+    const modal = document.getElementById('invoicePreviewModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
 }
 
 function printInvoice() {
@@ -5067,7 +5108,8 @@ async function generateTaxDocument(invNumber) {
                     <strong>DIČ:</strong> ${inv.clientDic || ''}<br><br>
                     <table style="width: 100%; font-size: 11px;">
                         <tr><td>Forma úhrady:</td><td>peněžní převod</td></tr>
-                        <tr><td>Číslo objednávky:</td><td>${inv.linkedOrderNumber || inv.clientOrderNumber || ''}</td></tr>
+                        ${inv.linkedOrderNumber ? `<tr><td>Číslo naší obj.:</td><td><strong>${inv.linkedOrderNumber}</strong></td></tr>` : ''}
+                        ${inv.clientOrderNumber ? `<tr><td style="color: #0066cc;"><strong>Číslo obj. zákazníka:</strong></td><td style="color: #0066cc;"><strong>${inv.clientOrderNumber}</strong></td></tr>` : ''}
                         <tr><td>Variabilní symbol:</td><td>${inv.varSymbol || inv.number.replace(/\D/g, '')}</td></tr>
                         <tr><td>Datum vystavení:</td><td>${formatDateCZ(new Date().toISOString().split('T')[0])}</td></tr>
                         <tr><td>Datum zdanitelného plnění:</td><td>${formatDateCZ(paymentDate)}</td></tr>
@@ -5146,8 +5188,10 @@ async function generateTaxDocument(invNumber) {
         </div>
     `;
 
+    const modal = document.getElementById('invoicePreviewModal');
     document.getElementById('invoicePreview').innerHTML = docHtml;
-    document.getElementById('invoicePreviewModal').classList.add('active');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
 }
 
 async function markProformaPaidAndGenerateTaxDoc(invNumber) {
@@ -5330,7 +5374,8 @@ async function generateTaxDocumentWithRate(invNumber, paymentDate, rate) {
                     <strong>DIČ:</strong> ${inv.clientDic || ''}<br><br>
                     <table style="width: 100%; font-size: 11px;">
                         <tr><td>Forma úhrady:</td><td>peněžní převod</td></tr>
-                        <tr><td>Číslo objednávky:</td><td>${inv.linkedOrderNumber || inv.clientOrderNumber || ''}</td></tr>
+                        ${inv.linkedOrderNumber ? `<tr><td>Číslo naší obj.:</td><td><strong>${inv.linkedOrderNumber}</strong></td></tr>` : ''}
+                        ${inv.clientOrderNumber ? `<tr><td style="color: #0066cc;"><strong>Číslo obj. zákazníka:</strong></td><td style="color: #0066cc;"><strong>${inv.clientOrderNumber}</strong></td></tr>` : ''}
                         <tr><td>Variabilní symbol:</td><td>${inv.varSymbol || inv.number.replace(/\D/g, '')}</td></tr>
                         <tr><td>Datum vystavení:</td><td>${formatDateCZ(new Date().toISOString().split('T')[0])}</td></tr>
                         <tr><td>Datum zdanitelného plnění:</td><td>${formatDateCZ(paymentDate)}</td></tr>
@@ -5409,8 +5454,10 @@ async function generateTaxDocumentWithRate(invNumber, paymentDate, rate) {
         </div>
     `;
 
+    const modal = document.getElementById('invoicePreviewModal');
     document.getElementById('invoicePreview').innerHTML = docHtml;
-    document.getElementById('invoicePreviewModal').classList.add('active');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
 }
 
 // Export for global access
@@ -5478,11 +5525,11 @@ function onClientChange() {
 function loadRecOrderToInvoice() {
     const orderId = document.getElementById('invLinkedOrder').value;
     if (!orderId) return;
-    
+
     const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
-    
+
     // Set client
     const contacts = getContacts();
     const client = contacts.find(c => c.name === order.client);
@@ -5492,7 +5539,7 @@ function loadRecOrderToInvoice() {
     }
     document.getElementById('invCurrency').value = order.currency || 'EUR';
     onInvCurrencyChange();
-    
+
     // Add items dynamically based on PAC models
     document.getElementById('invItems').innerHTML = '';
     const models = getPacModels();
@@ -5503,9 +5550,31 @@ function loadRecOrderToInvoice() {
             addInvoiceItemRow(model.fullName, qty, price);
         }
     });
-    
+
     document.getElementById('invNotes').value = `Obj.: ${order.orderNumber}`;
     calculateInvoiceTotal();
+
+    // AUTOMATICALLY link paid proforma if exists for this order
+    const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+    const paidProforma = invoices.find(inv => {
+        const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+        const isForThisOrder = inv.linkedOrder === orderId;
+        const isPaid = inv.isPaid || inv.paid;
+        const notUsed = !inv.usedInInvoice;
+        return isProformaDoc && isForThisOrder && isPaid && notUsed;
+    });
+
+    if (paidProforma) {
+        // Repopulate the proforma select to ensure it's in the list
+        populatePaidProformaSelect();
+        // Select the proforma
+        const proformaSelect = document.getElementById('invLinkedProforma');
+        if (proformaSelect) {
+            proformaSelect.value = paidProforma.number;
+            // Trigger the change event to update the display
+            onLinkedProformaChange();
+        }
+    }
 }
 
 function addInvoiceItemRow(name = '', qty = 1, price = 0) {
@@ -7979,8 +8048,7 @@ function addPACToRepairQuote() {
                     <select class="pac-model" required onchange="updateComponentsForPAC(${pacCounter})">
                         <option value="">${t('selectModel')}</option>
                         <option value="TX9">TX9</option>
-                        <option value="T9">T9</option>
-                        <option value="T11">T11</option>
+                        <option value="TH11">TH11</option>
                     </select>
                 </div>
             </div>
@@ -8036,8 +8104,96 @@ function removePACFromQuote(pacIndex) {
 }
 
 function updateComponentsForPAC(pacIndex) {
-    // This will be called when PAC model changes
-    // Currently just trigger recalculation
+    // Suggestion automatique du compresseur principal
+    const modelComponentMap = {
+        'TX9': 'WHP05100BSV',       // TX9 → Compressor HIGHLY (230 EUR)
+        'TH11': 'C-SBS120H38A'      // TH11 → Compressor Sanyo (424 EUR)
+    };
+
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    if (!pacCard) return;
+
+    const modelSelect = pacCard.querySelector('.pac-model');
+    const selectedModel = modelSelect.value;
+
+    if (!selectedModel) {
+        calculatePACSubtotal(pacIndex);
+        return;
+    }
+
+    // Get the suggested component reference for this model
+    const suggestedRef = modelComponentMap[selectedModel];
+
+    if (suggestedRef) {
+        // Get the component from repair price list
+        const repairComponent = getRepairComponent(suggestedRef, selectedModel);
+
+        if (repairComponent) {
+            const componentsList = document.querySelector(`.pac-components-list[data-pac="${pacIndex}"]`);
+
+            // Only suggest if no components have been added yet
+            if (componentsList.children.length === 0) {
+                if (confirm(`Ajouter automatiquement le composant ${repairComponent.name} (${repairComponent.price} EUR)?`)) {
+                    // Add the suggested component
+                    addComponentToPACWithRef(pacIndex, suggestedRef);
+                }
+            }
+        }
+    }
+
+    calculatePACSubtotal(pacIndex);
+}
+
+function addComponentToPACWithRef(pacIndex, componentRef) {
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    if (!pacCard) return;
+
+    const modelSelect = pacCard.querySelector('.pac-model');
+    const selectedModel = modelSelect.value;
+
+    // Get repair components for this model
+    const repairComponents = getRepairComponentsByModel(selectedModel);
+    const component = repairComponents.find(c => c.ref === componentRef);
+
+    if (!component) return;
+
+    const componentsList = document.querySelector(`.pac-components-list[data-pac="${pacIndex}"]`);
+    const componentIndex = componentsList.children.length;
+
+    const componentRow = document.createElement('div');
+    componentRow.className = 'component-row';
+    componentRow.dataset.componentIndex = componentIndex;
+
+    // Build options from repair components for this model
+    let optionsHTML = `<option value="">${t('selectComponent')}</option>`;
+    repairComponents.forEach(comp => {
+        const selected = comp.ref === componentRef ? 'selected' : '';
+        optionsHTML += `<option value="${comp.ref}" data-price="${comp.price}" ${selected}>${comp.name} (${comp.price} EUR)</option>`;
+    });
+
+    componentRow.innerHTML = `
+        <div class="form-group">
+            <label>${t('component')}</label>
+            <select class="component-select" onchange="updateComponentPrice(${pacIndex}, ${componentIndex})">
+                ${optionsHTML}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>${t('qty')}</label>
+            <input type="number" class="component-qty" min="1" value="1" onchange="calculatePACSubtotal(${pacIndex})">
+        </div>
+        <div class="form-group">
+            <label>${t('pricePerUnit')}</label>
+            <input type="number" class="component-price" step="0.01" value="${component.price}" readonly class="input-readonly">
+        </div>
+        <div class="form-group">
+            <label>${t('lineTotal')}</label>
+            <input type="number" class="component-total" step="0.01" value="${component.price}" readonly class="input-readonly">
+        </div>
+        <button type="button" class="btn-remove-component" onclick="removeComponentFromPAC(${pacIndex}, ${componentIndex})" title="${t('removeComponent')}">✕</button>
+    `;
+
+    componentsList.appendChild(componentRow);
     calculatePACSubtotal(pacIndex);
 }
 
@@ -8053,19 +8209,20 @@ function addComponentToPAC(pacIndex) {
         return;
     }
 
+    // Get repair components for selected model
+    const components = getRepairComponentsByModel(selectedModel);
+
+    if (!components || components.length === 0) {
+        showToast('Aucun composant disponible pour ce modèle', 'warning');
+        return;
+    }
+
     const componentIndex = componentsList.children.length;
     const componentRow = document.createElement('div');
     componentRow.className = 'component-row';
     componentRow.dataset.componentIndex = componentIndex;
 
-    // Get components for selected model
-    let components = [];
-    if (selectedModel === 'TX9') {
-        components = getRepairComponentsByModel('TX9');
-    } else if (selectedModel === 'T9' || selectedModel === 'T11') {
-        components = getRepairComponentsByModel('T9T11');
-    }
-
+    // Build options from repair price list
     let optionsHTML = `<option value="">${t('selectComponent')}</option>`;
     components.forEach(comp => {
         optionsHTML += `<option value="${comp.ref}" data-price="${comp.price}">${comp.name} (${comp.price} EUR)</option>`;
@@ -8195,6 +8352,7 @@ async function saveRepairQuote() {
     // Collect form data
     const quoteData = {
         quoteNumber: document.getElementById('repairQuoteNumber').value,
+        clientOrderNumber: document.getElementById('repairQuoteClientOrderNum').value,
         date: document.getElementById('repairQuoteDate').value,
         clientId: clientId,
         client: clientName,
@@ -8433,6 +8591,7 @@ function showRepairQuotePreview(quote) {
                 <div class="dn-info">
                     <h1>${quote.quoteNumber}</h1>
                     <p>${t('date')}: ${formatDate(quote.date)}</p>
+                    ${quote.clientOrderNumber ? `<p style="color: #0066cc; font-weight: bold;">${t('clientOrderNum')}: ${quote.clientOrderNumber}</p>` : ''}
                 </div>
             </div>
 
@@ -8801,3 +8960,910 @@ async function clearLocalCache() {
 }
 
 window.clearLocalCache = clearLocalCache;
+
+// ========================================
+// PREVIEW FUNCTIONS FOR DOCUMENTS
+// ========================================
+
+// RECEIVED ORDERS PREVIEW
+function showReceivedOrderPreview() {
+    const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '', ico: '', dic: '' } };
+
+    // Get form data
+    const formData = {
+        orderNumber: document.getElementById('recOrdNumber').value,
+        clientOrderNumber: document.getElementById('recOrdClientNum').value,
+        date: document.getElementById('recOrdDate').value,
+        client: document.getElementById('recOrdClient').selectedOptions[0]?.text || '',
+        clientAddress: document.getElementById('recOrdAddress').value,
+        clientIco: document.getElementById('recOrdClientIco').value,
+        clientDic: document.getElementById('recOrdClientDic').value,
+        deliveryDate: document.getElementById('recOrdDeliveryDate').value,
+        notes: document.getElementById('recOrdNotes').value,
+        currency: document.getElementById('recOrdCurrency').value,
+        quantities: {},
+        customItems: [],
+        stockComponents: []
+    };
+
+    // Get PAC quantities and prices
+    const models = getPacModels();
+    let subtotal = 0;
+    models.forEach(m => {
+        const qtyInput = document.getElementById(`recOrdQty-${m.id}`);
+        const priceInput = document.getElementById(`recOrdPrice-${m.id}`);
+        const qty = parseInt(qtyInput?.value) || 0;
+        const price = parseFloat(priceInput?.value) || 0;
+        if (qty > 0) {
+            formData.quantities[m.id] = { qty, price };
+            subtotal += qty * price;
+        }
+    });
+
+    // Get custom items
+    document.querySelectorAll('#recOrdCustomItems .custom-item-row').forEach(row => {
+        const name = row.querySelector('.custom-item-name')?.value;
+        const qty = parseFloat(row.querySelector('.custom-item-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.custom-item-price')?.value) || 0;
+        if (name && qty > 0) {
+            formData.customItems.push({ name, qty, price });
+            subtotal += qty * price;
+        }
+    });
+
+    // Get stock components
+    document.querySelectorAll('#recOrdStockComponents .stock-comp-row').forEach(row => {
+        const select = row.querySelector('.stock-comp-select');
+        const ref = select?.value;
+        const name = select?.selectedOptions[0]?.text || '';
+        const qty = parseFloat(row.querySelector('.stock-comp-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.stock-comp-price')?.value) || 0;
+        if (ref && qty > 0) {
+            formData.stockComponents.push({ ref, name, qty, price });
+            subtotal += qty * price;
+        }
+    });
+
+    formData.subtotal = subtotal;
+    formData.vat = subtotal * 0.21;
+    formData.total = subtotal + formData.vat;
+
+    // Generate HTML
+    const previewHtml = generateReceivedOrderHTML(formData, config);
+
+    // Display
+    document.getElementById('receivedOrderPreview').innerHTML = previewHtml;
+    const modal = document.getElementById('receivedOrderPreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+}
+
+function generateReceivedOrderHTML(order, config) {
+    const models = getPacModels();
+
+    // Build PAC items
+    let pacItemsHtml = '';
+    models.forEach(m => {
+        const data = order.quantities[m.id];
+        if (data && data.qty > 0) {
+            const total = data.qty * data.price;
+            pacItemsHtml += `
+                <tr>
+                    <td>${m.fullName}</td>
+                    <td class="text-right">${data.qty}</td>
+                    <td class="text-right">${formatCurrency(data.price)} ${order.currency}</td>
+                    <td class="text-right"><strong>${formatCurrency(total)} ${order.currency}</strong></td>
+                </tr>
+            `;
+        }
+    });
+
+    // Build custom items
+    let customItemsHtml = '';
+    (order.customItems || []).forEach(item => {
+        const total = item.qty * item.price;
+        customItemsHtml += `
+            <tr>
+                <td>${item.name}</td>
+                <td class="text-right">${item.qty}</td>
+                <td class="text-right">${formatCurrency(item.price)} ${order.currency}</td>
+                <td class="text-right"><strong>${formatCurrency(total)} ${order.currency}</strong></td>
+            </tr>
+        `;
+    });
+
+    // Build stock components
+    let stockItemsHtml = '';
+    (order.stockComponents || []).forEach(item => {
+        const total = item.qty * item.price;
+        stockItemsHtml += `
+            <tr>
+                <td>${item.ref} - ${item.name}</td>
+                <td class="text-right">${item.qty}</td>
+                <td class="text-right">${formatCurrency(item.price)} ${order.currency}</td>
+                <td class="text-right"><strong>${formatCurrency(total)} ${order.currency}</strong></td>
+            </tr>
+        `;
+    });
+
+    const allItemsHtml = pacItemsHtml + customItemsHtml + stockItemsHtml;
+
+    return `
+        <div class="ro-doc">
+            <div class="ro-header">
+                <div class="ro-company">
+                    <h2>${config.COMPANY.name}</h2>
+                    <p>${config.COMPANY.address}</p>
+                    ${config.COMPANY.ico ? `<p>IČO: ${config.COMPANY.ico}</p>` : ''}
+                </div>
+                <div class="ro-info">
+                    <h1>${t('receivedOrder')}</h1>
+                    <p><strong>${t('orderNumber')}:</strong> ${order.orderNumber}</p>
+                    <p><strong>${t('date')}:</strong> ${formatDate(order.date)}</p>
+                    ${order.clientOrderNumber ? `<p><strong>${t('clientOrderNum')}:</strong> ${order.clientOrderNumber}</p>` : ''}
+                </div>
+            </div>
+
+            <div class="ro-client">
+                <h3>${t('client')}</h3>
+                <div class="ro-client-box">
+                    <p><strong>${order.client}</strong></p>
+                    ${order.clientAddress ? `<p>${order.clientAddress}</p>` : ''}
+                    ${order.clientIco ? `<p>IČO: ${order.clientIco}</p>` : ''}
+                    ${order.clientDic ? `<p>DIČ: ${order.clientDic}</p>` : ''}
+                </div>
+            </div>
+
+            <table class="ro-table">
+                <thead>
+                    <tr>
+                        <th>${t('designation')}</th>
+                        <th>${t('quantity')}</th>
+                        <th>${t('priceUnit')}</th>
+                        <th>${t('total')}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${allItemsHtml}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3"><strong>${t('subtotal')}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(order.subtotal)} ${order.currency}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3">DPH 21%</td>
+                        <td class="text-right">${formatCurrency(order.vat)} ${order.currency}</td>
+                    </tr>
+                    <tr class="ro-total">
+                        <td colspan="3"><strong>${t('total')}</strong></td>
+                        <td class="text-right"><strong>${formatCurrency(order.total)} ${order.currency}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            ${order.deliveryDate ? `<p><strong>${t('deliveryDate')}:</strong> ${formatDate(order.deliveryDate)}</p>` : ''}
+            ${order.notes ? `<div class="ro-notes"><strong>${t('notes')}:</strong><br>${order.notes}</div>` : ''}
+        </div>
+    `;
+}
+
+function closeReceivedOrderPreviewModal() {
+    const modal = document.getElementById('receivedOrderPreviewModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+}
+
+function printReceivedOrder() {
+    const originalTitle = document.title;
+    const orderNum = document.getElementById('recOrdNumber').value;
+    document.title = orderNum || 'Objednávka';
+    window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
+}
+
+// RECEIVED INVOICES PREVIEW
+function showReceivedInvoicePreview() {
+    const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
+
+    // Get form data
+    const formData = {
+        internalNumber: document.getElementById('recInvInternalNum').value,
+        invoiceNumber: document.getElementById('recInvNumber').value,
+        supplier: document.getElementById('recInvSupplier').selectedOptions[0]?.text || '',
+        date: document.getElementById('recInvDate').value,
+        dueDate: document.getElementById('recInvDueDate').value,
+        taxDate: document.getElementById('recInvTaxDate').value,
+        currency: document.getElementById('recInvCurrency').value,
+        subtotal: parseFloat(document.getElementById('recInvSubtotal').value) || 0,
+        vatRate: parseFloat(document.getElementById('recInvVatRate').value) || 21,
+        vat: parseFloat(document.getElementById('recInvVat').value) || 0,
+        total: parseFloat(document.getElementById('recInvTotal').value) || 0,
+        notes: document.getElementById('recInvNotes').value
+    };
+
+    // Generate HTML
+    const previewHtml = generateReceivedInvoiceHTML(formData, config);
+
+    // Display
+    document.getElementById('receivedInvoicePreview').innerHTML = previewHtml;
+    const modal = document.getElementById('receivedInvoicePreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+}
+
+function generateReceivedInvoiceHTML(invoice, config) {
+    return `
+        <div class="ri-doc">
+            <div class="ri-header">
+                <div class="ri-company">
+                    <h2>${config.COMPANY.name}</h2>
+                    <p>${config.COMPANY.address}</p>
+                </div>
+                <div class="ri-info">
+                    <h1>${t('receivedInvoice')}</h1>
+                    <p><strong>${t('internalNumber')}:</strong> ${invoice.internalNumber}</p>
+                    <p><strong>${t('invoiceNumberExt')}:</strong> ${invoice.invoiceNumber}</p>
+                    <p><strong>${t('date')}:</strong> ${formatDate(invoice.date)}</p>
+                    <p><strong>${t('dueDate')}:</strong> ${formatDate(invoice.dueDate)}</p>
+                    ${invoice.taxDate ? `<p><strong>${t('taxDate')}:</strong> ${formatDate(invoice.taxDate)}</p>` : ''}
+                </div>
+            </div>
+
+            <div class="ri-supplier">
+                <h3>${t('supplier')}</h3>
+                <div class="ri-supplier-box">
+                    <p><strong>${invoice.supplier}</strong></p>
+                </div>
+            </div>
+
+            <div class="ri-totals">
+                <div class="ri-total-row">
+                    <span>${t('subtotalHT')}:</span>
+                    <span>${formatCurrency(invoice.subtotal)} ${invoice.currency}</span>
+                </div>
+                <div class="ri-total-row">
+                    <span>DPH ${invoice.vatRate}%:</span>
+                    <span>${formatCurrency(invoice.vat)} ${invoice.currency}</span>
+                </div>
+                <div class="ri-total-row ri-total-main">
+                    <span><strong>${t('total')}:</strong></span>
+                    <span><strong>${formatCurrency(invoice.total)} ${invoice.currency}</strong></span>
+                </div>
+            </div>
+
+            ${invoice.notes ? `<div class="ri-notes"><strong>${t('notes')}:</strong><br>${invoice.notes}</div>` : ''}
+        </div>
+    `;
+}
+
+function closeReceivedInvoicePreviewModal() {
+    const modal = document.getElementById('receivedInvoicePreviewModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+}
+
+function printReceivedInvoice() {
+    const originalTitle = document.title;
+    const invoiceNum = document.getElementById('recInvNumber').value;
+    document.title = invoiceNum || 'Faktura';
+    window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
+}
+
+// STOCK RECEIPTS PREVIEW
+function showReceiptPreview() {
+    const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
+
+    // Get form data
+    const formData = {
+        supplier: document.getElementById('entrySupplier').selectedOptions[0]?.text || '',
+        bonNum: document.getElementById('entryBonNum').value,
+        date: document.getElementById('entryDate').value,
+        currency: document.getElementById('entryCurrency').value,
+        items: []
+    };
+
+    // Get items
+    document.querySelectorAll('#entryItems .item-row').forEach(row => {
+        const select = row.querySelector('.item-ref');
+        const ref = select?.value;
+        if (ref) {
+            const name = select.selectedOptions[0]?.text || '';
+            const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
+            const price = parseFloat(row.querySelector('.item-price')?.value) || 0;
+            if (qty > 0) {
+                formData.items.push({
+                    ref,
+                    name,
+                    qty,
+                    price,
+                    total: qty * price
+                });
+            }
+        }
+    });
+
+    // Calculate totals
+    const exchangeRate = storage.getExchangeRate(formData.currency);
+    formData.exchangeRate = exchangeRate;
+    formData.subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
+    formData.subtotalCZK = formData.subtotal * exchangeRate;
+
+    // Generate HTML
+    const previewHtml = generateReceiptHTML(formData, config);
+
+    // Display
+    document.getElementById('receiptPreview').innerHTML = previewHtml;
+    const modal = document.getElementById('receiptPreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+}
+
+function generateReceiptHTML(receipt, config) {
+    let itemsHtml = receipt.items.map(item => {
+        const priceCZK = item.price * receipt.exchangeRate;
+        const totalCZK = item.total * receipt.exchangeRate;
+        return `
+            <tr>
+                <td>${item.ref}</td>
+                <td>${item.name}</td>
+                <td class="text-right">${item.qty}</td>
+                <td class="text-right">${formatCurrency(item.price)} ${receipt.currency}</td>
+                <td class="text-right">${formatCurrency(priceCZK)} CZK</td>
+                <td class="text-right"><strong>${formatCurrency(totalCZK)} CZK</strong></td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="receipt-doc">
+            <div class="receipt-header">
+                <div class="receipt-company">
+                    <h2>${config.COMPANY.name}</h2>
+                    <p>${config.COMPANY.address}</p>
+                </div>
+                <div class="receipt-info">
+                    <h1>${t('stockReceipt')}</h1>
+                    <p><strong>${t('receiptNumber')}:</strong> ${receipt.bonNum}</p>
+                    <p><strong>${t('date')}:</strong> ${formatDate(receipt.date)}</p>
+                </div>
+            </div>
+
+            <div class="receipt-supplier">
+                <h3>${t('supplier')}</h3>
+                <p><strong>${receipt.supplier}</strong></p>
+            </div>
+
+            <table class="receipt-table">
+                <thead>
+                    <tr>
+                        <th>${t('reference')}</th>
+                        <th>${t('designation')}</th>
+                        <th>${t('quantity')}</th>
+                        <th>${t('priceUnit')} ${receipt.currency}</th>
+                        <th>P.U. CZK</th>
+                        <th>${t('total')} CZK</th>
+                    </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+
+            <div class="receipt-totals">
+                <div class="receipt-total-row">
+                    <span>${t('exchangeRate')} ${receipt.currency}/CZK:</span>
+                    <span>${receipt.exchangeRate.toFixed(3)}</span>
+                </div>
+                <div class="receipt-total-row">
+                    <span>${t('total')} ${receipt.currency}:</span>
+                    <span>${formatCurrency(receipt.subtotal)} ${receipt.currency}</span>
+                </div>
+                <div class="receipt-total-row receipt-total-main">
+                    <span><strong>${t('total')} CZK:</strong></span>
+                    <span><strong>${formatCurrency(receipt.subtotalCZK)} CZK</strong></span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function closeReceiptPreviewModal() {
+    const modal = document.getElementById('receiptPreviewModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+}
+
+function printReceipt() {
+    const originalTitle = document.title;
+    const bonNum = document.getElementById('entryBonNum').value;
+    document.title = bonNum || 'Příjemka';
+    window.print();
+    setTimeout(() => { document.title = originalTitle; }, 500);
+}
+
+// DELIVERY PREVIEW (BEFORE SAVE)
+function previewDeliveryBeforeSave() {
+    // Collect delivery data from form
+    const deliveryData = {
+        client: document.getElementById('deliveryClient')?.value || '',
+        clientAddress: document.getElementById('deliveryClientAddress')?.value || '',
+        clientOrderNum: document.getElementById('deliveryClientOrderNum')?.value || '',
+        clientOrderNumber: document.getElementById('deliveryClientOrderNum')?.value || '',
+        date: new Date().toISOString().split('T')[0],
+        blNumber: 'PREVIEW',
+        items: {
+            pac: {},
+            components: [],
+            custom: []
+        }
+    };
+
+    // Get PAC quantities
+    getPacModels().forEach(m => {
+        const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
+        const qty = parseInt(input?.value) || 0;
+        if (qty > 0) {
+            deliveryData.items.pac[m.id] = qty;
+        }
+    });
+
+    // Get components from stock
+    const componentRows = document.querySelectorAll('#deliveryComponentsContainer .item-row');
+    componentRows.forEach(row => {
+        const select = row.querySelector('.item-ref');
+        const qtyInput = row.querySelector('.item-qty');
+        const ref = select?.value;
+        const qty = parseInt(qtyInput?.value) || 0;
+        if (ref && qty > 0) {
+            // Get component name from the select option text
+            const selectedOption = select.options[select.selectedIndex];
+            const fullText = selectedOption?.textContent || ref;
+            // Extract name before "(Stock: X)"
+            const name = fullText.split(' (Stock:')[0] || ref;
+            deliveryData.items.components.push({ ref, name, qty });
+        }
+    });
+
+    // Get custom items
+    const customRows = document.querySelectorAll('#deliveryCustomItemsContainer .item-row');
+    customRows.forEach(row => {
+        const nameInput = row.querySelector('.item-custom-name');
+        const qtyInput = row.querySelector('.item-qty');
+        const name = nameInput?.value?.trim();
+        const qty = parseInt(qtyInput?.value) || 0;
+        if (name && qty > 0) {
+            deliveryData.items.custom.push({ name, qty });
+        }
+    });
+
+    // Use existing showDeliveryNote function
+    showDeliveryNote(deliveryData);
+}
+
+// PURCHASE ORDER PREVIEW (BEFORE SAVE)
+function previewPOBeforeSave() {
+    // Collect PO data from form
+    const poData = {
+        poNumber: 'PREVIEW',
+        supplier: document.getElementById('poSupplier')?.selectedOptions[0]?.text || '',
+        date: new Date().toISOString().split('T')[0],
+        expectedDate: document.getElementById('poExpectedDate')?.value || '',
+        currency: document.getElementById('poCurrency')?.value || 'EUR',
+        items: []
+    };
+
+    // Get items
+    const itemRows = document.querySelectorAll('#poItems .item-row');
+    itemRows.forEach(row => {
+        // Check if it's a custom item (has input instead of select)
+        const nameInput = row.querySelector('.item-custom-name');
+        if (nameInput) {
+            // Custom item
+            const name = nameInput.value;
+            const qty = parseFloat(row.querySelector('.item-qty')?.value) || 0;
+            const price = parseFloat(row.querySelector('.item-price')?.value) || 0;
+            if (name && qty > 0) {
+                poData.items.push({
+                    ref: '',
+                    name,
+                    qty,
+                    price,
+                    total: qty * price
+                });
+            }
+        } else {
+            // Regular item with reference
+            const select = row.querySelector('.item-ref');
+            const qtyInput = row.querySelector('.item-qty');
+            const priceInput = row.querySelector('.item-price');
+
+            const ref = select?.value;
+            const qty = parseFloat(qtyInput?.value) || 0;
+            const price = parseFloat(priceInput?.value) || 0;
+
+            if (ref && qty > 0) {
+                const name = select?.selectedOptions[0]?.text || ref;
+                poData.items.push({
+                    ref,
+                    name,
+                    qty,
+                    price,
+                    total: qty * price
+                });
+            }
+        }
+    });
+
+    // Use existing showPOPreview function
+    showPOPreview(poData);
+}
+
+// CLIENT INVOICE PREVIEW (BEFORE SAVE)
+function previewInvoiceBeforeSave() {
+    // Collect invoice data from form
+    const invoiceData = {
+        number: document.getElementById('invNumber')?.value || 'PREVIEW',
+        varSymbol: document.getElementById('invVarSymbol')?.value || '',
+        client: document.getElementById('invClient')?.selectedOptions[0]?.text || '',
+        clientIco: document.getElementById('invClientIco')?.value || '',
+        clientDic: document.getElementById('invClientDic')?.value || '',
+        clientAddress: document.getElementById('invClientAddress')?.value || '',
+        issueDate: document.getElementById('invDate')?.value || '',
+        date: document.getElementById('invDate')?.value || '',
+        dueDate: document.getElementById('invDueDate')?.value || '',
+        taxDate: document.getElementById('invTaxDate')?.value || '',
+        currency: document.getElementById('invCurrency')?.value || 'CZK',
+        exchangeRate: parseFloat(document.getElementById('invExchangeRate')?.value) || null,
+        items: [],
+        notes: document.getElementById('invNotes')?.value || '',
+        linkedOrderNumber: '',
+        clientOrderNumber: ''
+    };
+
+    // Get linked order info if available
+    const linkedOrderId = document.getElementById('invLinkedOrder')?.value;
+    if (linkedOrderId) {
+        const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+        const linkedOrderData = orders.find(o => o.id === linkedOrderId);
+        if (linkedOrderData) {
+            invoiceData.linkedOrderNumber = linkedOrderData.orderNumber || '';
+            invoiceData.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
+        }
+    }
+
+    // Get linked proforma info if available (for deposit deduction)
+    const linkedProformaNumber = document.getElementById('invLinkedProforma')?.value;
+    console.log('Preview - Linked proforma number:', linkedProformaNumber);
+
+    if (linkedProformaNumber && linkedProformaNumber !== '') {
+        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const proformaInvoice = invoices.find(i => i.number === linkedProformaNumber);
+        console.log('Preview - Found proforma invoice:', proformaInvoice);
+
+        if (proformaInvoice && (proformaInvoice.isPaid || proformaInvoice.paid)) {
+            // Calculate tax document amounts (deposit amounts with VAT)
+            const depositPercent = proformaInvoice.depositPercent || 100;
+            const fullSubtotal = (proformaInvoice.items || []).reduce((sum, item) => sum + (item.qty * item.price), 0);
+            const taxDocSubtotal = proformaInvoice.taxDocSubtotal || (fullSubtotal * depositPercent / 100);
+            const taxDocVat = proformaInvoice.taxDocVat || (taxDocSubtotal * 21 / 100);
+            const taxDocTotal = proformaInvoice.taxDocTotal || (taxDocSubtotal + taxDocVat);
+
+            invoiceData.linkedProforma = {
+                id: proformaInvoice.id,
+                number: proformaInvoice.number,
+                ddNumber: proformaInvoice.ddNumber || proformaInvoice.number.replace(/^(ZL|PI|PF)-?/, 'DD-'),
+                subtotal: taxDocSubtotal,
+                vat: taxDocVat,
+                total: taxDocTotal,
+                paidExchangeRate: parseFloat(proformaInvoice.paidExchangeRate || proformaInvoice.exchangeRate) || null,
+                paidSubtotalCZK: parseFloat(proformaInvoice.paidSubtotalCZK) || null,
+                paidVatCZK: parseFloat(proformaInvoice.paidVatCZK) || null,
+                paidAmountCZK: parseFloat(proformaInvoice.paidAmountCZK) || null
+            };
+
+            console.log('Preview - Linked proforma data:', invoiceData.linkedProforma);
+        } else {
+            console.log('Preview - Proforma not found or not paid');
+        }
+    }
+
+    // Get proforma status and deposit percentage
+    const proformaCheckbox = document.getElementById('invIsProforma');
+    invoiceData.isProforma = proformaCheckbox ? proformaCheckbox.checked : false;
+    invoiceData.type = invoiceData.isProforma ? 'proforma' : 'standard';
+    if (invoiceData.isProforma) {
+        invoiceData.depositPercent = parseFloat(document.getElementById('invDepositPercent')?.value) || 100;
+    }
+
+    // Get items from invoice form
+    const itemRows = document.querySelectorAll('#invItems .item-row');
+    itemRows.forEach(row => {
+        const nameInput = row.querySelector('.inv-item-name');
+        const qtyInput = row.querySelector('.inv-item-qty');
+        const priceInput = row.querySelector('.inv-item-price');
+
+        const name = nameInput?.value;
+        const qty = parseFloat(qtyInput?.value) || 0;
+        const price = parseFloat(priceInput?.value) || 0;
+
+        if (name && qty > 0) {
+            invoiceData.items.push({
+                name,
+                qty,
+                unit: 'ks',
+                price,
+                total: qty * price
+            });
+        }
+    });
+
+    // Calculate totals
+    invoiceData.subtotal = invoiceData.items.reduce((sum, item) => sum + item.total, 0);
+    const vatRate = parseFloat(document.getElementById('invVatRate')?.value) || 21;
+    invoiceData.vat = invoiceData.subtotal * (vatRate / 100);
+    invoiceData.total = invoiceData.subtotal + invoiceData.vat;
+    invoiceData.vatRate = vatRate;
+
+    // Generate preview HTML
+    const previewHtml = generateInvoicePreviewHTML(invoiceData);
+
+    // Show in invoice preview modal
+    document.getElementById('invoicePreview').innerHTML = previewHtml;
+    const modal = document.getElementById('invoicePreviewModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+}
+
+function generateInvoicePreviewHTML(inv) {
+    const config = CONFIG || {};
+    const company = config.COMPANY || {};
+    const curr = inv.currency || 'CZK';
+    const vatRate = inv.vatRate || 21;
+    const varSymbol = inv.varSymbol || inv.number.replace(/\D/g, '');
+
+    // Generate items HTML with full 7 columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
+    let itemsHtml = (inv.items || []).map(item => {
+        const itemSubtotal = item.qty * item.price;
+        const itemVat = itemSubtotal * vatRate / 100;
+        const itemTotal = itemSubtotal + itemVat;
+        return `
+        <tr>
+            <td>${item.name}</td>
+            <td class="text-center">${item.qty}</td>
+            <td class="text-center">ks</td>
+            <td class="text-right">${formatCurrency(item.price)} ${curr}</td>
+            <td class="text-right">${formatCurrency(itemSubtotal)} ${curr}</td>
+            <td class="text-center">${vatRate}%</td>
+            <td class="text-right">${formatCurrency(itemTotal)} ${curr}</td>
+        </tr>
+        `;
+    }).join('');
+
+    // Add proforma deduction line if applicable
+    console.log('generateInvoicePreviewHTML - inv.linkedProforma:', inv.linkedProforma);
+    const deductionHtml = generateProformaDeductionItemHtml(inv);
+    console.log('generateInvoicePreviewHTML - deduction HTML length:', deductionHtml.length);
+    itemsHtml += deductionHtml;
+
+    // Calculate net totals (after proforma deduction)
+    const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0;
+    console.log('generateInvoicePreviewHTML - hasProformaDeduction:', hasProformaDeduction);
+    const netSubtotal = hasProformaDeduction ? inv.subtotal - inv.linkedProforma.subtotal : inv.subtotal;
+    const netVat = hasProformaDeduction ? inv.vat - inv.linkedProforma.vat : inv.vat;
+    const netTotal = hasProformaDeduction ? inv.total - inv.linkedProforma.total : inv.total;
+    console.log('generateInvoicePreviewHTML - Net totals:', { netSubtotal, netVat, netTotal });
+
+    // Banking info
+    const bankInfo = curr === 'EUR' ? company.bank?.EUR : company.bank?.CZK;
+
+    // CZK conversion for EUR invoices (NOT shown when there's proforma deduction, as it's handled separately)
+    let czkConversionHtml = '';
+    if (curr === 'EUR' && inv.exchangeRate && !hasProformaDeduction) {
+        const rate = parseFloat(inv.exchangeRate) || exchangeRate;
+        const subtotalCZK = inv.subtotal * rate;
+        const vatCZK = inv.vat * rate;
+        const totalCZK = inv.total * rate;
+
+        czkConversionHtml = `
+            <div class="inv-czk-conversion" style="margin-top: 8px; padding: 6px; border: 1px solid #ccc; font-size: 8px; color: #666; background: #fafafa;">
+                <div style="margin-bottom: 3px;">Ekvivalent v CZK dle kurzu ČNB ${rate.toFixed(3)} CZK/EUR (k DUZP ${formatDate(inv.taxDate || inv.issueDate)})</div>
+                <table style="width: 100%; font-size: 8px;">
+                    <tr><td>Základ daně v CZK:</td><td style="text-align: right;">${formatCurrency(subtotalCZK)} CZK</td></tr>
+                    <tr><td>DPH v CZK (${vatRate}%):</td><td style="text-align: right;">${formatCurrency(vatCZK)} CZK</td></tr>
+                    <tr><td><strong>Celkem s DPH v CZK:</strong></td><td style="text-align: right;"><strong>${formatCurrency(totalCZK)} CZK</strong></td></tr>
+                </table>
+            </div>
+        `;
+    }
+
+    // Determine document type and title
+    const isProforma = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+    const invoiceTitle = isProforma ? 'ZÁLOHOVÁ FAKTURA (PROFORMA)' : 'DAŇOVÝ DOKLAD FAKTURA';
+    const depositInfo = isProforma && inv.depositPercent && inv.depositPercent < 100 ? ` - Záloha ${inv.depositPercent}%` : '';
+    const proformaBanner = isProforma ? `
+        <div style="background: #8b5cf6; color: white; text-align: center; padding: 0.5rem; font-weight: bold; margin-bottom: 0.5rem; border-radius: 4px; font-size: 11px;">
+            ⚠️ PROFORMA - Zálohová faktura${depositInfo} - Není daňovým dokladem
+        </div>
+    ` : '';
+
+    return `
+        <div class="invoice-doc">
+            <div class="inv-title" style="text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px;">
+                ${invoiceTitle} ${inv.number}
+            </div>
+            ${proformaBanner}
+            <div class="inv-header" style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <div class="inv-company" style="flex: 1;">
+                    <strong style="font-size: 12px;">${company.name || 'NAVALO s.r.o.'}</strong><br>
+                    <span style="font-size: 10px;">${company.address || ''}</span><br>
+                    <span style="font-size: 10px;">IČO: ${company.ico || ''} | DIČ: ${company.dic || ''}</span>
+                </div>
+                <div class="inv-info" style="text-align: right; font-size: 10px;">
+                    <p style="margin: 2px 0;">Datum vystavení: ${formatDate(inv.issueDate || inv.date)}</p>
+                    <p style="margin: 2px 0;">DUZP: ${formatDate(inv.taxDate || inv.issueDate || inv.date)}</p>
+                    <p style="margin: 2px 0;">Splatnost: ${formatDate(inv.dueDate)}</p>
+                    <p style="margin: 2px 0;">Variabilní symbol: ${varSymbol}</p>
+                    ${inv.linkedOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo objednávky:</strong> ${inv.linkedOrderNumber}</p>` : ''}
+                    ${inv.clientOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo obj. zákazníka:</strong> ${inv.clientOrderNumber}</p>` : ''}
+                </div>
+            </div>
+            <div class="inv-parties" style="display: flex; gap: 20px; margin-bottom: 10px;">
+                <div class="inv-party" style="flex: 1;">
+                    <div style="font-size: 10px; font-weight: bold; margin-bottom: 3px;">DODAVATEL</div>
+                    <div class="inv-party-box" style="border: 1px solid #000; padding: 8px; font-size: 10px;">
+                        <strong>${company.name || 'NAVALO s.r.o.'}</strong><br>
+                        ${company.address || ''}<br>
+                        IČO: ${company.ico || ''}<br>
+                        DIČ: ${company.dic || ''}
+                    </div>
+                </div>
+                <div class="inv-party" style="flex: 1;">
+                    <div style="font-size: 10px; font-weight: bold; margin-bottom: 3px;">ZÁKAZNÍK</div>
+                    <div class="inv-party-box" style="border: 1px solid #000; padding: 8px; font-size: 10px;">
+                        <strong>${inv.client}</strong><br>
+                        ${inv.clientAddress || ''}<br>
+                        IČO: ${inv.clientIco || ''}<br>
+                        DIČ: ${inv.clientDic || ''}
+                    </div>
+                </div>
+            </div>
+            <table class="inv-table">
+                <thead>
+                    <tr>
+                        <th>Popis položky</th>
+                        <th>Množství</th>
+                        <th>MJ</th>
+                        <th>Cena za MJ</th>
+                        <th>Celkem bez DPH</th>
+                        <th>DPH</th>
+                        <th>Celkem s DPH</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHtml}
+                </tbody>
+                <tfoot>
+                    <tr class="inv-total">
+                        <td colspan="4" class="text-right"><strong>Celkem:</strong></td>
+                        <td class="text-right">${formatCurrency(netSubtotal)} ${curr}</td>
+                        <td class="text-right">${formatCurrency(netVat)} ${curr}</td>
+                        <td class="text-right">${formatCurrency(netTotal)} ${curr}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            ${generateProformaDeductionHtml(inv)}
+            ${czkConversionHtml}
+            ${generateProformaDepositHtml(inv, netTotal, curr)}
+            <div class="inv-payment" style="margin-top: 10px; padding: 8px; border: 1px solid #000; font-size: 9px;">
+                <div style="font-weight: bold; font-size: 10px; margin-bottom: 3px;">Bankovní spojení</div>
+                <strong>${bankInfo?.name || ''}</strong><br>
+                Účet: ${bankInfo?.account || ''}<br>
+                IBAN: ${bankInfo?.iban || ''}<br>
+                BIC: ${bankInfo?.bic || ''}
+            </div>
+            ${inv.notes ? `<div style="margin-top: 10px; padding: 8px; border-left: 4px solid #2563eb; background: #f1f5f9; font-size: 9px;"><strong>Notes:</strong><br>${inv.notes}</div>` : ''}
+        </div>
+    `;
+}
+
+// REPAIR QUOTE PREVIEW (BEFORE SAVE)
+function previewRepairQuoteBeforeSave() {
+    const serviceRates = getServiceRates();
+
+    // Collect repair quote data from form
+    const quoteData = {
+        quoteNumber: document.getElementById('repairQuoteNumber')?.value || 'PREVIEW',
+        clientOrderNumber: document.getElementById('repairQuoteClientOrderNum')?.value || '',
+        date: document.getElementById('repairQuoteDate')?.value || new Date().toISOString().split('T')[0],
+        client: document.getElementById('repairQuoteClient')?.selectedOptions[0]?.text || '',
+        address: document.getElementById('repairQuoteAddress')?.value || '',
+        pacs: []
+    };
+
+    // Get all PAC containers
+    const pacContainers = document.querySelectorAll('.pac-card');
+
+    pacContainers.forEach((container, index) => {
+        const pac = {
+            model: container.querySelector('.pac-model')?.value || '',
+            serial: container.querySelector('.pac-serial')?.value || '',
+            components: [],
+            services: {
+                labor: 0,
+                refrigerant: 0,
+                disposal: 0
+            },
+            subtotal: 0
+        };
+
+        // Get components for this PAC
+        const compRows = container.querySelectorAll('.component-row');
+        compRows.forEach(row => {
+            const select = row.querySelector('.component-select');
+            const qtyInput = row.querySelector('.component-qty');
+
+            if (select && select.value) {
+                const ref = select.value;
+                const qty = parseFloat(qtyInput?.value) || 0;
+
+                if (qty > 0) {
+                    // Get component from repair price list
+                    const repairComponent = getRepairComponent(ref, pac.model);
+                    if (repairComponent) {
+                        const priceUnit = repairComponent.price || 0;
+                        pac.components.push({
+                            ref,
+                            name: repairComponent.name || ref,
+                            qty,
+                            priceUnit,
+                            total: qty * priceUnit
+                        });
+                    }
+                }
+            }
+        });
+
+        // Get services for this PAC
+        const laborInput = container.querySelector('.service-labor');
+        const refrigerantInput = container.querySelector('.service-refrigerant');
+        const disposalInput = container.querySelector('.service-disposal');
+
+        pac.services.labor = parseFloat(laborInput?.value) || 0;
+        pac.services.refrigerant = parseFloat(refrigerantInput?.value) || 0;
+        pac.services.disposal = parseFloat(disposalInput?.value) || 0;
+
+        // Calculate PAC subtotal
+        pac.subtotal = pac.components.reduce((sum, comp) => sum + comp.total, 0);
+        pac.subtotal += pac.services.labor * (serviceRates.labor?.price || 0);
+        pac.subtotal += pac.services.refrigerant * (serviceRates.refrigerantR134a?.price || 0);
+        pac.subtotal += pac.services.disposal * (serviceRates.disposal?.price || 0);
+
+        if (pac.model || pac.serial || pac.components.length > 0) {
+            quoteData.pacs.push(pac);
+        }
+    });
+
+    // Calculate totals
+    quoteData.subtotal = quoteData.pacs.reduce((sum, pac) => sum + pac.subtotal, 0);
+    quoteData.vat = quoteData.subtotal * 0.21;
+    quoteData.total = quoteData.subtotal + quoteData.vat;
+
+    // Use existing showRepairQuotePreview function
+    currentRepairQuotePreview = quoteData;
+    showRepairQuotePreview(quoteData);
+}
+
+// Export functions to window
+window.showReceivedOrderPreview = showReceivedOrderPreview;
+window.closeReceivedOrderPreviewModal = closeReceivedOrderPreviewModal;
+window.printReceivedOrder = printReceivedOrder;
+window.showReceivedInvoicePreview = showReceivedInvoicePreview;
+window.closeReceivedInvoicePreviewModal = closeReceivedInvoicePreviewModal;
+window.printReceivedInvoice = printReceivedInvoice;
+window.showReceiptPreview = showReceiptPreview;
+window.closeReceiptPreviewModal = closeReceiptPreviewModal;
+window.printReceipt = printReceipt;
+window.previewDeliveryBeforeSave = previewDeliveryBeforeSave;
+window.previewPOBeforeSave = previewPOBeforeSave;
+window.previewInvoiceBeforeSave = previewInvoiceBeforeSave;
+window.previewRepairQuoteBeforeSave = previewRepairQuoteBeforeSave;

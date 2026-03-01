@@ -457,12 +457,12 @@ const REPAIR_PRICE_LIST = {
         { ref: '04451_B', name: 'Chladič sušička', price: 79, currency: 'EUR' }
     ],
 
-    // Composants TX9
+    // Composants TX9 (deuxième tableau du screenshot)
     componentsTX9: [
-        { ref: 'WHP05100BSV', name: 'Compresseur HIGHLY WHP05100BSV', price: 230, currency: 'EUR' },
+        { ref: 'WHP05100BSV', name: 'Compressor HIGHLY WHP05100BSV', price: 230, currency: 'EUR' },
         { ref: '04878', name: 'Výparník', price: 155, currency: 'EUR' },
         { ref: '04879', name: 'Kondenzátor', price: 125, currency: 'EUR' },
-        { ref: 'B51Hx16/1P-SC-M', name: 'Deskový výměník', price: 82, currency: 'EUR' },
+        { ref: 'B5THx16/1P-SC-M', name: 'Deskový výměník', price: 82, currency: 'EUR' },
         { ref: '00062_LP_0,7', name: 'Pressostat LP', price: 12, currency: 'EUR' },
         { ref: '00062_HP_26', name: 'Pressostat HP', price: 15, currency: 'EUR' },
         { ref: '01789', name: 'Ventil elektromagnetický ALKO, 110 RB 2T2', price: 25, currency: 'EUR' },
@@ -474,12 +474,12 @@ const REPAIR_PRICE_LIST = {
         { ref: 'DML_053S', name: 'Filtr dehydrátor DML 053S', price: 10, currency: 'EUR' },
         { ref: '12384', name: 'Ventilátor radiální BL-B250B-EC-07', price: 84, currency: 'EUR' },
         { ref: 'YCV-15009', name: 'Ventil zpětný SANHUA 10mm', price: 14, currency: 'EUR' },
-        { ref: '11547_HYDRA', name: 'Capacitator MKB MKP 50/500/2149', price: 12, currency: 'EUR' },
+        { ref: '11547_HYDRA', name: 'Capacitátor MKB MKP 50/500/2149', price: 12, currency: 'EUR' },
         { ref: 'EPP_SADA_TX9', name: 'Opláštění sada pro TX9', price: 85, currency: 'EUR' },
         { ref: 'TX9_kabel_svazek', name: 'Sada kabelových svazků pro sušičku TX9', price: 30, currency: 'EUR' },
         { ref: 'vsuvka_mosaz_3/8_3/4', name: 'Vsuvka mosazná redukovaná 3/8" na 3/4"', price: 2, currency: 'EUR' },
-        { ref: 'pas_uplnaci_2,5_25mm', name: 'Upínací pás se spojkou 25mm/2,5', price: 4, currency: 'EUR' },
-        { ref: '0712174', name: 'Koncovka – svorkovnice k elektromag. Ventilu', price: 3, currency: 'EUR' },
+        { ref: 'pas_upinaci_2,5_25mm', name: 'Upínací pás se spojkou 25mm/2,5', price: 4, currency: 'EUR' },
+        { ref: '0712174', name: 'Koncovka - svorkovnice k elektromag. Ventilu', price: 3, currency: 'EUR' },
         { ref: 'R11780_AlMg3_1mm_A-04', name: 'Kryt pro rozběhový kondenzátor TX9 Hydra', price: 6, currency: 'EUR' },
         { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' }
     ]
@@ -487,7 +487,7 @@ const REPAIR_PRICE_LIST = {
 
 // Get repair component by reference
 function getRepairComponent(ref, model) {
-    if (model === 'T9' || model === 'T11' || model === 'T9/T11') {
+    if (model === 'T9' || model === 'T11' || model === 'T9/T11' || model === 'TH11') {
         return REPAIR_PRICE_LIST.componentsT9T11.find(c => c.ref === ref) || null;
     } else if (model === 'TX9') {
         return REPAIR_PRICE_LIST.componentsTX9.find(c => c.ref === ref) || null;
@@ -500,10 +500,10 @@ function getRepairComponent(ref, model) {
 
 // Get all components for a model
 function getRepairComponentsByModel(model) {
-    if (model === 'T9' || model === 'T11' || model === 'T9/T11') {
-        return REPAIR_PRICE_LIST.componentsT9T11;
-    } else if (model === 'TX9') {
+    if (model === 'TX9') {
         return REPAIR_PRICE_LIST.componentsTX9;
+    } else if (model === 'TH11' || model === 'T9/T11' || model === 'T9' || model === 'T11') {
+        return REPAIR_PRICE_LIST.componentsT9T11;
     }
     return [];
 }

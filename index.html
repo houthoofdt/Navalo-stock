@@ -165,9 +165,25 @@
 
                             <div class="form-actions">
                                 <button type="button" class="btn btn-outline" onclick="clearEntryForm()" data-i18n="clear">Annuler</button>
+                                <button type="button" class="btn btn-secondary" onclick="showReceiptPreview()">👁️ <span data-i18n="preview">Náhled</span></button>
                                 <button type="submit" class="btn btn-primary">✓ <span data-i18n="saveReceipt">Valider la réception</span></button>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Stock Receipt Preview Modal -->
+                <div class="modal" id="receiptPreviewModal">
+                    <div class="modal-content modal-large">
+                        <div class="modal-header">
+                            <h3 data-i18n="receiptPreview">Náhled příjemky</h3>
+                            <button class="modal-close" onclick="closeReceiptPreviewModal()">✕</button>
+                        </div>
+                        <div id="receiptPreview"></div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline" onclick="closeReceiptPreviewModal()" data-i18n="close">Zavřít</button>
+                            <button class="btn btn-secondary" onclick="printReceipt()">🖨️ <span data-i18n="print">Tisknout</span></button>
+                        </div>
                     </div>
                 </div>
 
@@ -271,6 +287,7 @@
 
                     <div class="delivery-actions">
                         <button class="btn btn-outline" onclick="clearDeliveryForm()" data-i18n="clear">Annuler</button>
+                        <button class="btn btn-secondary btn-large" onclick="previewDeliveryBeforeSave()">👁️ <span data-i18n="preview">Náhled</span></button>
                         <button class="btn btn-primary btn-large" onclick="processDelivery()">🧾 <span data-i18n="createDelivery">Créer BL</span></button>
                     </div>
                 </div>
@@ -1025,9 +1042,25 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="closeReceivedInvoiceModal()" data-i18n="cancel">Annuler</button>
+                    <button type="button" class="btn btn-secondary" onclick="showReceivedInvoicePreview()">👁️ <span data-i18n="preview">Náhled</span></button>
                     <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Received Invoice Preview Modal -->
+    <div class="modal" id="receivedInvoicePreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="receivedInvoicePreview">Náhled přijaté faktury</h3>
+                <button class="modal-close" onclick="closeReceivedInvoicePreviewModal()">✕</button>
+            </div>
+            <div id="receivedInvoicePreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeReceivedInvoicePreviewModal()" data-i18n="close">Zavřít</button>
+                <button class="btn btn-secondary" onclick="printReceivedInvoice()">🖨️ <span data-i18n="print">Tisknout</span></button>
+            </div>
         </div>
     </div>
 
@@ -1086,6 +1119,7 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="closePOModal()" data-i18n="cancel">Annuler</button>
+                    <button type="button" class="btn btn-secondary" onclick="previewPOBeforeSave()">👁️ <span data-i18n="preview">Náhled</span></button>
                     <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
                 </div>
             </form>
@@ -1235,6 +1269,7 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="closeInvoiceModal()" data-i18n="cancel">Zrušit</button>
+                    <button type="button" class="btn btn-secondary" onclick="previewInvoiceBeforeSave()">👁️ <span data-i18n="preview">Náhled</span></button>
                     <button type="submit" class="btn btn-primary" data-i18n="save">Uložit</button>
                 </div>
             </form>
@@ -1392,6 +1427,10 @@
                             <label data-i18n="date">Date *</label>
                             <input type="date" id="repairQuoteDate" required>
                         </div>
+                        <div class="form-group">
+                            <label data-i18n="clientOrderNum">N° commande client</label>
+                            <input type="text" id="repairQuoteClientOrderNum" placeholder="N° commande client">
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -1446,6 +1485,7 @@
 
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="closeRepairQuoteModal()" data-i18n="cancel">Annuler</button>
+                    <button type="button" class="btn btn-secondary" onclick="previewRepairQuoteBeforeSave()">👁️ <span data-i18n="preview">Náhled</span></button>
                     <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
                 </div>
             </form>
@@ -1560,9 +1600,25 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="closeReceivedOrderModal()" data-i18n="cancel">Zrušit</button>
+                    <button type="button" class="btn btn-secondary" onclick="showReceivedOrderPreview()">👁️ <span data-i18n="preview">Náhled</span></button>
                     <button type="submit" class="btn btn-primary" data-i18n="save">Uložit</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Received Order Preview Modal -->
+    <div class="modal" id="receivedOrderPreviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 data-i18n="receivedOrderPreview">Náhled přijaté objednávky</h3>
+                <button class="modal-close" onclick="closeReceivedOrderPreviewModal()">✕</button>
+            </div>
+            <div id="receivedOrderPreview"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeReceivedOrderPreviewModal()" data-i18n="close">Zavřít</button>
+                <button class="btn btn-secondary" onclick="printReceivedOrder()">🖨️ <span data-i18n="print">Tisknout</span></button>
+            </div>
         </div>
     </div>
 
