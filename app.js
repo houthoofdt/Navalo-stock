@@ -3989,6 +3989,7 @@ async function updateInvoicesDisplay() {
                 invoices = remoteInvoices;
                 localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
                 console.log('📦 Loaded', invoices.length, 'issued invoices from Google Sheets');
+                console.log('🔍 Premier invoice - clientOrderNumber:', invoices[0]?.clientOrderNumber);
             }
         } catch (e) {
             console.warn('Failed to load invoices from Google Sheets:', e);
@@ -5730,6 +5731,12 @@ async function saveIssuedInvoice() {
         createdAt: new Date().toISOString()
     };
 
+    // DEBUG: Log clientOrderNumber
+    console.log('🔍 SAVE INVOICE DEBUG:');
+    console.log('  - Champ invClientOrderNum existe?', !!document.getElementById('invClientOrderNum'));
+    console.log('  - Valeur du champ:', document.getElementById('invClientOrderNum')?.value);
+    console.log('  - clientOrderNumber dans invoice:', invoice.clientOrderNumber);
+
     // Get linked proforma for deduction
     const proformaSelect = document.getElementById('invLinkedProforma');
     if (proformaSelect && proformaSelect.value) {
@@ -5758,8 +5765,11 @@ async function saveIssuedInvoice() {
             if (!invoice.clientOrderNumber) {
                 invoice.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
             }
+            console.log('  - Après récupération commande liée, clientOrderNumber:', invoice.clientOrderNumber);
         }
     }
+
+    console.log('  - FINAL clientOrderNumber avant sauvegarde:', invoice.clientOrderNumber);
 
     // Save to Google Sheets if connected
     if (storage.getMode() === 'googlesheets') {
