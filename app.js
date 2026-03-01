@@ -9580,7 +9580,7 @@ function previewInvoiceBeforeSave() {
         items: [],
         notes: document.getElementById('invNotes')?.value || '',
         linkedOrderNumber: '',
-        clientOrderNumber: ''
+        clientOrderNumber: document.getElementById('invClientOrderNum')?.value || ''
     };
 
     // Get linked order info if available
@@ -9590,7 +9590,10 @@ function previewInvoiceBeforeSave() {
         const linkedOrderData = orders.find(o => o.id === linkedOrderId);
         if (linkedOrderData) {
             invoiceData.linkedOrderNumber = linkedOrderData.orderNumber || '';
-            invoiceData.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
+            // Only fill from linked order if not already set in form
+            if (!invoiceData.clientOrderNumber) {
+                invoiceData.clientOrderNumber = linkedOrderData.clientOrderNumber || '';
+            }
         }
     }
 
