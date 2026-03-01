@@ -8675,45 +8675,47 @@ async function printRepairQuote() {
     const quote = quotes.find(q => q.id === currentRepairQuotePreview);
     document.title = quote?.quoteNumber || 'Devis';
 
-    // Create temporary print container outside modal
-    const previewContent = document.querySelector('#repairQuotePreview .delivery-note');
-    if (!previewContent) {
-        window.print();
-        setTimeout(() => { document.title = originalTitle; }, 500);
-        return;
+    // Force scroll to top and remove scroll constraints
+    const modal = document.getElementById('repairQuotePreviewModal');
+    const modalContent = modal?.querySelector('.modal-content');
+    const previewDiv = document.getElementById('repairQuotePreview');
+
+    // Save original styles
+    const originalModalStyles = modalContent ? {
+        overflow: modalContent.style.overflow,
+        maxHeight: modalContent.style.maxHeight
+    } : null;
+    const originalPreviewStyles = previewDiv ? {
+        overflow: previewDiv.style.overflow,
+        maxHeight: previewDiv.style.maxHeight
+    } : null;
+
+    // Reset scroll and remove constraints
+    if (modalContent) {
+        modalContent.scrollTop = 0;
+        modalContent.style.overflow = 'visible';
+        modalContent.style.maxHeight = 'none';
+    }
+    if (previewDiv) {
+        previewDiv.scrollTop = 0;
+        previewDiv.style.overflow = 'visible';
+        previewDiv.style.maxHeight = 'none';
     }
 
-    // Clone content for printing
-    const printContainer = document.createElement('div');
-    printContainer.id = 'temp-print-container';
-    printContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; background: white; z-index: 99999;';
-    printContainer.innerHTML = previewContent.outerHTML;
-
-    // Add class to body for print-specific CSS
-    document.body.classList.add('temp-printing');
-
-    // Hide main content and show print container
-    document.body.appendChild(printContainer);
-    const mainContent = Array.from(document.body.children);
-    for (let elem of mainContent) {
-        if (elem !== printContainer) {
-            elem.style.display = 'none';
-            elem.style.visibility = 'hidden';
-        }
-    }
-
-    // Print
+    // Wait for changes to apply, then print
     setTimeout(() => {
         window.print();
 
-        // Cleanup after print
+        // Restore original styles after print
         setTimeout(() => {
             document.title = originalTitle;
-            document.body.classList.remove('temp-printing');
-            printContainer.remove();
-            for (let elem of mainContent) {
-                elem.style.display = '';
-                elem.style.visibility = '';
+            if (modalContent && originalModalStyles) {
+                modalContent.style.overflow = originalModalStyles.overflow;
+                modalContent.style.maxHeight = originalModalStyles.maxHeight;
+            }
+            if (previewDiv && originalPreviewStyles) {
+                previewDiv.style.overflow = originalPreviewStyles.overflow;
+                previewDiv.style.maxHeight = originalPreviewStyles.maxHeight;
             }
         }, 500);
     }, 100);
