@@ -523,6 +523,9 @@
                         <button class="btn btn-primary" onclick="openRepairQuoteModal()">
                             + <span data-i18n="newRepairQuote">Nouveau devis réparation</span>
                         </button>
+                        <button class="btn btn-secondary" onclick="fixDuplicateRepairQuoteNumbers()" title="Corriger les numéros en double">
+                            🔧 <span>Corriger doublons</span>
+                        </button>
                         <select id="repairQuoteStatusFilter" class="filter-select" onchange="updateRepairQuotesDisplay()">
                             <option value="">Tous statuts</option>
                             <option value="draft">Brouillon</option>
