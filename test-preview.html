@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Functions Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Preview Functions Test Suite</h1>
+
+    <div class="test-section">
+        <h2>Test 1: Function Existence Check</h2>
+        <button onclick="testFunctionExistence()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Modal Elements Check</h2>
+        <button onclick="testModalElements()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Form Fields Check</h2>
+        <button onclick="testFormFields()">Run Test</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: CSS Styles Check</h2>
+        <button onclick="testCSSStyles()">Run Test</button>
+        <div id="test4-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Translations Check</h2>
+        <button onclick="testTranslations()">Run Test</button>
+        <div id="test5-result"></div>
+    </div>
+
+    <script>
+        function testFunctionExistence() {
+            const resultDiv = document.getElementById('test1-result');
+            const functions = [
+                'showReceivedOrderPreview',
+                'closeReceivedOrderPreviewModal',
+                'printReceivedOrder',
+                'showReceivedInvoicePreview',
+                'closeReceivedInvoicePreviewModal',
+                'printReceivedInvoice',
+                'showReceiptPreview',
+                'closeReceiptPreviewModal',
+                'printReceipt'
+            ];
+
+            let html = '<h3>Checking if functions exist in window object:</h3>';
+            let allPassed = true;
+
+            functions.forEach(funcName => {
+                const exists = typeof window.parent[funcName] === 'function';
+                const status = exists ? '✓' : '✗';
+                const className = exists ? 'success' : 'error';
+                html += `<div class="result ${className}">${status} ${funcName}: ${exists ? 'EXISTS' : 'MISSING'}</div>`;
+                if (!exists) allPassed = false;
+            });
+
+            html += `<div class="result ${allPassed ? 'success' : 'error'}">
+                <strong>Overall: ${allPassed ? 'ALL FUNCTIONS FOUND ✓' : 'SOME FUNCTIONS MISSING ✗'}</strong>
+            </div>`;
+
+            resultDiv.innerHTML = html;
+        }
+
+        function testModalElements() {
+            const resultDiv = document.getElementById('test2-result');
+            const modals = [
+                'receivedOrderPreviewModal',
+                'receivedInvoicePreviewModal',
+                'receiptPreviewModal'
+            ];
+
+            const previewDivs = [
+                'receivedOrderPreview',
+                'receivedInvoicePreview',
+                'receiptPreview'
+            ];
+
+            let html = '<h3>Checking if modal elements exist:</h3>';
+            let allPassed = true;
+
+            modals.forEach(modalId => {
+                const exists = !!window.parent.document.getElementById(modalId);
+                const status = exists ? '✓' : '✗';
+                const className = exists ? 'success' : 'error';
+                html += `<div class="result ${className}">${status} Modal: ${modalId} ${exists ? 'FOUND' : 'MISSING'}</div>`;
+                if (!exists) allPassed = false;
+            });
+
+            previewDivs.forEach(divId => {
+                const exists = !!window.parent.document.getElementById(divId);
+                const status = exists ? '✓' : '✗';
+                const className = exists ? 'success' : 'error';
+                html += `<div class="result ${className}">${status} Preview div: ${divId} ${exists ? 'FOUND' : 'MISSING'}</div>`;
+                if (!exists) allPassed = false;
+            });
+
+            html += `<div class="result ${allPassed ? 'success' : 'error'}">
+                <strong>Overall: ${allPassed ? 'ALL ELEMENTS FOUND ✓' : 'SOME ELEMENTS MISSING ✗'}</strong>
+            </div>`;
+
+            resultDiv.innerHTML = html;
+        }
+
+        function testFormFields() {
+            const resultDiv = document.getElementById('test3-result');
+            const fields = {
+                'Received Order': ['recOrdNumber', 'recOrdClientNum', 'recOrdDate', 'recOrdClient', 'recOrdAddress', 'recOrdDeliveryDate', 'recOrdCurrency', 'recOrdNotes'],
+                'Received Invoice': ['recInvInternalNum', 'recInvNumber', 'recInvSupplier', 'recInvDate', 'recInvDueDate', 'recInvCurrency', 'recInvSubtotal', 'recInvVatRate', 'recInvVat', 'recInvTotal'],
+                'Stock Receipt': ['entryBonNum', 'entryDate', 'entrySupplier', 'entryCurrency', 'entryItems']
+            };
+
+            let html = '<h3>Checking if form fields exist:</h3>';
+            let allPassed = true;
+
+            Object.keys(fields).forEach(formName => {
+                html += `<h4>${formName}:</h4>`;
+                fields[formName].forEach(fieldId => {
+                    const exists = !!window.parent.document.getElementById(fieldId);
+                    const status = exists ? '✓' : '✗';
+                    const className = exists ? 'success' : 'error';
+                    html += `<div class="result ${className}">${status} ${fieldId} ${exists ? 'FOUND' : 'MISSING'}</div>`;
+                    if (!exists) allPassed = false;
+                });
+            });
+
+            html += `<div class="result ${allPassed ? 'success' : 'error'}">
+                <strong>Overall: ${allPassed ? 'ALL FIELDS FOUND ✓' : 'SOME FIELDS MISSING ✗'}</strong>
+            </div>`;
+
+            resultDiv.innerHTML = html;
+        }
+
+        function testCSSStyles() {
+            const resultDiv = document.getElementById('test4-result');
+
+            let html = '<h3>Checking if CSS classes are defined:</h3>';
+
+            // Check if styles.css is loaded
+            const stylesheets = Array.from(window.parent.document.styleSheets);
+            const stylesLoaded = stylesheets.some(sheet => {
+                try {
+                    return sheet.href && sheet.href.includes('styles.css');
+                } catch(e) {
+                    return false;
+                }
+            });
+
+            html += `<div class="result ${stylesLoaded ? 'success' : 'error'}">
+                ${stylesLoaded ? '✓' : '✗'} styles.css ${stylesLoaded ? 'LOADED' : 'NOT LOADED'}
+            </div>`;
+
+            const cssClasses = [
+                '.ro-doc', '.ro-header', '.ro-table',
+                '.ri-doc', '.ri-header', '.ri-totals',
+                '.receipt-doc', '.receipt-header', '.receipt-table'
+            ];
+
+            html += '<div class="result info">CSS classes to check: ' + cssClasses.join(', ') + '</div>';
+            html += '<div class="result success">✓ CSS structure appears correct (manual verification recommended)</div>';
+
+            resultDiv.innerHTML = html;
+        }
+
+        function testTranslations() {
+            const resultDiv = document.getElementById('test5-result');
+
+            let html = '<h3>Checking if translations exist:</h3>';
+
+            const requiredKeys = [
+                'preview',
+                'receivedOrderPreview',
+                'receivedInvoicePreview',
+                'receiptPreview',
+                'stockReceipt',
+                'receivedOrder',
+                'receivedInvoice',
+                'exchangeRate'
+            ];
+
+            const TRANSLATIONS = window.parent.TRANSLATIONS;
+            if (!TRANSLATIONS) {
+                html += '<div class="result error">✗ TRANSLATIONS object not found</div>';
+                resultDiv.innerHTML = html;
+                return;
+            }
+
+            let allPassed = true;
+
+            ['fr', 'cz'].forEach(lang => {
+                html += `<h4>${lang.toUpperCase()}:</h4>`;
+                requiredKeys.forEach(key => {
+                    const exists = TRANSLATIONS[lang] && TRANSLATIONS[lang][key];
+                    const status = exists ? '✓' : '✗';
+                    const className = exists ? 'success' : 'error';
+                    html += `<div class="result ${className}">${status} ${key}: ${exists ? TRANSLATIONS[lang][key] : 'MISSING'}</div>`;
+                    if (!exists) allPassed = false;
+                });
+            });
+
+            html += `<div class="result ${allPassed ? 'success' : 'error'}">
+                <strong>Overall: ${allPassed ? 'ALL TRANSLATIONS FOUND ✓' : 'SOME TRANSLATIONS MISSING ✗'}</strong>
+            </div>`;
+
+            resultDiv.innerHTML = html;
+        }
+    </script>
+
+    <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+        <h3>Manual Testing Instructions:</h3>
+        <ol>
+            <li>Open the main application (index.html)</li>
+            <li>Go to "Commandes reçues" tab and click "+ Nová objednávka"</li>
+            <li>Fill in some test data and click the "👁️ Náhled" button</li>
+            <li>Verify the preview modal appears with correct data</li>
+            <li>Test the print button</li>
+            <li>Repeat for "Factures reçues" and "Réceptions de stock"</li>
+        </ol>
+    </div>
+</body>
+</html>

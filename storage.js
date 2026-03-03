@@ -83,6 +83,11 @@ class StorageAdapter {
             }));
         }
         
+        // Subcontracting orders
+        if (!localStorage.getItem('navalo_subcontracting_orders')) {
+            localStorage.setItem('navalo_subcontracting_orders', JSON.stringify([]));
+        }
+
         // Always update BOM from code (config data, not user data)
         if (typeof SAMPLE_BOM !== 'undefined') {
             localStorage.setItem('navalo_bom', JSON.stringify(SAMPLE_BOM));
@@ -553,6 +558,9 @@ class StorageAdapter {
                     }
                 });
                 return orders.slice(0, params.limit || 50);
+            case 'getSubcontractingOrders':
+                const scOrders = JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
+                return scOrders.slice(0, params.limit || 100);
             default:
                 return null;
         }
@@ -1687,6 +1695,31 @@ class StorageAdapter {
 
     isHybridMode() {
         return this.hybridMode;
+    }
+
+    // ========================================
+    // SUBCONTRACTING ORDERS
+    // ========================================
+
+    getSubcontractingOrders() {
+        return JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
+    }
+
+    saveSubcontractingOrders(orders) {
+        localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(orders));
+
+        // If hybrid mode, add to sync queue
+        if (this.hybridMode) {
+            this.addToSyncQueue('saveSubcontractingOrders', { orders });
+        }
+
+        return { success: true };
+    }
+
+    async deleteSubcontractingOrder(id) {
+        let orders = this.getSubcontractingOrders();
+        orders = orders.filter(o => o.id !== id);
+        return this.saveSubcontractingOrders(orders);
     }
 }
 

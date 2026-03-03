@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug - Numéros de commande client</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #00ff00; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #00ff00; padding: 8px; text-align: left; }
+        th { background: #2a2a2a; }
+        .error { color: #ff0000; }
+        .warning { color: #ffaa00; }
+    </style>
+</head>
+<body>
+    <h1>🔍 DEBUG - Numéros de commande client</h1>
+    <button onclick="checkData()">Analyser les données</button>
+    <div id="results"></div>
+
+    <script>
+        function checkData() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Commandes Reçues:</h2>';
+
+            // Check received orders
+            const orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+            if (orders.length === 0) {
+                results.innerHTML += '<p class="warning">Aucune commande reçue trouvée</p>';
+            } else {
+                let table = '<table><tr><th>ID</th><th>Order Number</th><th>Client Order Number</th><th>Delivery Date</th><th>Date</th></tr>';
+                orders.forEach(o => {
+                    const clientOrderNum = o.clientOrderNumber || '<span class="error">VIDE</span>';
+                    const deliveryDate = o.deliveryDate || '-';
+                    const date = o.date || '-';
+                    table += `<tr>
+                        <td>${o.id || '-'}</td>
+                        <td>${o.orderNumber || '-'}</td>
+                        <td><strong>${clientOrderNum}</strong></td>
+                        <td>${deliveryDate}</td>
+                        <td>${date}</td>
+                    </tr>`;
+                });
+                table += '</table>';
+                results.innerHTML += table;
+            }
+
+            // Check invoices
+            results.innerHTML += '<h2>Factures Émises:</h2>';
+            const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+            if (invoices.length === 0) {
+                results.innerHTML += '<p class="warning">Aucune facture trouvée</p>';
+            } else {
+                let table = '<table><tr><th>Invoice Number</th><th>Client Order Number</th><th>Linked Order Number</th><th>Linked Order ID</th></tr>';
+                invoices.forEach(inv => {
+                    const clientOrderNum = inv.clientOrderNumber || '<span class="error">VIDE</span>';
+                    const linkedOrderNum = inv.linkedOrderNumber || '-';
+                    const linkedOrderId = inv.linkedOrder || '-';
+                    table += `<tr>
+                        <td>${inv.number}</td>
+                        <td><strong>${clientOrderNum}</strong></td>
+                        <td>${linkedOrderNum}</td>
+                        <td>${linkedOrderId}</td>
+                    </tr>`;
+                });
+                table += '</table>';
+                results.innerHTML += table;
+            }
+        }
+    </script>
+</body>
+</html>

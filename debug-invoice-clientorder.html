@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug - N° Commande Client dans Factures</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #00ff00; }
+        .section { margin: 20px 0; padding: 15px; border: 2px solid #00ff00; background: #2a2a2a; }
+        .error { color: #ff0000; }
+        .warning { color: #ffaa00; }
+        .ok { color: #00ff00; }
+        button { background: #00ff00; color: #000; border: none; padding: 10px 20px; cursor: pointer; margin: 5px; }
+        pre { background: #000; padding: 10px; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #00ff00; padding: 8px; text-align: left; }
+        th { background: #2a2a2a; }
+    </style>
+</head>
+<body>
+    <h1>🔍 DEBUG - N° Commande Client dans Factures</h1>
+    
+    <div class="section">
+        <h2>Test 1: Vérifier si le champ existe dans le formulaire</h2>
+        <button onclick="test1()">Lancer Test 1</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Test 2: Afficher toutes les factures avec leurs données</h2>
+        <button onclick="test2()">Lancer Test 2</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>Test 3: Simuler une sauvegarde</h2>
+        <p>Cliquez pour ouvrir la console et voir les logs de debug</p>
+        <button onclick="test3()">Voir les logs de sauvegarde</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <script>
+        function test1() {
+            const result = document.getElementById('test1-result');
+            result.innerHTML = '<h3>Résultats:</h3>';
+            
+            // Check if field exists
+            const field = parent.document.getElementById('invClientOrderNum');
+            if (field) {
+                result.innerHTML += '<p class="ok">✓ Le champ "invClientOrderNum" existe dans le DOM</p>';
+                result.innerHTML += `<p class="ok">✓ Type: ${field.type}</p>`;
+                result.innerHTML += `<p class="ok">✓ Valeur actuelle: "${field.value || '(vide)'}"</p>`;
+                result.innerHTML += `<p class="ok">✓ Placeholder: "${field.placeholder || '(aucun)'}"</p>`;
+            } else {
+                result.innerHTML += '<p class="error">✗ Le champ "invClientOrderNum" N\'EXISTE PAS dans le DOM!</p>';
+                result.innerHTML += '<p class="warning">Vérifiez que vous avez vidé le cache et rechargé la page.</p>';
+            }
+        }
+
+        function test2() {
+            const result = document.getElementById('test2-result');
+            const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+            
+            if (invoices.length === 0) {
+                result.innerHTML = '<p class="warning">Aucune facture trouvée</p>';
+                return;
+            }
+
+            result.innerHTML = '<h3>Factures trouvées: ' + invoices.length + '</h3>';
+            
+            let table = '<table><tr><th>N° Facture</th><th>Client</th><th>clientOrderNumber (sauvegardé)</th><th>linkedOrderNumber</th><th>linkedOrder ID</th></tr>';
+            
+            invoices.slice(0, 10).forEach(inv => {
+                const clientOrderNum = inv.clientOrderNumber || '<span class="error">VIDE/UNDEFINED</span>';
+                const linkedOrderNum = inv.linkedOrderNumber || '-';
+                const linkedOrderId = inv.linkedOrder || '-';
+                
+                table += `<tr>
+                    <td>${inv.number}</td>
+                    <td>${inv.client}</td>
+                    <td><strong>${clientOrderNum}</strong></td>
+                    <td>${linkedOrderNum}</td>
+                    <td>${linkedOrderId}</td>
+                </tr>`;
+            });
+            
+            table += '</table>';
+            result.innerHTML += table;
+            
+            // Show one invoice in detail
+            const firstInv = invoices[0];
+            result.innerHTML += '<h3>Détails de la première facture:</h3>';
+            result.innerHTML += '<pre>' + JSON.stringify(firstInv, null, 2) + '</pre>';
+        }
+
+        function test3() {
+            const result = document.getElementById('test3-result');
+            result.innerHTML = '<p class="warning">Ouvrez la console JavaScript (F12) et créez une facture.</p>';
+            result.innerHTML += '<p class="warning">Regardez les logs pour voir si "invClientOrderNum" est récupéré.</p>';
+            result.innerHTML += '<p>Recherchez dans les logs: "clientOrderNumber"</p>';
+        }
+
+        // Auto-run tests on load
+        setTimeout(() => {
+            test1();
+            test2();
+        }, 500);
+    </script>
+</body>
+</html>

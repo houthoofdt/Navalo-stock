@@ -4267,6 +4267,113 @@ a.btn-icon[draggable="true"]:active {
 }
 
 /* ========================================
+   SUBCONTRACTING ORDERS
+   ======================================== */
+
+.sc-components-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 0.9em;
+}
+
+.sc-components-table thead {
+    background: var(--primary);
+    color: white;
+}
+
+.sc-components-table th,
+.sc-components-table td {
+    padding: 8px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.sc-components-table .text-right {
+    text-align: right;
+}
+
+.sc-components-table .text-success {
+    color: var(--success);
+    font-weight: bold;
+}
+
+.sc-components-table .text-warning {
+    color: var(--warning);
+    font-weight: bold;
+}
+
+.sc-view {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+.sc-view h3 {
+    margin-top: 0;
+    color: var(--primary);
+}
+
+.sc-view h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+}
+
+.sc-view p {
+    margin: 8px 0;
+}
+
+#scKitInfo {
+    padding: 15px;
+    background: var(--background);
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+#scKitInfo h4 {
+    margin-top: 0;
+    color: var(--primary);
+}
+
+/* Summary cards for subcontracting */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.summary-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 2em;
+    color: var(--primary);
+}
+
+.summary-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+/* Badge for status */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    background: var(--background);
+    white-space: nowrap;
+}
+
+/* ========================================
    PRINT MEDIA QUERIES - NEW DOCUMENTS
    ======================================== */
 

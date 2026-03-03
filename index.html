@@ -38,6 +38,7 @@
             <button class="nav-btn" data-tab="factures"><span>🧾</span> <span data-i18n="navFactures">Factures</span></button>
             <button class="nav-btn" data-tab="devis"><span>📝</span> <span data-i18n="navDevis">Devis</span></button>
             <button class="nav-btn" data-tab="repair-quotes"><span>🔧</span> <span data-i18n="navRepairQuotes">Devis Réparations</span></button>
+            <button class="nav-btn" data-tab="subcontracting"><span>🏭</span> <span>Sous-Traitance</span></button>
             <button class="nav-btn" data-tab="prijate"><span>📥</span> <span data-i18n="navPrijate">Faktury přijaté</span></button>
             <button class="nav-btn" data-tab="objprijate"><span>📋</span> <span data-i18n="navObjPrijate">Obj. přijaté</span></button>
             <button class="nav-btn" data-tab="contacts"><span>👥</span> <span data-i18n="navContacts">Contacts</span></button>
@@ -580,6 +581,58 @@
                                 <td colspan="9" class="text-muted text-center">
                                     <span data-i18n="noData">Aucune donnée</span>
                                 </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SUBCONTRACTING TAB -->
+            <section class="tab-content" id="tab-subcontracting">
+                <div class="tab-header">
+                    <h2>🔧 Sous-Traitance & Assemblage</h2>
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="openSubcontractingOrderModal()">
+                            + Nouvel Ordre
+                        </button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <h3>🟡</h3>
+                        <p>En attente</p>
+                        <div class="card-content"><span class="total-count" id="scPendingCount">0</span></div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>🔵</h3>
+                        <p>En cours</p>
+                        <div class="card-content"><span class="total-count" id="scInProgressCount">0</span></div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>🟢</h3>
+                        <p>Terminés</p>
+                        <div class="card-content"><span class="total-count" id="scCompletedCount">0</span></div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>N° Ordre</th>
+                                <th>Date</th>
+                                <th>Sous-Traitant</th>
+                                <th>Kit</th>
+                                <th>Quantité</th>
+                                <th>Progrès</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subcontractingOrdersBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-secondary">Aucune commande de sous-traitance</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1627,6 +1680,70 @@
                 <button class="btn btn-outline" onclick="closeReceivedOrderPreviewModal()" data-i18n="close">Zavřít</button>
                 <button class="btn btn-secondary" onclick="printReceivedOrder()">🖨️ <span data-i18n="print">Tisknout</span></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Subcontracting Order Modal -->
+    <div class="modal" id="subcontractingOrderModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="subcontractingOrderModalTitle">Nouvel Ordre de Sous-Traitance</h3>
+                <button class="modal-close" onclick="closeSubcontractingOrderModal()">✕</button>
+            </div>
+            <form id="scOrderForm" onsubmit="saveSubcontractingOrder(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>N° Ordre (auto)</label>
+                        <input type="text" id="scOrderNumber" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="scDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date limite</label>
+                        <input type="date" id="scDeliveryDate">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sous-Traitant *</label>
+                        <select id="scSubcontractor" required>
+                            <option value="">Sélectionner...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kit à Assembler *</label>
+                        <select id="scKitType" required onchange="updateScKitInfo()">
+                            <option value="">Sélectionner...</option>
+                            <option value="KIT-ASSEMBLÉ">KIT-ASSEMBLÉ (TH01 + TH02)</option>
+                            <option value="TIZ_TX9">TIZ_TX9 (7 composants)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité *</label>
+                        <input type="number" id="scQuantity" min="1" value="1" required onchange="updateScKitInfo()">
+                    </div>
+                </div>
+
+                <div class="form-section" style="background: #f0f9ff; padding: 15px; border-left: 4px solid #0ea5e9; margin: 20px 0;">
+                    <h4 style="margin-top: 0;">📦 Composants Nécessaires</h4>
+                    <div id="scKitInfo">
+                        <p class="text-secondary">Sélectionnez un kit et une quantité</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="scNotes" rows="3"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeSubcontractingOrderModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">💾 Enregistrer l'Ordre</button>
+                </div>
+            </form>
         </div>
     </div>
 

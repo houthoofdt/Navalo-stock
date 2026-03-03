@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnostic Prévisualisations</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #00ff00;
+            background: #2a2a2a;
+        }
+        .ok { color: #00ff00; }
+        .error { color: #ff0000; }
+        .warning { color: #ffaa00; }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: monospace;
+            margin: 5px;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        h1 { color: #00ff00; border-bottom: 2px solid #00ff00; }
+        h2 { color: #00ccff; }
+        pre {
+            background: #000;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 DIAGNOSTIC PRÉVISUALISATIONS</h1>
+
+    <div class="section">
+        <h2>Instructions</h2>
+        <p>1. Ouvrez index.html dans un autre onglet</p>
+        <p>2. Revenez ici et cliquez sur "Lancer Diagnostic"</p>
+        <p>3. Lisez les résultats ci-dessous</p>
+        <button onclick="runDiagnostic()">🔍 Lancer Diagnostic</button>
+        <button onclick="location.reload()">🔄 Rafraîchir</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function log(msg, type = 'ok') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = msg;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function section(title) {
+            const div = document.createElement('div');
+            div.className = 'section';
+            div.innerHTML = `<h2>${title}</h2>`;
+            document.getElementById('results').appendChild(div);
+            return div;
+        }
+
+        async function checkFile(filename) {
+            try {
+                const response = await fetch(filename);
+                const text = await response.text();
+                return { ok: true, size: text.length, text };
+            } catch (e) {
+                return { ok: false, error: e.message };
+            }
+        }
+
+        async function runDiagnostic() {
+            document.getElementById('results').innerHTML = '';
+
+            const s1 = section('📁 Vérification des fichiers');
+
+            // Check HTML
+            const html = await checkFile('index.html');
+            if (html.ok) {
+                log(`✓ index.html trouvé (${html.size} octets)`, 'ok');
+
+                // Check for preview buttons
+                const hasRecOrderBtn = html.text.includes('showReceivedOrderPreview()');
+                const hasRecInvBtn = html.text.includes('showReceivedInvoicePreview()');
+                const hasReceiptBtn = html.text.includes('showReceiptPreview()');
+
+                log(hasRecOrderBtn ? '✓ Bouton Commandes reçues trouvé' : '✗ Bouton Commandes reçues MANQUANT', hasRecOrderBtn ? 'ok' : 'error');
+                log(hasRecInvBtn ? '✓ Bouton Factures reçues trouvé' : '✗ Bouton Factures reçues MANQUANT', hasRecInvBtn ? 'ok' : 'error');
+                log(hasReceiptBtn ? '✓ Bouton Réceptions trouvé' : '✗ Bouton Réceptions MANQUANT', hasReceiptBtn ? 'ok' : 'error');
+            } else {
+                log(`✗ Erreur lecture index.html: ${html.error}`, 'error');
+            }
+
+            // Check JS
+            const js = await checkFile('app.js');
+            if (js.ok) {
+                log(`✓ app.js trouvé (${js.size} octets)`, 'ok');
+
+                const hasFunc1 = js.text.includes('function showReceivedOrderPreview()');
+                const hasFunc2 = js.text.includes('function showReceivedInvoicePreview()');
+                const hasFunc3 = js.text.includes('function showReceiptPreview()');
+
+                log(hasFunc1 ? '✓ Fonction showReceivedOrderPreview définie' : '✗ Fonction MANQUANTE', hasFunc1 ? 'ok' : 'error');
+                log(hasFunc2 ? '✓ Fonction showReceivedInvoicePreview définie' : '✗ Fonction MANQUANTE', hasFunc2 ? 'ok' : 'error');
+                log(hasFunc3 ? '✓ Fonction showReceiptPreview définie' : '✗ Fonction MANQUANTE', hasFunc3 ? 'ok' : 'error');
+            } else {
+                log(`✗ Erreur lecture app.js: ${js.error}`, 'error');
+            }
+
+            // Check CSS
+            const css = await checkFile('styles.css');
+            if (css.ok) {
+                log(`✓ styles.css trouvé (${css.size} octets)`, 'ok');
+
+                const hasROStyles = css.text.includes('.ro-doc');
+                const hasRIStyles = css.text.includes('.ri-doc');
+                const hasReceiptStyles = css.text.includes('.receipt-doc');
+
+                log(hasROStyles ? '✓ Styles .ro-doc trouvés' : '✗ Styles MANQUANTS', hasROStyles ? 'ok' : 'error');
+                log(hasRIStyles ? '✓ Styles .ri-doc trouvés' : '✗ Styles MANQUANTS', hasRIStyles ? 'ok' : 'error');
+                log(hasReceiptStyles ? '✓ Styles .receipt-doc trouvés' : '✗ Styles MANQUANTS', hasReceiptStyles ? 'ok' : 'error');
+            } else {
+                log(`✗ Erreur lecture styles.css: ${css.error}`, 'error');
+            }
+
+            const s2 = section('🔍 Recherche des boutons dans le HTML');
+
+            if (html.ok) {
+                // Find exact line numbers
+                const lines = html.text.split('\n');
+                const btnLines = [];
+
+                lines.forEach((line, idx) => {
+                    if (line.includes('showReceivedOrderPreview()')) {
+                        btnLines.push({ type: 'Commandes reçues', line: idx + 1, code: line.trim() });
+                    }
+                    if (line.includes('showReceivedInvoicePreview()')) {
+                        btnLines.push({ type: 'Factures reçues', line: idx + 1, code: line.trim() });
+                    }
+                    if (line.includes('showReceiptPreview()')) {
+                        btnLines.push({ type: 'Réceptions', line: idx + 1, code: line.trim() });
+                    }
+                });
+
+                if (btnLines.length > 0) {
+                    log(`✓ ${btnLines.length} bouton(s) de prévisualisation trouvé(s):`, 'ok');
+                    btnLines.forEach(btn => {
+                        log(`<br><strong>${btn.type}</strong> - Ligne ${btn.line}`, 'ok');
+                        log(`<pre>${btn.code.substring(0, 100)}...</pre>`, 'ok');
+                    });
+                } else {
+                    log('✗ Aucun bouton trouvé!', 'error');
+                }
+            }
+
+            const s3 = section('💡 Recommandations');
+
+            log('<strong>Pour voir les boutons de prévisualisation:</strong>', 'warning');
+            log('', 'warning');
+            log('1. <strong>FACTURES REÇUES:</strong>', 'warning');
+            log('   - Allez dans l\'onglet "Faktury přijaté"', 'warning');
+            log('   - Cliquez sur "+ Nouvelle Facture"', 'warning');
+            log('   - Le modal s\'ouvre avec le formulaire', 'warning');
+            log('   - Le bouton "👁️ Náhled" est entre "Annuler" et "Enregistrer"', 'warning');
+            log('', 'warning');
+            log('2. <strong>RÉCEPTIONS:</strong>', 'warning');
+            log('   - Allez dans l\'onglet "Příjemky"', 'warning');
+            log('   - Le formulaire est déjà visible', 'warning');
+            log('   - Le bouton "👁️ Náhled" est en bas du formulaire', 'warning');
+            log('', 'warning');
+            log('3. <strong>COMMANDES REÇUES:</strong>', 'warning');
+            log('   - Allez dans l\'onglet "Objednávky přijaté"', 'warning');
+            log('   - Cliquez sur "+ Nová objednávka"', 'warning');
+            log('   - Le bouton "👁️ Náhled" est dans le modal', 'warning');
+            log('', 'warning');
+            log('🔄 <strong>Si les boutons n\'apparaissent pas:</strong>', 'warning');
+            log('   - Faites Ctrl+F5 (Windows) ou Cmd+Shift+R (Mac) pour vider le cache', 'warning');
+            log('   - Fermez et rouvrez le navigateur', 'warning');
+            log('   - Vérifiez la console (F12) pour les erreurs JavaScript', 'warning');
+        }
+    </script>
+</body>
+</html>

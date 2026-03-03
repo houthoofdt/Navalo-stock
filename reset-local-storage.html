@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Local Storage - Navalo Stock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            display: none;
+        }
+        ul {
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Réinitialisation du Stock Local</h1>
+
+        <div class="info">
+            <strong>ℹ️ Information:</strong>
+            <p>Cette page vous permet de réinitialiser le localStorage pour charger le stock initial avec ~150+ composants.</p>
+        </div>
+
+        <h3>Options de réinitialisation:</h3>
+
+        <button class="btn btn-danger" onclick="resetStock()">
+            🔄 Réinitialiser uniquement le STOCK
+        </button>
+
+        <button class="btn btn-danger" onclick="resetAll()">
+            ⚠️ TOUT effacer (Stock + Commandes + Livraisons)
+        </button>
+
+        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+            ← Retour à l'application
+        </button>
+
+        <div id="success" class="success"></div>
+
+        <div class="info" style="margin-top: 30px;">
+            <strong>📦 Contenu du stock initial:</strong>
+            <ul>
+                <li>Composants TX9: compresseurs, échangeurs, vannes, etc.</li>
+                <li>Composants TX12-18: drivers, capteurs, régulateurs, etc.</li>
+                <li>Total: ~150 références avec quantités</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function showSuccess(message) {
+            const div = document.getElementById('success');
+            div.textContent = '✅ ' + message;
+            div.style.display = 'block';
+
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 2000);
+        }
+
+        function resetStock() {
+            if (confirm('Êtes-vous sûr de vouloir réinitialiser le stock?\n\nCela supprimera:\n- Le stock actuel\n- L\'historique des lots\n\nMais conservera:\n- Les commandes reçues\n- Les livraisons\n- Les commandes fournisseurs')) {
+                localStorage.removeItem('navalo_stock');
+                localStorage.removeItem('navalo_pac_stock');
+                localStorage.removeItem('navalo_stock_lots');
+                localStorage.removeItem('navalo_history');
+
+                showSuccess('Stock réinitialisé! Redirection vers l\'application...');
+            }
+        }
+
+        function resetAll() {
+            if (confirm('⚠️ ATTENTION ⚠️\n\nÊtes-vous VRAIMENT sûr de vouloir TOUT effacer?\n\nCela supprimera TOUTES les données:\n- Stock\n- Commandes reçues\n- Livraisons\n- Commandes fournisseurs\n- Historique\n- Configuration')) {
+                if (confirm('Dernière confirmation: TOUT SUPPRIMER?')) {
+                    localStorage.clear();
+                    showSuccess('Toutes les données supprimées! Redirection...');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

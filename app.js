@@ -21,6 +21,35 @@ let currentReceivedInvoiceFile = null;
 let currentReceivedOrderFile = null;
 let loadedComponentPrices = {}; // Prices loaded from Google Sheets
 let currentPrintDocNumber = ''; // Current document number for PDF filename
+let editingSubcontractingOrderId = null;
+
+// ========================================
+// BOM (Bill of Materials) - ASSEMBLY DEFINITIONS
+// ========================================
+
+const ASSEMBLY_BOM = {
+    'KIT-ASSEMBLÉ': {
+        name: 'Kit Assemblé Standard',
+        components: [
+            { ref: 'TH01', qty: 1 },
+            { ref: 'TH02', qty: 1 }
+        ],
+        assemblyCost: 50 // CZK par kit
+    },
+    'TIZ_TX9': {
+        name: 'Kit TIZ TX9',
+        components: [
+            { ref: '00062_LP_0.7/1.7', qty: 1 },
+            { ref: '00062_HP_26', qty: 1 },
+            { ref: '068U2215', qty: 1 },
+            { ref: '060-017166', qty: 1 },
+            { ref: 'DML_053S', qty: 1 },
+            { ref: 'YCV-15009', qty: 1 },
+            { ref: 'MDF3H02', qty: 1 }
+        ],
+        assemblyCost: 2450 // CZK par kit (travail + tubes)
+    }
+};
 
 // ========================================
 // PAC MODELS HELPER FUNCTIONS
@@ -264,7 +293,18 @@ const TRANSLATIONS = {
         receivedOrder: 'COMMANDE REÇUE',
         receivedInvoice: 'FACTURE REÇUE',
         exchangeRate: 'Taux de change',
-        deliveryProgress: 'Progression'
+        deliveryProgress: 'Progression',
+        // Subcontracting
+        subcontracting: 'Sous-Traitance',
+        orderNotFound: 'Commande non trouvée',
+        invalidKitType: 'Type de kit invalide',
+        fillAllFields: 'Veuillez remplir tous les champs',
+        orderUpdated: 'Commande mise à jour',
+        orderCreated: 'Commande créée',
+        orderDeleted: 'Commande supprimée',
+        quantityTooHigh: 'Quantité trop élevée',
+        assemblyCost: 'Coût assemblage',
+        totalCost: 'Coût total'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -456,7 +496,18 @@ const TRANSLATIONS = {
         receivedOrder: 'PŘIJATÁ OBJEDNÁVKA',
         receivedInvoice: 'PŘIJATÁ FAKTURA',
         exchangeRate: 'Směnný kurz',
-        deliveryProgress: 'Postup dodávky'
+        deliveryProgress: 'Postup dodávky',
+        // Subcontracting
+        subcontracting: 'Subdodávka',
+        orderNotFound: 'Objednávka nenalezena',
+        invalidKitType: 'Neplatný typ sady',
+        fillAllFields: 'Vyplňte všechna pole',
+        orderUpdated: 'Objednávka aktualizována',
+        orderCreated: 'Objednávka vytvořena',
+        orderDeleted: 'Objednávka smazána',
+        quantityTooHigh: 'Příliš vysoké množství',
+        assemblyCost: 'Náklady na montáž',
+        totalCost: 'Celkové náklady'
     }
 };
 
@@ -9948,3 +9999,688 @@ window.previewDeliveryBeforeSave = previewDeliveryBeforeSave;
 window.previewPOBeforeSave = previewPOBeforeSave;
 window.previewInvoiceBeforeSave = previewInvoiceBeforeSave;
 window.previewRepairQuoteBeforeSave = previewRepairQuoteBeforeSave;
+
+// ============================================================
+// SUBCONTRACTING ORDERS (Sous-Traitance)
+// ============================================================
+
+/**
+ * Get next document number (helper for BL, REC, etc.)
+ */
+function getNextDocumentNumber(type) {
+    const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+    const year = new Date().getFullYear();
+
+    if (config.year !== year) {
+        config.year = year;
+        config.next_bl = 1;
+        config.next_rec = 1;
+    }
+
+    let key, prefix;
+    switch(type) {
+        case 'BL':
+            key = 'next_bl';
+            prefix = 'BL';
+            break;
+        case 'REC':
+            key = 'next_rec';
+            prefix = 'REC';
+            break;
+        default:
+            console.error('Invalid document type:', type);
+            return null;
+    }
+
+    const num = config[key] || 1;
+    const docNumber = `${prefix}${year}${String(num).padStart(3, '0')}`; // Format: BL2026013
+
+    config[key] = num + 1;
+    localStorage.setItem('navalo_config', JSON.stringify(config));
+
+    return docNumber;
+}
+
+/**
+ * Get next subcontracting order number
+ */
+function getNextSubcontractingOrderNumber() {
+    const orders = storage.getSubcontractingOrders() || [];
+    const year = new Date().getFullYear();
+    const yearOrders = orders.filter(o => o.number.includes(`ST-${year}`));
+
+    if (yearOrders.length === 0) {
+        return `ST-${year}-001`;
+    }
+
+    const lastNum = Math.max(...yearOrders.map(o => {
+        const match = o.number.match(/ST-\d{4}-(\d{3})/);
+        return match ? parseInt(match[1]) : 0;
+    }));
+
+    return `ST-${year}-${String(lastNum + 1).padStart(3, '0')}`;
+}
+
+/**
+ * Open subcontracting order modal (new or edit)
+ */
+function openSubcontractingOrderModal(orderId = null) {
+    editingSubcontractingOrderId = orderId;
+
+    // Populate subcontractor dropdown from contacts (read directly from localStorage)
+    const contacts = JSON.parse(localStorage.getItem('navalo_contacts') || '[]');
+    const subcontractorSelect = document.getElementById('scSubcontractor');
+    subcontractorSelect.innerHTML = '<option value="">Sélectionner...</option>';
+
+    contacts.forEach(contact => {
+        const option = document.createElement('option');
+        option.value = contact.name;
+        option.textContent = contact.name;
+        subcontractorSelect.appendChild(option);
+    });
+
+    // Reset form
+    document.getElementById('scOrderForm').reset();
+
+    if (orderId) {
+        // Edit mode
+        const orders = storage.getSubcontractingOrders() || [];
+        const order = orders.find(o => o.id === orderId);
+        if (!order) {
+            showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+            return;
+        }
+
+        document.getElementById('scOrderNumber').value = order.number;
+        document.getElementById('scSubcontractor').value = order.subcontractor;
+        document.getElementById('scKitType').value = order.kitType;
+        document.getElementById('scQuantity').value = order.quantity;
+        document.getElementById('scDeliveryDate').value = order.deliveryDate;
+        document.getElementById('scNotes').value = order.notes || '';
+
+        // Update kit info display
+        updateScKitInfo();
+    } else {
+        // New order mode
+        document.getElementById('scOrderNumber').value = getNextSubcontractingOrderNumber();
+        document.getElementById('scDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('scQuantity').value = '1';
+
+        // Select first kit by default
+        const kitSelect = document.getElementById('scKitType');
+        if (kitSelect.options.length > 0) {
+            kitSelect.selectedIndex = 0;
+            updateScKitInfo();
+        }
+    }
+
+    // Show modal
+    const modal = document.getElementById('subcontractingOrderModal');
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+}
+
+/**
+ * Close subcontracting order modal
+ */
+function closeSubcontractingOrderModal() {
+    const modal = document.getElementById('subcontractingOrderModal');
+    modal.style.display = 'none';
+    modal.classList.remove('active');
+    editingSubcontractingOrderId = null;
+}
+
+/**
+ * Update kit information display based on selected kit type
+ */
+function updateScKitInfo() {
+    const kitType = document.getElementById('scKitType').value;
+    const quantity = parseInt(document.getElementById('scQuantity').value) || 0;
+    const infoDiv = document.getElementById('scKitInfo');
+
+    if (!kitType || !ASSEMBLY_BOM[kitType]) {
+        infoDiv.innerHTML = '<p class="text-secondary">Sélectionnez un kit</p>';
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[kitType];
+    const stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+
+    let html = `<h4>${bom.name}</h4>`;
+    html += '<table class="sc-components-table">';
+    html += '<thead><tr><th>Réf</th><th>Nom</th><th>Qté/kit</th><th>Total nécessaire</th><th>Stock disponible</th><th>Status</th></tr></thead>';
+    html += '<tbody>';
+
+    bom.components.forEach(comp => {
+        const totalNeeded = comp.qty * quantity;
+        const stockItem = stock[comp.ref];
+        const available = stockItem ? (stockItem.qty || stockItem.quantity || 0) : 0;
+        const status = available >= totalNeeded ? '✅' : '⚠️';
+        const statusClass = available >= totalNeeded ? 'text-success' : 'text-warning';
+
+        html += `<tr>
+            <td>${comp.ref}</td>
+            <td>${stockItem ? stockItem.name : comp.ref}</td>
+            <td class="text-right">${comp.qty}</td>
+            <td class="text-right"><strong>${totalNeeded}</strong></td>
+            <td class="text-right">${available}</td>
+            <td class="${statusClass}">${status}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+
+    if (bom.assemblyCost) {
+        html += `<p class="text-secondary"><strong>${t('assemblyCost') || 'Coût assemblage'}:</strong> ${bom.assemblyCost} CZK/kit</p>`;
+        html += `<p class="text-secondary"><strong>${t('totalCost') || 'Coût total'}:</strong> ${bom.assemblyCost * quantity} CZK</p>`;
+    }
+
+    infoDiv.innerHTML = html;
+}
+
+/**
+ * Save subcontracting order
+ */
+function saveSubcontractingOrder(event) {
+    event.preventDefault();
+
+    const orderData = {
+        number: document.getElementById('scOrderNumber').value,
+        date: document.getElementById('scDate').value,
+        subcontractor: document.getElementById('scSubcontractor').value,
+        kitType: document.getElementById('scKitType').value,
+        quantity: parseInt(document.getElementById('scQuantity').value),
+        deliveryDate: document.getElementById('scDeliveryDate').value,
+        notes: document.getElementById('scNotes').value,
+        status: 'pending',
+        transferred: {},
+        received: 0,
+        createdAt: new Date().toISOString()
+    };
+
+    // Validate
+    if (!orderData.subcontractor || !orderData.kitType || !orderData.quantity) {
+        showToast(t('fillAllFields') || 'Veuillez remplir tous les champs', 'error');
+        return;
+    }
+
+    // Get BOM
+    const bom = ASSEMBLY_BOM[orderData.kitType];
+    if (!bom) {
+        showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+        return;
+    }
+
+    // Save order
+    let orders = storage.getSubcontractingOrders() || [];
+
+    if (editingSubcontractingOrderId) {
+        // Edit existing
+        const index = orders.findIndex(o => o.id === editingSubcontractingOrderId);
+        if (index !== -1) {
+            orderData.id = editingSubcontractingOrderId;
+            orderData.transferred = orders[index].transferred;
+            orderData.received = orders[index].received;
+            orderData.status = orders[index].status;
+            orders[index] = orderData;
+        }
+    } else {
+        // Create new
+        orderData.id = Date.now().toString();
+        orders.push(orderData);
+    }
+
+    storage.saveSubcontractingOrders(orders);
+
+    showToast(
+        editingSubcontractingOrderId
+            ? (t('orderUpdated') || 'Commande mise à jour')
+            : (t('orderCreated') || 'Commande créée'),
+        'success'
+    );
+
+    closeSubcontractingOrderModal();
+    updateSubcontractingOrdersDisplay();
+}
+
+/**
+ * Update subcontracting orders display
+ */
+function updateSubcontractingOrdersDisplay() {
+    const orders = storage.getSubcontractingOrders() || [];
+    const tbody = document.getElementById('subcontractingOrdersBody');
+
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary">Aucune commande de sous-traitance</td></tr>';
+        updateSubcontractingSummary(orders);
+        return;
+    }
+
+    // Sort by date (most recent first)
+    orders.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    tbody.innerHTML = orders.map(order => {
+        const bom = ASSEMBLY_BOM[order.kitType];
+        const statusIcon = order.status === 'completed' ? '🟢' : (order.status === 'in_progress' ? '🔵' : '🟡');
+        const statusText = order.status === 'completed' ? 'Terminé' : (order.status === 'in_progress' ? 'En cours' : 'En attente');
+        const progress = order.quantity > 0 ? Math.round((order.received / order.quantity) * 100) : 0;
+
+        return `
+            <tr>
+                <td><strong>${order.number}</strong></td>
+                <td>${formatDate(order.date)}</td>
+                <td>${order.subcontractor}</td>
+                <td>${bom ? bom.name : order.kitType}</td>
+                <td class="text-right">${order.quantity}</td>
+                <td class="text-right">${order.received}/${order.quantity} (${progress}%)</td>
+                <td><span class="badge">${statusIcon} ${statusText}</span></td>
+                <td>
+                    <button class="btn btn-icon" onclick="viewSubcontractingOrder('${order.id}')" title="Voir">👁️</button>
+                    <button class="btn btn-icon" onclick="transferComponentsForOrder('${order.id}')" title="Transférer composants">📦</button>
+                    <button class="btn btn-icon" onclick="receiveKitsForOrder('${order.id}')" title="Recevoir kits">📥</button>
+                    <button class="btn btn-icon btn-danger" onclick="deleteSubcontractingOrder('${order.id}')" title="Supprimer">🗑️</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    updateSubcontractingSummary(orders);
+}
+
+/**
+ * Update subcontracting summary cards
+ */
+function updateSubcontractingSummary(orders) {
+    const pending = orders.filter(o => o.status === 'pending').length;
+    const inProgress = orders.filter(o => o.status === 'in_progress').length;
+    const completed = orders.filter(o => o.status === 'completed').length;
+
+    document.getElementById('scPendingCount').textContent = pending;
+    document.getElementById('scInProgressCount').textContent = inProgress;
+    document.getElementById('scCompletedCount').textContent = completed;
+}
+
+/**
+ * Transfer components for a subcontracting order
+ */
+async function transferComponentsForOrder(orderId) {
+    const orders = storage.getSubcontractingOrders() || [];
+    const order = orders.find(o => o.id === orderId);
+
+    if (!order) {
+        showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[order.kitType];
+    if (!bom) {
+        showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+        return;
+    }
+
+    // Ask for quantity to transfer
+    const remaining = order.quantity - order.received;
+    const qtyToTransfer = prompt(`Quantité de kits à transférer (max: ${remaining}):`, remaining);
+
+    if (!qtyToTransfer || isNaN(qtyToTransfer) || qtyToTransfer <= 0) {
+        return;
+    }
+
+    const qty = parseInt(qtyToTransfer);
+    if (qty > remaining) {
+        showToast(t('quantityTooHigh') || 'Quantité trop élevée', 'error');
+        return;
+    }
+
+    // Check stock availability - use currentStock if available, otherwise localStorage
+    let stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+
+    // If still empty, try to load from storage
+    if (Object.keys(stock).length === 0) {
+        console.warn('Stock vide, chargement depuis Google Sheets...');
+        alert('Le stock n\'est pas encore chargé. Allez d\'abord dans l\'onglet "Stock" puis revenez ici.');
+        return;
+    }
+
+    // Debug: show all stock references
+    console.log('=== DEBUG STOCK REFERENCES ===');
+    console.log('All stock references:', Object.keys(stock));
+    console.log('Looking for:', bom.components.map(c => c.ref));
+
+    const missingComponents = [];
+
+    bom.components.forEach(comp => {
+        const needed = comp.qty * qty;
+        const stockItem = stock[comp.ref];
+        const available = stockItem ? (stockItem.qty || stockItem.quantity || 0) : 0;
+
+        if (available < needed) {
+            missingComponents.push(`${comp.ref}: besoin ${needed}, disponible ${available}`);
+        }
+    });
+
+    if (missingComponents.length > 0) {
+        // Show detailed error in console
+        console.error('Missing components:', missingComponents);
+        console.error('Stock data:', stock);
+        console.error('BOM components:', bom.components);
+
+        alert(`Stock insuffisant:\n\n${missingComponents.join('\n')}\n\nVoir la console (F12) pour plus de détails.`);
+        return;
+    }
+
+    // Create delivery note (BL) - Auto-generate BL
+    const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+    const year = new Date().getFullYear();
+    if (config.year !== year) {
+        config.year = year;
+        config.next_bl = 1;
+    }
+    const blNum = config.next_bl || 1;
+    const blNumber = `BL${year}${String(blNum).padStart(3, '0')}`;
+    config.next_bl = blNum + 1;
+    localStorage.setItem('navalo_config', JSON.stringify(config));
+
+    const blDate = new Date().toISOString().split('T')[0];
+
+    console.log('=== BL CREATION ===');
+    console.log('Generated BL number:', blNumber);
+
+    const blItems = bom.components.map(comp => {
+        const stockItem = stock[comp.ref];
+        return {
+            ref: comp.ref,
+            name: stockItem ? stockItem.name : comp.ref,
+            qty: comp.qty * qty,  // Use 'qty' for preview compatibility
+            price: stockItem ? (stockItem.lastPrice || stockItem.price || 0) : 0
+        };
+    });
+
+    const blData = {
+        id: Date.now().toString(),
+        blNumber: blNumber,
+        date: blDate,
+        client: order.subcontractor,
+        clientAddress: '',
+        items: {
+            pac: {},  // No PAC, only components
+            components: blItems,  // Components array
+            custom: []
+        },
+        notes: `Transfert sous-traitance - Ordre ${order.number} - Composants pour ${qty} kits`,
+        isSubcontractorTransfer: true,
+        linkedSubcontractingOrder: order.id,
+        createdAt: new Date().toISOString()
+    };
+
+    // Use storage.processDelivery to handle stock update with Google Sheets sync
+    const deliveryData = {
+        client: order.subcontractor,
+        clientAddress: '',
+        notes: `Transfert sous-traitance - Ordre ${order.number} - Composants pour ${qty} kits`,
+        date: blDate,
+        items: {
+            pac: {},  // No PAC
+            components: blItems,  // Components to transfer
+            custom: []
+        }
+    };
+
+    try {
+        const result = await storage.processDelivery(deliveryData);
+        console.log('✓ Delivery processed:', result);
+
+        // Track transfer in order
+        bom.components.forEach(comp => {
+            const needed = comp.qty * qty;
+            if (!order.transferred[comp.ref]) {
+                order.transferred[comp.ref] = 0;
+            }
+            order.transferred[comp.ref] += needed;
+        });
+
+        // Reload stock after delivery to get updated values
+        const stockData = await storage.getStockWithValue();
+        currentStock = stockData.components;
+
+    } catch (error) {
+        console.error('❌ Erreur lors du transfert:', error);
+        showToast('Erreur lors du transfert: ' + error.message, 'error');
+        return;
+    }
+
+    // Update order status
+    if (order.status === 'pending') {
+        order.status = 'in_progress';
+    }
+
+    storage.saveSubcontractingOrders(orders);
+
+    showToast(
+        `BL ${blNumber} créé - ${qty} kits transférés`,
+        'success'
+    );
+
+    updateSubcontractingOrdersDisplay();
+    updateStockDisplay();
+
+    console.log('✓ Stock mis à jour:', stock);
+}
+
+/**
+ * Receive assembled kits for a subcontracting order
+ */
+async function receiveKitsForOrder(orderId) {
+    const orders = storage.getSubcontractingOrders() || [];
+    const order = orders.find(o => o.id === orderId);
+
+    if (!order) {
+        showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[order.kitType];
+    if (!bom) {
+        showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+        return;
+    }
+
+    // Ask for quantity to receive
+    const remaining = order.quantity - order.received;
+    const qtyToReceive = prompt(`Quantité de kits assemblés reçus (max: ${remaining}):`, remaining);
+
+    if (!qtyToReceive || isNaN(qtyToReceive) || qtyToReceive <= 0) {
+        return;
+    }
+
+    const qty = parseInt(qtyToReceive);
+    if (qty > remaining) {
+        showToast(t('quantityTooHigh') || 'Quantité trop élevée', 'error');
+        return;
+    }
+
+    // Use storage.processReceipt to handle stock update with Google Sheets sync
+    const receiptDate = new Date().toISOString().split('T')[0];
+    const bonNum = `Retour-${order.number}`;
+
+    // First ensure the kit exists in stock as a component
+    let stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+    if (!stock[order.kitType]) {
+        // Add kit to stock if it doesn't exist
+        stock[order.kitType] = {
+            name: bom.name,
+            qty: 0,
+            unit: 'pcs',
+            min: 0,
+            location: 'A1',
+            supplier: order.subcontractor,
+            lastPrice: bom.assemblyCost || 0,
+            currency: 'CZK',
+            category: 'kit'
+        };
+        localStorage.setItem('navalo_stock', JSON.stringify(stock));
+    }
+
+    const receiptData = {
+        items: [{
+            ref: order.kitType,
+            qty: qty,
+            price: bom.assemblyCost || 0
+        }],
+        supplier: order.subcontractor,
+        bonNum: bonNum,
+        date: receiptDate,
+        currency: 'CZK',
+        linkedPO: null
+    };
+
+    try {
+        const result = await storage.processReceipt(receiptData);
+        console.log('✓ Receipt processed:', result);
+
+        // Reload stock after receipt to get updated values
+        const stockData = await storage.getStockWithValue();
+        currentStock = stockData.components;
+
+    } catch (error) {
+        console.error('❌ Erreur lors de la réception:', error);
+        showToast('Erreur lors de la réception: ' + error.message, 'error');
+        return;
+    }
+
+    // Update order
+    order.received += qty;
+
+    if (order.received >= order.quantity) {
+        order.status = 'completed';
+    } else {
+        order.status = 'in_progress';
+    }
+
+    storage.saveSubcontractingOrders(orders);
+
+    showToast(
+        `Réception ${receiptNumber} créée - ${qty} kits reçus`,
+        'success'
+    );
+
+    updateSubcontractingOrdersDisplay();
+    updateStockDisplay();
+
+    console.log('✓ Stock kit mis à jour:', stock[order.kitType]);
+}
+
+/**
+ * View subcontracting order details
+ */
+function viewSubcontractingOrder(orderId) {
+    const orders = storage.getSubcontractingOrders() || [];
+    const order = orders.find(o => o.id === orderId);
+
+    if (!order) {
+        showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[order.kitType];
+    const progress = order.quantity > 0 ? Math.round((order.received / order.quantity) * 100) : 0;
+
+    let html = `
+        <div class="sc-view">
+            <h3>Ordre: ${order.number}</h3>
+            <p><strong>Date:</strong> ${formatDate(order.date)}</p>
+            <p><strong>Sous-traitant:</strong> ${order.subcontractor}</p>
+            <p><strong>Kit:</strong> ${bom ? bom.name : order.kitType}</p>
+            <p><strong>Quantité commandée:</strong> ${order.quantity}</p>
+            <p><strong>Kits reçus:</strong> ${order.received}/${order.quantity} (${progress}%)</p>
+            ${order.deliveryDate ? `<p><strong>Date de livraison:</strong> ${formatDate(order.deliveryDate)}</p>` : ''}
+            ${order.notes ? `<p><strong>Notes:</strong><br>${order.notes}</p>` : ''}
+
+            <h4>Composants nécessaires (total):</h4>
+            <table class="sc-components-table">
+                <thead><tr><th>Réf</th><th>Nom</th><th>Qté/kit</th><th>Total</th><th>Transféré</th></tr></thead>
+                <tbody>
+    `;
+
+    if (bom) {
+        const stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+        bom.components.forEach(comp => {
+            const totalNeeded = comp.qty * order.quantity;
+            const transferred = order.transferred[comp.ref] || 0;
+            const stockItem = stock[comp.ref];
+
+            html += `<tr>
+                <td>${comp.ref}</td>
+                <td>${stockItem ? stockItem.name : comp.ref}</td>
+                <td class="text-right">${comp.qty}</td>
+                <td class="text-right">${totalNeeded}</td>
+                <td class="text-right"><strong>${transferred}</strong></td>
+            </tr>`;
+        });
+    }
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // Show in a simple alert for now (can be enhanced with a modal later)
+    const viewDiv = document.createElement('div');
+    viewDiv.innerHTML = html;
+    viewDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:10000;max-width:600px;max-height:80vh;overflow-y:auto;';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ Fermer';
+    closeBtn.className = 'btn btn-outline';
+    closeBtn.style.cssText = 'margin-top:20px;';
+    closeBtn.onclick = () => {
+        document.body.removeChild(overlay);
+        document.body.removeChild(viewDiv);
+    };
+
+    viewDiv.appendChild(closeBtn);
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;';
+    overlay.onclick = closeBtn.onclick;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(viewDiv);
+}
+
+/**
+ * Delete subcontracting order
+ */
+function deleteSubcontractingOrder(orderId) {
+    if (!confirm(t('confirmDelete') || 'Confirmer la suppression ?')) {
+        return;
+    }
+
+    let orders = storage.getSubcontractingOrders() || [];
+    orders = orders.filter(o => o.id !== orderId);
+    storage.saveSubcontractingOrders(orders);
+
+    showToast(t('orderDeleted') || 'Commande supprimée', 'success');
+    updateSubcontractingOrdersDisplay();
+}
+
+// Event listener for subcontracting tab
+document.addEventListener('DOMContentLoaded', function() {
+    const scTab = document.querySelector('[data-tab="subcontracting"]');
+    if (scTab) {
+        scTab.addEventListener('click', function() {
+            updateSubcontractingOrdersDisplay();
+        });
+    }
+});
+
+// Export functions to window
+window.openSubcontractingOrderModal = openSubcontractingOrderModal;
+window.closeSubcontractingOrderModal = closeSubcontractingOrderModal;
+window.updateScKitInfo = updateScKitInfo;
+window.saveSubcontractingOrder = saveSubcontractingOrder;
+window.transferComponentsForOrder = transferComponentsForOrder;
+window.receiveKitsForOrder = receiveKitsForOrder;
+window.viewSubcontractingOrder = viewSubcontractingOrder;
+window.deleteSubcontractingOrder = deleteSubcontractingOrder;
