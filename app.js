@@ -2940,7 +2940,11 @@ function formatDateForInput(dateStr) {
     // Try to parse and convert to YYYY-MM-DD
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return '';
-    return d.toISOString().split('T')[0];
+    // Use local date parts instead of ISO string to avoid timezone issues
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 function formatCurrency(n) { return new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n || 0); }
 
@@ -4310,7 +4314,7 @@ function viewInvoice(invNumber) {
     // CZK conversion section for EUR invoices (NOT for proforma, NOT when proforma deduction exists)
     let czkConversionHtml = '';
     if (inv.currency === 'EUR' && inv.exchangeRate && !inv.isProforma && !hasProformaDeduction) {
-        const rate = inv.exchangeRate;
+        const rate = parseFloat(inv.exchangeRate);
         const subtotalCZK = inv.subtotal * rate;
         const vatCZK = inv.vat * rate;
         const totalCZK = inv.total * rate;
@@ -4348,7 +4352,7 @@ function viewInvoice(invNumber) {
                     <p style="margin: 2px 0;">Splatnost: ${formatDate(inv.dueDate)}</p>
                     <p style="margin: 2px 0;">Variabilní symbol: ${varSymbol}</p>
                     ${inv.linkedOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo objednávky:</strong> ${inv.linkedOrderNumber}</p>` : ''}
-                    ${inv.clientOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo obj. zákazníka:</strong> ${inv.clientOrderNumber}</p>` : ''}
+                    <p style="margin: 2px 0;"><strong>Číslo obj. zákazníka:</strong> ${inv.clientOrderNumber || '-'}</p>
                 </div>
             </div>
             <div class="inv-parties" style="display: flex; gap: 20px; margin-bottom: 10px;">
@@ -5960,6 +5964,20 @@ function editInvoice(invNumber) {
     populateClientSelect('invClient');
     populateRecOrderSelect();
     populatePaidProformaSelect();
+
+    // Select the client (find by name since inv.client contains the name, not ID)
+    if (inv.client) {
+        const clientSelect = document.getElementById('invClient');
+        const contacts = getContacts().filter(c => c.type === 'client' || c.type === 'both');
+        const matchingClient = contacts.find(c => c.name === inv.client);
+        if (matchingClient) {
+            clientSelect.value = matchingClient.id;
+        } else if (inv.client === (CONFIG?.DEFAULT_CLIENT?.name)) {
+            clientSelect.value = 'default';
+        }
+        // Trigger client change to populate address fields
+        onClientChange();
+    }
 
     // Select linked order if exists
     if (inv.linkedOrder) {
@@ -8125,6 +8143,17 @@ function addPACToRepairQuote() {
                         <option value="TH11">TH11</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" class="pac-under-warranty" onchange="onWarrantyChange(${pacCounter})">
+                        <span>Pod zárukou (zdarma)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Poznámky k TČ</label>
+                <textarea class="pac-notes" rows="2" placeholder="Poznámky, závady, diagnostika..."></textarea>
             </div>
 
             <div class="pac-components-section">
@@ -8353,9 +8382,12 @@ function calculatePACSubtotal(pacIndex) {
     const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
     if (!pacCard) return;
 
+    // Check if under warranty
+    const underWarranty = pacCard.querySelector('.pac-under-warranty').checked;
+
     let subtotal = 0;
 
-    // Calculate components total
+    // ALWAYS calculate components total (even under warranty, to show what was done)
     const componentsList = pacCard.querySelector('.pac-components-list');
     componentsList.querySelectorAll('.component-row').forEach(row => {
         const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
@@ -8365,7 +8397,7 @@ function calculatePACSubtotal(pacIndex) {
         subtotal += total;
     });
 
-    // Calculate services total
+    // ALWAYS calculate services total (even under warranty, to show what was done)
     const labor = parseFloat(pacCard.querySelector('.service-labor').value) || 0;
     const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
     const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
@@ -8378,21 +8410,60 @@ function calculatePACSubtotal(pacIndex) {
     // Update PAC subtotal display
     const subtotalElement = document.getElementById(`pacSubtotal${pacIndex}`);
     if (subtotalElement) {
-        subtotalElement.textContent = `${subtotal.toFixed(2)} EUR`;
+        if (underWarranty) {
+            // Show calculated total crossed out, then 0.00
+            subtotalElement.innerHTML = `<span style="text-decoration: line-through; color: #999;">${subtotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">0.00 EUR (pod zárukou)</strong>`;
+        } else {
+            subtotalElement.textContent = `${subtotal.toFixed(2)} EUR`;
+        }
     }
 
     calculateRepairQuoteTotal();
 }
 
+function onWarrantyChange(pacIndex) {
+    const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacIndex}"]`);
+    if (!pacCard) return;
+
+    // Just recalculate totals - don't disable fields
+    // User can still add/edit components and services, but total will be 0
+    calculatePACSubtotal(pacIndex);
+}
+
 function calculateRepairQuoteTotal() {
     let totalHT = 0;
 
-    // Sum all PAC subtotals
+    // Sum all PAC subtotals (recalculate from data, not from displayed text)
     document.querySelectorAll('.pac-card').forEach(pacCard => {
-        const pacIndex = pacCard.dataset.pacIndex;
-        const subtotalText = document.getElementById(`pacSubtotal${pacIndex}`)?.textContent || '0.00 EUR';
-        const subtotal = parseFloat(subtotalText.replace(' EUR', '')) || 0;
-        totalHT += subtotal;
+        const underWarranty = pacCard.querySelector('.pac-under-warranty')?.checked || false;
+
+        if (underWarranty) {
+            // Under warranty = 0
+            totalHT += 0;
+        } else {
+            // Calculate PAC subtotal
+            let pacSubtotal = 0;
+
+            // Components
+            const componentsList = pacCard.querySelector('.pac-components-list');
+            componentsList.querySelectorAll('.component-row').forEach(row => {
+                const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.component-price').value) || 0;
+                pacSubtotal += qty * price;
+            });
+
+            // Services
+            const labor = parseFloat(pacCard.querySelector('.service-labor').value) || 0;
+            const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
+            const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
+
+            const serviceRates = getServiceRates();
+            pacSubtotal += labor * serviceRates.labor.price;
+            pacSubtotal += refrigerant * serviceRates.refrigerantR134a.price;
+            pacSubtotal += disposal * serviceRates.disposal.price;
+
+            totalHT += pacSubtotal;
+        }
     });
 
     const vatRate = 0.21; // 21% VAT
@@ -8442,13 +8513,15 @@ async function saveRepairQuote() {
         const pacData = {
             serial: pacCard.querySelector('.pac-serial').value,
             model: pacCard.querySelector('.pac-model').value,
+            notes: pacCard.querySelector('.pac-notes')?.value || '',
+            underWarranty: pacCard.querySelector('.pac-under-warranty')?.checked || false,
             components: [],
             services: {
                 labor: parseFloat(pacCard.querySelector('.service-labor').value) || 0,
                 refrigerant: parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0,
                 disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0
             },
-            subtotal: parseFloat(document.getElementById(`pacSubtotal${pacIndex}`).textContent.replace(' EUR', '')) || 0
+            subtotal: parseFloat(document.getElementById(`pacSubtotal${pacIndex}`).textContent.replace(' EUR', '').replace(' (pod zárukou)', '')) || 0
         };
 
         // Collect components
@@ -8586,13 +8659,36 @@ function showRepairQuotePreview(quote) {
 
     quote.pacs.forEach(pac => {
         // PAC header
+        const warrantyBadge = pac.underWarranty ? ' <span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; margin-left: 8px;">POD ZÁRUKOU - ZDARMA</span>' : '';
         pacsTableHtml += `
             <tr class="pac-separator">
-                <td colspan="5"><strong>PAC #${pacNumber} - ${pac.model} (${pac.serial})</strong></td>
+                <td colspan="5"><strong>PAC #${pacNumber} - ${pac.model} (${pac.serial})</strong>${warrantyBadge}</td>
             </tr>
         `;
 
-        // Components
+        // Add notes if present
+        if (pac.notes) {
+            pacsTableHtml += `
+                <tr class="pac-notes-row">
+                    <td colspan="5" style="background: #f3f4f6; padding: 8px; font-size: 0.9em; border-left: 3px solid #3b82f6;">
+                        <strong>Poznámky:</strong> ${pac.notes.replace(/\n/g, '<br>')}
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Column headers after notes
+        pacsTableHtml += `
+            <tr style="background: #e5e7eb; font-weight: bold; font-size: 0.9em;">
+                <th style="text-align:left; padding: 6px;">${t('designation')}</th>
+                <th style="text-align:left; padding: 6px;">${t('reference')}</th>
+                <th style="text-align:center; padding: 6px;">${t('qty')}</th>
+                <th style="text-align:right; padding: 6px;">${t('pricePerUnit')}</th>
+                <th style="text-align:right; padding: 6px;">${t('total')}</th>
+            </tr>
+        `;
+
+        // Components (show even if under warranty)
         if (pac.components && pac.components.length > 0) {
             pac.components.forEach(comp => {
                 pacsTableHtml += `
@@ -8607,7 +8703,7 @@ function showRepairQuotePreview(quote) {
             });
         }
 
-        // Services
+        // Services (show even if under warranty)
         if (pac.services.labor > 0) {
             pacsTableHtml += `
                 <tr>
@@ -8644,13 +8740,34 @@ function showRepairQuotePreview(quote) {
             `;
         }
 
-        // PAC subtotal
-        pacsTableHtml += `
-            <tr class="pac-subtotal">
-                <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
-                <td style="text-align:right"><strong>${pac.subtotal.toFixed(2)} EUR</strong></td>
-            </tr>
-        `;
+        // PAC subtotal (show crossed-out price if under warranty)
+        if (pac.underWarranty) {
+            // Calculate what the total would be without warranty
+            let calculatedTotal = 0;
+            if (pac.components) {
+                calculatedTotal += pac.components.reduce((sum, comp) => sum + comp.total, 0);
+            }
+            calculatedTotal += (pac.services.labor || 0) * serviceRates.labor.price;
+            calculatedTotal += (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
+            calculatedTotal += (pac.services.disposal || 0) * serviceRates.disposal.price;
+
+            pacsTableHtml += `
+                <tr class="pac-subtotal">
+                    <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                    <td style="text-align:right">
+                        <span style="text-decoration: line-through; color: #999;">${calculatedTotal.toFixed(2)} EUR</span>
+                        → <strong style="color: #22c55e;">0.00 EUR</strong>
+                    </td>
+                </tr>
+            `;
+        } else {
+            pacsTableHtml += `
+                <tr class="pac-subtotal">
+                    <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                    <td style="text-align:right"><strong>${pac.subtotal.toFixed(2)} EUR</strong></td>
+                </tr>
+            `;
+        }
 
         pacNumber++;
     });
@@ -8689,15 +8806,6 @@ function showRepairQuotePreview(quote) {
             </div>
 
             <table class="dn-table">
-                <thead>
-                    <tr>
-                        <th>${t('designation')}</th>
-                        <th>${t('reference')}</th>
-                        <th style="text-align:center">${t('qty')}</th>
-                        <th style="text-align:right">${t('pricePerUnit')}</th>
-                        <th style="text-align:right">${t('total')}</th>
-                    </tr>
-                </thead>
                 <tbody>
                     ${pacsTableHtml}
                 </tbody>
@@ -9836,7 +9944,7 @@ function generateInvoicePreviewHTML(inv) {
                     <p style="margin: 2px 0;">Splatnost: ${formatDate(inv.dueDate)}</p>
                     <p style="margin: 2px 0;">Variabilní symbol: ${varSymbol}</p>
                     ${inv.linkedOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo objednávky:</strong> ${inv.linkedOrderNumber}</p>` : ''}
-                    ${inv.clientOrderNumber ? `<p style="margin: 2px 0;"><strong>Číslo obj. zákazníka:</strong> ${inv.clientOrderNumber}</p>` : ''}
+                    <p style="margin: 2px 0;"><strong>Číslo obj. zákazníka:</strong> ${inv.clientOrderNumber || '-'}</p>
                 </div>
             </div>
             <div class="inv-parties" style="display: flex; gap: 20px; margin-bottom: 10px;">
@@ -9919,6 +10027,8 @@ function previewRepairQuoteBeforeSave() {
         const pac = {
             model: container.querySelector('.pac-model')?.value || '',
             serial: container.querySelector('.pac-serial')?.value || '',
+            notes: container.querySelector('.pac-notes')?.value || '',
+            underWarranty: container.querySelector('.pac-under-warranty')?.checked || false,
             components: [],
             services: {
                 labor: 0,
@@ -9964,11 +10074,15 @@ function previewRepairQuoteBeforeSave() {
         pac.services.refrigerant = parseFloat(refrigerantInput?.value) || 0;
         pac.services.disposal = parseFloat(disposalInput?.value) || 0;
 
-        // Calculate PAC subtotal
-        pac.subtotal = pac.components.reduce((sum, comp) => sum + comp.total, 0);
-        pac.subtotal += pac.services.labor * (serviceRates.labor?.price || 0);
-        pac.subtotal += pac.services.refrigerant * (serviceRates.refrigerantR134a?.price || 0);
-        pac.subtotal += pac.services.disposal * (serviceRates.disposal?.price || 0);
+        // Calculate PAC subtotal (0 if under warranty)
+        if (!pac.underWarranty) {
+            pac.subtotal = pac.components.reduce((sum, comp) => sum + comp.total, 0);
+            pac.subtotal += pac.services.labor * (serviceRates.labor?.price || 0);
+            pac.subtotal += pac.services.refrigerant * (serviceRates.refrigerantR134a?.price || 0);
+            pac.subtotal += pac.services.disposal * (serviceRates.disposal?.price || 0);
+        } else {
+            pac.subtotal = 0;
+        }
 
         if (pac.model || pac.serial || pac.components.length > 0) {
             quoteData.pacs.push(pac);

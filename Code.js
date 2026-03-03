@@ -1497,24 +1497,25 @@ function createInvoice(data) {
       invSheet.getRange(rowNum, 13).setValue(notes || '');
       invSheet.getRange(rowNum, 14).setValue(JSON.stringify(items || []));
       invSheet.getRange(rowNum, 15).setValue(isProforma ? 'proforma' : 'standard');
-      invSheet.getRange(rowNum, 16).setValue(vatRate || 21);
-      invSheet.getRange(rowNum, 17).setValue(clientAddress || '');
-      invSheet.getRange(rowNum, 18).setValue(clientIco || '');
-      invSheet.getRange(rowNum, 19).setValue(clientDic || '');
-      invSheet.getRange(rowNum, 20).setValue(varSymbol || '');
-      invSheet.getRange(rowNum, 21).setValue(taxDate || '');
-      invSheet.getRange(rowNum, 22).setValue(exchangeRate || '');
-      invSheet.getRange(rowNum, 23).setValue(linkedOrder || '');
-      invSheet.getRange(rowNum, 24).setValue(JSON.stringify(linkedProforma || null));
-      invSheet.getRange(rowNum, 25).setValue(depositPercent || 100);
-      invSheet.getRange(rowNum, 26).setValue(depositAmount || 0);
-      invSheet.getRange(rowNum, 27).setValue(taxDocSubtotal || '');
-      invSheet.getRange(rowNum, 28).setValue(taxDocVat || '');
-      invSheet.getRange(rowNum, 29).setValue(taxDocTotal || '');
-      invSheet.getRange(rowNum, 30).setValue(paidExchangeRate || '');
-      invSheet.getRange(rowNum, 31).setValue(paidAmountCZK || '');
-      invSheet.getRange(rowNum, 32).setValue(paidSubtotalCZK || '');
-      invSheet.getRange(rowNum, 33).setValue(paidVatCZK || '');
+      invSheet.getRange(rowNum, 16).setValue(clientOrderNumber || ''); // P: clientOrderNumber
+      invSheet.getRange(rowNum, 17).setValue(vatRate || 21); // Q: vatRate (décalé)
+      invSheet.getRange(rowNum, 18).setValue(clientAddress || ''); // R: clientAddress (décalé)
+      invSheet.getRange(rowNum, 19).setValue(clientIco || ''); // S: clientIco (décalé)
+      invSheet.getRange(rowNum, 20).setValue(clientDic || ''); // T: clientDic (décalé)
+      invSheet.getRange(rowNum, 21).setValue(varSymbol || ''); // U: varSymbol (décalé)
+      invSheet.getRange(rowNum, 22).setValue(taxDate || ''); // V: taxDate (décalé)
+      invSheet.getRange(rowNum, 23).setValue(exchangeRate || ''); // W: exchangeRate (décalé)
+      invSheet.getRange(rowNum, 24).setValue(linkedOrder || ''); // X: linkedOrder (décalé)
+      invSheet.getRange(rowNum, 25).setValue(JSON.stringify(linkedProforma || null)); // Y: linkedProforma (décalé)
+      invSheet.getRange(rowNum, 26).setValue(depositPercent || 100); // Z: depositPercent (décalé)
+      invSheet.getRange(rowNum, 27).setValue(depositAmount || 0); // AA: depositAmount (décalé)
+      invSheet.getRange(rowNum, 28).setValue(taxDocSubtotal || ''); // AB: taxDocSubtotal (décalé)
+      invSheet.getRange(rowNum, 29).setValue(taxDocVat || ''); // AC: taxDocVat (décalé)
+      invSheet.getRange(rowNum, 30).setValue(taxDocTotal || ''); // AD: taxDocTotal (décalé)
+      invSheet.getRange(rowNum, 31).setValue(paidExchangeRate || ''); // AE: paidExchangeRate (décalé)
+      invSheet.getRange(rowNum, 32).setValue(paidAmountCZK || ''); // AF: paidAmountCZK (décalé)
+      invSheet.getRange(rowNum, 33).setValue(paidSubtotalCZK || ''); // AG: paidSubtotalCZK (décalé)
+      invSheet.getRange(rowNum, 34).setValue(paidVatCZK || ''); // AH: paidVatCZK (décalé)
       return { success: true, invId: existingData[i][0], invNumber, updated: true };
     }
   }
@@ -1536,24 +1537,25 @@ function createInvoice(data) {
     notes || '',                        // M: notes
     JSON.stringify(items || []),        // N: items
     isProforma ? 'proforma' : 'standard', // O: type
-    vatRate || 21,                      // P: vatRate
-    clientAddress || '',                // Q: clientAddress
-    clientIco || '',                    // R: clientIco
-    clientDic || '',                    // S: clientDic
-    varSymbol || '',                    // T: varSymbol
-    taxDate || '',                      // U: taxDate
-    exchangeRate || '',                 // V: exchangeRate
-    linkedOrder || '',                  // W: linkedOrder
-    JSON.stringify(linkedProforma || null), // X: linkedProforma
-    depositPercent || 100,              // Y: depositPercent
-    depositAmount || 0,                 // Z: depositAmount
-    taxDocSubtotal || '',               // AA: taxDocSubtotal
-    taxDocVat || '',                    // AB: taxDocVat
-    taxDocTotal || '',                  // AC: taxDocTotal
-    paidExchangeRate || '',             // AD: paidExchangeRate
-    paidAmountCZK || '',                // AE: paidAmountCZK
-    paidSubtotalCZK || '',              // AF: paidSubtotalCZK
-    paidVatCZK || ''                    // AG: paidVatCZK
+    clientOrderNumber || '',            // P: clientOrderNumber *** DÉPLACÉ ICI ***
+    vatRate || 21,                      // Q: vatRate (décalé)
+    clientAddress || '',                // R: clientAddress (décalé)
+    clientIco || '',                    // S: clientIco (décalé)
+    clientDic || '',                    // T: clientDic (décalé)
+    varSymbol || '',                    // U: varSymbol (décalé)
+    taxDate || '',                      // V: taxDate (décalé)
+    exchangeRate || '',                 // W: exchangeRate (décalé)
+    linkedOrder || '',                  // X: linkedOrder (décalé)
+    JSON.stringify(linkedProforma || null), // Y: linkedProforma (décalé)
+    depositPercent || 100,              // Z: depositPercent (décalé)
+    depositAmount || 0,                 // AA: depositAmount (décalé)
+    taxDocSubtotal || '',               // AB: taxDocSubtotal (décalé)
+    taxDocVat || '',                    // AC: taxDocVat (décalé)
+    taxDocTotal || '',                  // AD: taxDocTotal (décalé)
+    paidExchangeRate || '',             // AE: paidExchangeRate (décalé)
+    paidAmountCZK || '',                // AF: paidAmountCZK (décalé)
+    paidSubtotalCZK || '',              // AG: paidSubtotalCZK (décalé)
+    paidVatCZK || ''                    // AH: paidVatCZK (décalé)
   ]);
 
   return { success: true, invId, invNumber };
@@ -1591,24 +1593,25 @@ function getInvoices(limit) {
       items: items,
       type: type,
       isProforma: type === 'proforma',
-      vatRate: data[i][15] || 21,
-      clientAddress: data[i][16] || '',
-      clientIco: data[i][17] || '',
-      clientDic: data[i][18] || '',
-      varSymbol: data[i][19] || '',
-      taxDate: data[i][20] || '',
-      exchangeRate: data[i][21] || null,
-      linkedOrder: data[i][22] || '',
-      linkedProforma: linkedProforma,
-      depositPercent: data[i][24] || 100,
-      depositAmount: data[i][25] || 0,
-      taxDocSubtotal: data[i][26] || null,
-      taxDocVat: data[i][27] || null,
-      taxDocTotal: data[i][28] || null,
-      paidExchangeRate: data[i][29] || null,
-      paidAmountCZK: data[i][30] || null,
-      paidSubtotalCZK: data[i][31] || null,
-      paidVatCZK: data[i][32] || null
+      clientOrderNumber: data[i][15] || '', // P: clientOrderNumber
+      vatRate: data[i][16] || 21, // Q: vatRate (décalé)
+      clientAddress: data[i][17] || '', // R: clientAddress (décalé)
+      clientIco: data[i][18] || '', // S: clientIco (décalé)
+      clientDic: data[i][19] || '', // T: clientDic (décalé)
+      varSymbol: data[i][20] || '', // U: varSymbol (décalé)
+      taxDate: data[i][21] || '', // V: taxDate (décalé)
+      exchangeRate: data[i][22] || null, // W: exchangeRate (décalé)
+      linkedOrder: data[i][23] || '', // X: linkedOrder (décalé)
+      linkedProforma: linkedProforma, // Y: linkedProforma (décalé)
+      depositPercent: data[i][25] || 100, // Z: depositPercent (décalé)
+      depositAmount: data[i][26] || 0, // AA: depositAmount (décalé)
+      taxDocSubtotal: data[i][27] || null, // AB: taxDocSubtotal (décalé)
+      taxDocVat: data[i][28] || null, // AC: taxDocVat (décalé)
+      taxDocTotal: data[i][29] || null, // AD: taxDocTotal (décalé)
+      paidExchangeRate: data[i][30] || null, // AE: paidExchangeRate (décalé)
+      paidAmountCZK: data[i][31] || null, // AF: paidAmountCZK (décalé)
+      paidSubtotalCZK: data[i][32] || null, // AG: paidSubtotalCZK (décalé)
+      paidVatCZK: data[i][33] || null // AH: paidVatCZK (décalé)
     });
   }
 
