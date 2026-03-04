@@ -2317,7 +2317,7 @@ function calculateRecInvVat() {
 
     // Apply rounding if selected
     if (rounding !== 'none') {
-        const roundTo = parseInt(rounding);
+        const roundTo = parseFloat(rounding);
         total = Math.round(total / roundTo) * roundTo;
         // Recalculate VAT to match rounded total
         vat = total - subtotal;
