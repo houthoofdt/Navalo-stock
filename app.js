@@ -6827,7 +6827,7 @@ function addRecOrdStockComponent(ref = '', qty = 1, price = 0) {
             ${selectOptions}
         </select>
         <input type="number" class="recOrd-stock-qty" placeholder="Qté" min="1" value="${qty}" onchange="calculateRecOrdTotal()">
-        <input type="number" class="recOrd-stock-price" placeholder="Prix unit." min="0" step="0.01" value="${price}" onchange="calculateRecOrdTotal()" readonly class="input-readonly">
+        <input type="number" class="recOrd-stock-price" placeholder="Prix de vente" min="0" step="0.01" value="${price}" onchange="calculateRecOrdTotal()">
         <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); calculateRecOrdTotal()">✕</button>
     `;
     container.appendChild(row);
