@@ -254,6 +254,9 @@ function doPost(e) {
         case 'updateRepairQuote':
           result = updateRepairQuote(data);
           break;
+        case 'sendEmail':
+          result = sendEmail(data);
+          break;
       default:
         result = { error: 'Action non reconnue: ' + action };
     }
@@ -3223,4 +3226,86 @@ function updateRepairQuote(data) {
   }
 
   return { success: false, error: 'Quote not found with ID: ' + quoteId };
+}
+
+// ========================================
+// EMAIL SENDING
+// ========================================
+
+/**
+ * Send email with document (invoice, purchase order, etc.)
+ */
+function sendEmail(data) {
+  try {
+    const { to, replyTo, subject, body, htmlContent, documentNumber, documentType } = data;
+
+    if (!to || !subject) {
+      return { success: false, error: 'Destinataire et sujet requis' };
+    }
+
+    // Create PDF from HTML content
+    const blob = generatePdfFromHtml(htmlContent, documentNumber);
+
+    // Prepare email options
+    const emailOptions = {
+      to: to,
+      subject: subject,
+      body: body,
+      htmlBody: body.replace(/\n/g, '<br>'),
+      attachments: [blob],
+      name: 'NAVALO s.r.o.'
+    };
+
+    // Add replyTo if provided
+    if (replyTo) {
+      emailOptions.replyTo = replyTo;
+    }
+
+    // Send email with PDF attachment using MailApp (simpler, fewer permissions needed)
+    MailApp.sendEmail(emailOptions);
+
+    return { success: true, message: 'Email envoyé avec succès' };
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Generate PDF from HTML content
+ */
+function generatePdfFromHtml(htmlContent, filename) {
+  // Wrap HTML in proper structure with styling
+  const fullHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #000; padding: 5px; text-align: left; font-size: 9px; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .inv-title { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+        .inv-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .inv-party-box { border: 1px solid #000; padding: 8px; font-size: 10px; }
+        .inv-total { font-weight: bold; background-color: #f0f0f0; }
+      </style>
+    </head>
+    <body>
+      ${htmlContent}
+    </body>
+    </html>
+  `;
+
+  // Create blob from HTML
+  const blob = Utilities.newBlob(fullHtml, 'text/html', filename || 'document');
+
+  // Convert to PDF
+  const pdfBlob = blob.getAs('application/pdf');
+  pdfBlob.setName((filename || 'document') + '.pdf');
+
+  return pdfBlob;
 }

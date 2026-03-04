@@ -3949,6 +3949,55 @@ function printPO() {
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
+async function sendPurchaseOrderByEmail() {
+    if (!currentPO) {
+        showToast('Aucune commande sélectionnée', 'error');
+        return;
+    }
+
+    // Get supplier email
+    const contacts = getContacts();
+    const supplier = contacts.find(c => c.name === currentPO.supplier);
+
+    if (!supplier || !supplier.email) {
+        showToast('Email du fournisseur non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
+        return;
+    }
+
+    // Confirm send
+    if (!confirm(`Envoyer la commande ${currentPO.poNumber} à ${supplier.email}?`)) {
+        return;
+    }
+
+    try {
+        // Get the PO HTML
+        const poHtml = document.getElementById('poPreview').innerHTML;
+
+        // Prepare email data
+        const emailData = {
+            to: supplier.email,
+            replyTo: 'tomas.karas@hotjet.cz',
+            subject: `Commande ${currentPO.poNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Bonjour,\n\nVeuillez trouver ci-joint notre commande ${currentPO.poNumber}.\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            htmlContent: poHtml,
+            documentNumber: currentPO.poNumber,
+            documentType: 'Commande'
+        };
+
+        // Send via Google Apps Script
+        const result = await storage.apiPost('sendEmail', emailData);
+
+        if (result && result.success) {
+            showToast(`Commande envoyée à ${supplier.email}`, 'success');
+        } else {
+            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+        }
+    } catch (error) {
+        console.error('Error sending purchase order:', error);
+        showToast('Erreur lors de l\'envoi: ' + error.message, 'error');
+    }
+}
+
 async function updatePurchaseOrdersDisplay() {
     try {
         let pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
@@ -5049,6 +5098,55 @@ function printInvoice() {
     document.title = currentInvoice?.number || 'Facture';
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
+}
+
+async function sendInvoiceByEmail() {
+    if (!currentInvoice) {
+        showToast('Aucune facture sélectionnée', 'error');
+        return;
+    }
+
+    // Get client email
+    const contacts = getContacts();
+    const client = contacts.find(c => c.name === currentInvoice.client);
+
+    if (!client || !client.email) {
+        showToast('Email du client non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
+        return;
+    }
+
+    // Confirm send
+    if (!confirm(`Envoyer la facture ${currentInvoice.number} à ${client.email}?`)) {
+        return;
+    }
+
+    try {
+        // Get the invoice HTML
+        const invoiceHtml = document.getElementById('invoicePreview').innerHTML;
+
+        // Prepare email data
+        const emailData = {
+            to: client.email,
+            replyTo: 'tmilatova@email.cz',
+            subject: `Facture ${currentInvoice.number} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Bonjour,\n\nVeuillez trouver ci-joint la facture ${currentInvoice.number}.\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            htmlContent: invoiceHtml,
+            documentNumber: currentInvoice.number,
+            documentType: currentInvoice.isProforma ? 'Proforma' : 'Facture'
+        };
+
+        // Send via Google Apps Script
+        const result = await storage.apiPost('sendEmail', emailData);
+
+        if (result && result.success) {
+            showToast(`Facture envoyée à ${client.email}`, 'success');
+        } else {
+            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+        }
+    } catch (error) {
+        console.error('Error sending invoice:', error);
+        showToast('Erreur lors de l\'envoi: ' + error.message, 'error');
+    }
 }
 
 // ========================================
@@ -10189,6 +10287,8 @@ window.previewDeliveryBeforeSave = previewDeliveryBeforeSave;
 window.previewPOBeforeSave = previewPOBeforeSave;
 window.previewInvoiceBeforeSave = previewInvoiceBeforeSave;
 window.previewRepairQuoteBeforeSave = previewRepairQuoteBeforeSave;
+window.sendInvoiceByEmail = sendInvoiceByEmail;
+window.sendPurchaseOrderByEmail = sendPurchaseOrderByEmail;
 
 // ============================================================
 // SUBCONTRACTING ORDERS (Sous-Traitance)

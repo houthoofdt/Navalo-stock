@@ -259,6 +259,20 @@ body {
     background: var(--border);
 }
 
+.btn-success {
+    background: #22c55e;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #16a34a;
+}
+
+.btn-success:active {
+    background: #15803d;
+    transform: scale(0.95);
+}
+
 .btn-outline {
     background: transparent;
     color: var(--secondary);
