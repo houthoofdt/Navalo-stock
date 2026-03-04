@@ -3977,11 +3977,11 @@ async function sendPurchaseOrderByEmail() {
         const emailData = {
             to: supplier.email,
             replyTo: 'tomas.karas@hotjet.cz',
-            subject: `Commande ${currentPO.poNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
-            body: `Bonjour,\n\nVeuillez trouver ci-joint notre commande ${currentPO.poNumber}.\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            subject: `Objednávka ${currentPO.poNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Dobrý den,\n\nV příloze naleznete naši objednávku ${currentPO.poNumber}.\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             htmlContent: poHtml,
             documentNumber: currentPO.poNumber,
-            documentType: 'Commande'
+            documentType: 'Objednávka'
         };
 
         // Send via Google Apps Script
@@ -5128,11 +5128,11 @@ async function sendInvoiceByEmail() {
         const emailData = {
             to: client.email,
             replyTo: 'tmilatova@email.cz',
-            subject: `Facture ${currentInvoice.number} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
-            body: `Bonjour,\n\nVeuillez trouver ci-joint la facture ${currentInvoice.number}.\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            subject: `Faktura ${currentInvoice.number} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Dobrý den,\n\nV příloze naleznete fakturu ${currentInvoice.number}.\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             htmlContent: invoiceHtml,
             documentNumber: currentInvoice.number,
-            documentType: currentInvoice.isProforma ? 'Proforma' : 'Facture'
+            documentType: currentInvoice.isProforma ? 'Proforma' : 'Faktura'
         };
 
         // Send via Google Apps Script
