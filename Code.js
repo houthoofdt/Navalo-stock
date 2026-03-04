@@ -1407,8 +1407,8 @@ function updateReceivedOrder(data) {
   const roSheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_ORDERS);
   const roData = roSheet.getDataRange().getValues();
   
-  const { roId, delivered, invoiced, quantities, prices, client, address, 
-          deliveryDate, currency, total, status, notes, clientOrderNumber } = data;
+  const { roId, delivered, invoiced, quantities, prices, client, address,
+          deliveryDate, currency, total, status, notes, clientOrderNumber, stockComponents, customItems } = data;
   
   for (let i = 1; i < roData.length; i++) {
     if (roData[i][0] === roId) {
@@ -1439,7 +1439,15 @@ function updateReceivedOrder(data) {
         roSheet.getRange(i + 1, 12).setValue(prices['TX12-1PH'] || 0);
         roSheet.getRange(i + 1, 14).setValue(prices['TH11'] || 0);
       }
-      
+
+      // Update stockComponents and customItems if provided
+      if (stockComponents !== undefined) {
+        roSheet.getRange(i + 1, 24).setValue(JSON.stringify(stockComponents || []));
+      }
+      if (customItems !== undefined) {
+        roSheet.getRange(i + 1, 25).setValue(JSON.stringify(customItems || []));
+      }
+
       return { success: true };
     }
   }
