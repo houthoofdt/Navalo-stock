@@ -5708,6 +5708,25 @@ function loadRecOrderToInvoice() {
         }
     });
 
+    // Add stock components
+    if (order.stockComponents && Array.isArray(order.stockComponents)) {
+        order.stockComponents.forEach(item => {
+            if (item.qty > 0) {
+                const itemName = item.name || item.ref || 'Composant';
+                addInvoiceItemRow(itemName, item.qty, item.price);
+            }
+        });
+    }
+
+    // Add custom items
+    if (order.customItems && Array.isArray(order.customItems)) {
+        order.customItems.forEach(item => {
+            if (item.qty > 0) {
+                addInvoiceItemRow(item.name, item.qty, item.price);
+            }
+        });
+    }
+
     document.getElementById('invNotes').value = `Obj.: ${order.orderNumber}`;
     document.getElementById('invClientOrderNum').value = order.clientOrderNumber || '';
     calculateInvoiceTotal();
