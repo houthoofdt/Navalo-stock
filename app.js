@@ -8350,7 +8350,7 @@ function addPACToRepairQuote() {
                     </div>
                     <div class="form-group">
                         <label>${t('refrigerantKg')}</label>
-                        <input type="number" class="service-refrigerant" min="0" step="0.1" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <input type="number" class="service-refrigerant" min="0" step="0.01" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">25 EUR/kg</span>
                     </div>
                     <div class="form-group">
@@ -8895,7 +8895,7 @@ function showRepairQuotePreview(quote) {
                 <tr>
                     <td>${t('refrigerantKg')}</td>
                     <td>R134a</td>
-                    <td style="text-align:center">${pac.services.refrigerant} kg</td>
+                    <td style="text-align:center">${pac.services.refrigerant.toFixed(2)} kg</td>
                     <td style="text-align:right">${serviceRates.refrigerantR134a.price} EUR/kg</td>
                     <td style="text-align:right">${(pac.services.refrigerant * serviceRates.refrigerantR134a.price).toFixed(2)} EUR</td>
                 </tr>
