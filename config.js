@@ -45,15 +45,7 @@ const CONFIG = {
             }
         }
     },
-    
-    // Client par défaut
-    DEFAULT_CLIENT: {
-        name: 'Alliance Laundry CE s.r.o.',
-        address: 'Místecká 1116, 742 58 Příbor',
-        ico: '25007866',
-        dic: 'CZ25007866'
-    },
-    
+
     // Fournisseurs prédéfinis
     SUPPLIERS: [
         { id: 'danfoss', name: 'Danfoss', currency: 'EUR' },
