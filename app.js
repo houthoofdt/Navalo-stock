@@ -4581,12 +4581,41 @@ function onLinkedProformaChange() {
     }
 }
 
+async function onInvTaxDateChange() {
+    const currency = document.getElementById('invCurrency').value;
+    if (currency === 'EUR') {
+        const taxDate = document.getElementById('invTaxDate').value;
+        if (taxDate) {
+            try {
+                const rateInfo = await storage.getExchangeRateForDate('EUR', taxDate);
+                if (rateInfo && rateInfo.rate) {
+                    document.getElementById('invExchangeRate').value = rateInfo.rate.toFixed(3);
+                    console.log(`✅ CNB rate for ${taxDate}: ${rateInfo.rate.toFixed(3)}`);
+                } else {
+                    console.warn('⚠️ No rate found for date, using default');
+                    document.getElementById('invExchangeRate').value = exchangeRate.toFixed(3);
+                }
+            } catch (error) {
+                console.error('Error fetching exchange rate:', error);
+                document.getElementById('invExchangeRate').value = exchangeRate.toFixed(3);
+            }
+        }
+    }
+    calculateInvoiceTotal();
+}
+
 function onInvCurrencyChange() {
     const currency = document.getElementById('invCurrency').value;
     const rateGroup = document.getElementById('invExchangeRateGroup');
     if (currency === 'EUR') {
         rateGroup.style.display = 'block';
-        document.getElementById('invExchangeRate').value = exchangeRate.toFixed(3);
+        // Fetch rate for tax date if available, otherwise use current rate
+        const taxDate = document.getElementById('invTaxDate').value;
+        if (taxDate) {
+            onInvTaxDateChange();
+        } else {
+            document.getElementById('invExchangeRate').value = exchangeRate.toFixed(3);
+        }
     } else {
         rateGroup.style.display = 'none';
     }
@@ -5633,6 +5662,8 @@ window.populatePaidProformaSelect = populatePaidProformaSelect;
 window.onLinkedProformaChange = onLinkedProformaChange;
 window.generateProformaDeductionHtml = generateProformaDeductionHtml;
 window.generateProformaDeductionItemHtml = generateProformaDeductionItemHtml;
+window.onInvTaxDateChange = onInvTaxDateChange;
+window.onInvCurrencyChange = onInvCurrencyChange;
 
 function populateClientSelect(selectId) {
     const select = document.getElementById(selectId);

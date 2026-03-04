@@ -272,6 +272,45 @@ function doPost(e) {
 // CNB EXCHANGE RATES
 // ========================================
 
+/**
+ * Fetch CNB exchange rates for a specific date
+ * @param {string} dateStr - Date in YYYY-MM-DD format
+ * @returns {object} Exchange rates object
+ */
+function fetchCNBRatesForDate(dateStr) {
+  try {
+    // Convert YYYY-MM-DD to DD.MM.YYYY format for CNB API
+    const [year, month, day] = dateStr.split('-');
+    const cnbDate = `${day}.${month}.${year}`;
+    const url = CNB_URL + '?date=' + cnbDate;
+
+    Logger.log('Fetching CNB rates for date: ' + cnbDate + ' from ' + url);
+
+    const response = UrlFetchApp.fetch(url);
+    const text = response.getContentText();
+    const lines = text.split('\n');
+
+    const rates = {};
+    for (let i = 2; i < lines.length; i++) {
+      const parts = lines[i].split('|');
+      if (parts.length >= 5) {
+        const currency = parts[3];
+        const amount = parseFloat(parts[2]);
+        const rate = parseFloat(parts[4].replace(',', '.'));
+        if (currency && rate) {
+          rates[currency] = rate / amount;
+        }
+      }
+    }
+
+    Logger.log('Fetched rates: ' + JSON.stringify(rates));
+    return rates;
+  } catch (error) {
+    Logger.log('Error fetching CNB rates for date: ' + error);
+    return null;
+  }
+}
+
 function fetchCNBRates() {
   try {
     const response = UrlFetchApp.fetch(CNB_URL);
