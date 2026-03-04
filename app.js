@@ -3978,7 +3978,7 @@ async function sendPurchaseOrderByEmail() {
             to: supplier.email,
             replyTo: 'tomas.karas@hotjet.cz',
             subject: `Objednávka ${currentPO.poNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
-            body: `Dobrý den,\n\nV příloze naleznete naši objednávku ${currentPO.poNumber}.\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Dobrý den,\n\nV příloze naleznete naši objednávku ${currentPO.poNumber}.\n\nPro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             htmlContent: poHtml,
             documentNumber: currentPO.poNumber,
             documentType: 'Objednávka'
@@ -5129,7 +5129,7 @@ async function sendInvoiceByEmail() {
             to: client.email,
             replyTo: 'tmilatova@email.cz',
             subject: `Faktura ${currentInvoice.number} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
-            body: `Dobrý den,\n\nV příloze naleznete fakturu ${currentInvoice.number}.\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: `Dobrý den,\n\nV příloze naleznete fakturu ${currentInvoice.number}.\n\nPro odpověď kontaktujte: tmilatova@email.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             htmlContent: invoiceHtml,
             documentNumber: currentInvoice.number,
             documentType: currentInvoice.isProforma ? 'Proforma' : 'Faktura'
