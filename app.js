@@ -2932,7 +2932,15 @@ function showToast(msg, type = 'info') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-function formatDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('cs-CZ'); }
+function formatDate(d) {
+    if (!d) return '-';
+    // Handle YYYY-MM-DD format to avoid timezone issues
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) {
+        const [year, month, day] = d.split(/[-T]/);
+        return `${parseInt(day)}. ${parseInt(month)}. ${year}`;
+    }
+    return new Date(d).toLocaleDateString('cs-CZ');
+}
 function formatDateForInput(dateStr) {
     if (!dateStr) return '';
     // If already in YYYY-MM-DD format, return as is
