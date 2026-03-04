@@ -8057,7 +8057,7 @@ function openRepairQuoteModal(quoteId = null) {
     if (quoteId) {
         // Edit mode - load existing quote
         title.textContent = t('editRepairQuote') || 'Modifier devis';
-        // TODO: Load quote data from storage
+        loadRepairQuoteData(quoteId);
     } else {
         // New quote mode
         title.textContent = t('newRepairQuote');
@@ -8071,6 +8071,82 @@ function openRepairQuoteModal(quoteId = null) {
     }
 
     modal.style.display = 'flex';
+}
+
+async function loadRepairQuoteData(quoteId) {
+    // Get quote from storage
+    const quotes = await storage.getRepairQuotes(100);
+    const quote = quotes.find(q => q.id === quoteId);
+
+    if (!quote) {
+        showToast('Devis non trouvé', 'error');
+        return;
+    }
+
+    // Load basic fields
+    document.getElementById('repairQuoteNumber').value = quote.quoteNumber || '';
+    document.getElementById('repairQuoteClientOrderNum').value = quote.clientOrderNumber || '';
+    document.getElementById('repairQuoteDate').value = formatDateForInput(quote.date);
+    document.getElementById('repairQuoteNotes').value = quote.notes || '';
+
+    // Select client
+    const clientSelect = document.getElementById('repairQuoteClient');
+    if (quote.clientId) {
+        clientSelect.value = quote.clientId;
+        onRepairQuoteClientChange();
+    }
+
+    // Override address if stored
+    if (quote.address) {
+        document.getElementById('repairQuoteAddress').value = quote.address;
+    }
+
+    // Load PACs
+    if (quote.pacs && quote.pacs.length > 0) {
+        quote.pacs.forEach(pac => {
+            addPACToRepairQuote();
+            const pacCard = document.querySelector(`.pac-card[data-pac-index="${pacCounter}"]`);
+
+            if (pacCard) {
+                // Set PAC basic info
+                pacCard.querySelector('.pac-serial').value = pac.serial || '';
+                pacCard.querySelector('.pac-model').value = pac.model || '';
+                pacCard.querySelector('.pac-notes').value = pac.notes || '';
+
+                // Set warranty status
+                if (pac.underWarranty) {
+                    pacCard.querySelector('.pac-under-warranty').checked = true;
+                }
+
+                // Load services
+                pacCard.querySelector('.service-labor').value = pac.services?.labor || 0;
+                pacCard.querySelector('.service-refrigerant').value = pac.services?.refrigerant || 0;
+                pacCard.querySelector('.service-disposal').value = pac.services?.disposal || 0;
+
+                // Load components
+                if (pac.components && pac.components.length > 0) {
+                    pac.components.forEach(comp => {
+                        addComponentToPACWithRef(pacCounter, comp.ref);
+
+                        // Find the just-added component row and set quantity
+                        const componentsList = pacCard.querySelector('.pac-components-list');
+                        const lastRow = componentsList.lastElementChild;
+                        if (lastRow) {
+                            lastRow.querySelector('.component-qty').value = comp.qty || 1;
+                            // Trigger calculation
+                            const event = new Event('change', { bubbles: true });
+                            lastRow.querySelector('.component-qty').dispatchEvent(event);
+                        }
+                    });
+                }
+
+                // Recalculate totals for this PAC
+                calculatePACSubtotal(pacCounter);
+            }
+        });
+    }
+
+    calculateRepairQuoteTotal();
 }
 
 function populateRepairQuoteClientSelect() {

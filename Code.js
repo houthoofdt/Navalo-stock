@@ -3075,14 +3075,14 @@ function createRepairQuote(data) {
     rqSheet = ss.insertSheet(SHEET_NAMES.REPAIR_QUOTES);
     rqSheet.appendRow([
       'ID', 'Date', 'Quote Number', 'Client ID', 'Client Name', 'Address',
-      'Status', 'PACs Data', 'Notes', 'Subtotal', 'VAT', 'Total', 'Created At', 'Updated At'
+      'Status', 'PACs Data', 'Notes', 'Subtotal', 'VAT', 'Total', 'Created At', 'Updated At', 'N° Cmd Client'
     ]);
-    rqSheet.getRange(1, 1, 1, 14).setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+    rqSheet.getRange(1, 1, 1, 15).setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
   }
 
   const {
     id, quoteNumber, date, clientId, client, address, pacs,
-    notes, subtotal, vat, total, status, createdAt
+    notes, subtotal, vat, total, status, createdAt, clientOrderNumber
   } = data;
 
   const rqId = id || Utilities.getUuid();
@@ -3103,7 +3103,8 @@ function createRepairQuote(data) {
     vat || 0,
     total || 0,
     createdAt || timestamp,
-    timestamp
+    timestamp,
+    clientOrderNumber || ''
   ]);
 
   return { success: true, rqId, rqNumber };
@@ -3147,7 +3148,8 @@ function getRepairQuotes(limit = 100) {
       vat: row[10],
       total: row[11],
       createdAt: row[12],
-      updatedAt: row[13]
+      updatedAt: row[13],
+      clientOrderNumber: row[14] || ''
     });
   }
 
