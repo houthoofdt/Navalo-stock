@@ -95,7 +95,8 @@
                                 <th data-i18n="category">Catégorie</th>
                                 <th data-i18n="inStock">En Stock</th>
                                 <th data-i18n="onOrder">En Cmd</th>
-                                <th data-i18n="totalAvailable">Dispo Total</th>
+                                <th data-i18n="demand" title="Poptávka z objednávek">Poptávka</th>
+                                <th data-i18n="shortage" title="Chybějící materiál">Chybí</th>
                                 <th data-i18n="min">Min</th>
                                 <th data-i18n="valueCZK">Valeur (CZK)</th>
                                 <th data-i18n="status">Statut</th>
@@ -463,32 +464,32 @@
                     <div class="tab-actions">
                         <button class="btn btn-primary" onclick="openQuoteModal()">+ <span data-i18n="newQuote">Nouveau devis</span></button>
                         <select id="quoteStatusFilter" class="filter-select" onchange="updateQuotesDisplay()">
-                            <option value="all">Tous</option>
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté</option>
-                            <option value="rejected">Refusé</option>
+                            <option value="all" data-i18n="filterAll">Tous</option>
+                            <option value="draft" data-i18n="filterDraft">Brouillon</option>
+                            <option value="sent" data-i18n="filterSent">Envoyé</option>
+                            <option value="accepted" data-i18n="statusAccepted">Accepté</option>
+                            <option value="rejected" data-i18n="statusRejected">Refusé</option>
                         </select>
                         <input type="month" id="quoteMonthFilter" class="filter-input" onchange="updateQuotesDisplay()">
-                        <button class="btn btn-secondary" onclick="exportQuotes()">📥 Export</button>
+                        <button class="btn btn-secondary" onclick="exportQuotes()">📥 <span data-i18n="export">Export</span></button>
                     </div>
                 </div>
 
                 <div class="summary-cards">
                     <div class="summary-card">
-                        <h3>📝 Total Devis</h3>
+                        <h3>📝 <span data-i18n="totalQuotes">Total Devis</span></h3>
                         <div class="card-content"><span class="total-count" id="quoteTotalCount">0</span></div>
                     </div>
                     <div class="summary-card warning">
-                        <h3>⏳ En attente</h3>
+                        <h3>⏳ <span data-i18n="pendingQuotes">En attente</span></h3>
                         <div class="card-content"><span class="total-count" id="quotePendingCount">0</span></div>
                     </div>
                     <div class="summary-card info">
-                        <h3>✅ Acceptés</h3>
+                        <h3>✅ <span data-i18n="acceptedQuotes">Acceptés</span></h3>
                         <div class="card-content"><span class="total-count" id="quoteAcceptedCount">0</span></div>
                     </div>
                     <div class="summary-card">
-                        <h3>💰 Valeur totale</h3>
+                        <h3>💰 <span data-i18n="totalValue">Valeur totale</span></h3>
                         <div class="card-content">
                             <span class="total-count" id="quoteValue">0</span>
                             <span class="total-label">CZK</span>
@@ -500,7 +501,7 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>N° Devis</th>
+                                <th data-i18n="quoteNumber">N° Devis</th>
                                 <th data-i18n="date">Date</th>
                                 <th data-i18n="client">Client</th>
                                 <th data-i18n="validUntil">Validité</th>
@@ -508,7 +509,7 @@
                                 <th data-i18n="vat">TVA</th>
                                 <th data-i18n="totalTTC">TTC</th>
                                 <th data-i18n="status">Statut</th>
-                                <th>Actions</th>
+                                <th data-i18n="actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="quotesTableBody"></tbody>
@@ -524,16 +525,16 @@
                         <button class="btn btn-primary" onclick="openRepairQuoteModal()">
                             + <span data-i18n="newRepairQuote">Nouveau devis réparation</span>
                         </button>
-                        <button class="btn btn-secondary" onclick="fixDuplicateRepairQuoteNumbers()" title="Corriger les numéros en double">
-                            🔧 <span>Corriger doublons</span>
+                        <button class="btn btn-secondary" onclick="fixDuplicateRepairQuoteNumbers()">
+                            🔧 <span data-i18n="fixDuplicates">Corriger doublons</span>
                         </button>
                         <select id="repairQuoteStatusFilter" class="filter-select" onchange="updateRepairQuotesDisplay()">
-                            <option value="">Tous statuts</option>
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté</option>
-                            <option value="rejected">Refusé</option>
-                            <option value="invoiced">Facturé</option>
+                            <option value="" data-i18n="allStatuses">Tous statuts</option>
+                            <option value="draft" data-i18n="filterDraft">Brouillon</option>
+                            <option value="sent" data-i18n="filterSent">Envoyé</option>
+                            <option value="accepted" data-i18n="statusAccepted">Accepté</option>
+                            <option value="rejected" data-i18n="statusRejected">Refusé</option>
+                            <option value="invoiced" data-i18n="statusInvoiced">Facturé</option>
                         </select>
                         <input type="month" id="repairQuoteMonthFilter" class="filter-input" onchange="updateRepairQuotesDisplay()">
                     </div>
@@ -541,22 +542,34 @@
 
                 <div class="summary-cards">
                     <div class="summary-card">
-                        <h3>🔧 Total Devis</h3>
+                        <h3>🔧 <span data-i18n="totalRepairQuotes">Total Devis</span></h3>
                         <div class="card-content"><span class="total-count" id="repairQuoteTotalCount">0</span></div>
                     </div>
                     <div class="summary-card warning">
-                        <h3>⏳ En attente</h3>
+                        <h3>⏳ <span data-i18n="pendingQuotes">En attente</span></h3>
                         <div class="card-content"><span class="total-count" id="repairQuotePendingCount">0</span></div>
                     </div>
                     <div class="summary-card success">
-                        <h3>✅ Acceptés</h3>
+                        <h3>✅ <span data-i18n="acceptedQuotes">Acceptés</span></h3>
                         <div class="card-content"><span class="total-count" id="repairQuoteAcceptedCount">0</span></div>
                     </div>
                     <div class="summary-card">
-                        <h3>💰 Valeur totale</h3>
+                        <h3>💰 <span data-i18n="totalValue">Valeur totale</span></h3>
                         <div class="card-content">
                             <span class="total-count" id="repairQuoteValue">0</span>
                             <span class="total-label">EUR</span>
+                        </div>
+                    </div>
+                    <div class="summary-card info" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <h3 style="color: white;">🛡️ <span data-i18n="warrantyRepairs">Záruční opravy</span></h3>
+                        <div class="card-content" style="color: white;">
+                            <div style="font-size: 0.9em; margin-bottom: 0.3rem;">
+                                <span class="total-count" id="warrantyRepairCount">0</span> <span data-i18n="repairsUnit">oprav</span>
+                            </div>
+                            <div style="font-size: 1.3em; font-weight: bold;">
+                                <span id="warrantyRepairCost">0</span> EUR
+                            </div>
+                            <div style="font-size: 0.75em; opacity: 0.9; margin-top: 0.2rem;" data-i18n="companyCosts">náklady společnosti</div>
                         </div>
                     </div>
                 </div>

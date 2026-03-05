@@ -1194,6 +1194,8 @@ body {
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
 .text-danger { color: var(--danger); }
+.text-error { color: var(--danger); }
+.text-primary { color: var(--primary); }
 .text-info { color: #3b82f6; font-weight: 500; }
 .font-bold { font-weight: 600; }
 .mt-1 { margin-top: 0.5rem; }

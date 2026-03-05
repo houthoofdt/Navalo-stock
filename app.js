@@ -114,7 +114,7 @@ const TRANSLATIONS = {
         alertsTitle: 'Alertes', componentsToOrder: 'composants à commander',
         productionCapacity: 'Capacité Production', reference: 'Référence',
         designation: 'Désignation', category: 'Catégorie', inStock: 'En Stock',
-        onOrder: 'En Cmd', totalAvailable: 'Dispo Total', min: 'Min',
+        onOrder: 'En Cmd', totalAvailable: 'Dispo Total', demand: 'Demande', shortage: 'Manque', min: 'Min',
         valueCZK: 'Valeur (CZK)', status: 'Statut', statusOk: 'OK',
         statusLow: 'Bas', statusCritical: 'Rupture',
         entryTitle: 'Réception Marchandises', newReceipt: 'Nouvelle réception',
@@ -156,6 +156,7 @@ const TRANSLATIONS = {
         overdue: 'En retard', viewPDF: 'Voir PDF', export: 'Exporter',
         bomTitle: 'Nomenclatures (BOM)', selectModel: 'Modèle', qty: 'Qté',
         bomCost: 'Coût de fabrication', unitPriceCol: 'Prix Unit.', lineTotalCol: 'Total Ligne',
+        quotesTitle: 'Devis / Offres de prix', totalQuotes: 'Total Devis', newQuote: 'Nouveau devis', validUntil: 'Validité',
         historyTitle: 'Historique des mouvements', historyType: 'Type',
         historyAll: 'Tous', historyIn: 'Entrées', historyOut: 'Sorties',
         docNumber: 'N° Doc', priceUnit: 'Prix Unit.', value: 'Valeur',
@@ -278,8 +279,13 @@ const TRANSLATIONS = {
         convertToInvoice: 'Convertir en facture',
         quoteDate: 'Date devis',
         totalRepairQuotes: 'Total devis',
-        pendingQuotes: 'Devis en attente',
-        acceptedQuotes: 'Devis acceptés',
+        pendingQuotes: 'En attente',
+        acceptedQuotes: 'Acceptés',
+        warrantyRepairs: 'Réparations garantie',
+        repairsUnit: 'réparations',
+        companyCosts: 'coûts entreprise',
+        fixDuplicates: 'Corriger doublons',
+        allStatuses: 'Tous statuts',
         statusPending: 'En attente',
         statusAccepted: 'Accepté',
         statusRejected: 'Refusé',
@@ -317,7 +323,7 @@ const TRANSLATIONS = {
         stockValueTitle: 'Hodnota skladu', alertsTitle: 'Upozornění',
         componentsToOrder: 'komponent k objednání', productionCapacity: 'Výrobní kapacita',
         reference: 'Reference', designation: 'Popis', category: 'Kategorie',
-        inStock: 'Na skladě', onOrder: 'Objednáno', totalAvailable: 'Celkem k disp.',
+        inStock: 'Na skladě', onOrder: 'Objednáno', totalAvailable: 'Celkem k disp.', demand: 'Poptávka', shortage: 'Chybí',
         min: 'Min', valueCZK: 'Hodnota (CZK)', status: 'Stav',
         statusOk: 'OK', statusLow: 'Nízký', statusCritical: 'Vyprodáno',
         entryTitle: 'Příjem zboží', newReceipt: 'Nová příjemka',
@@ -360,6 +366,7 @@ const TRANSLATIONS = {
         overdue: 'Po splatnosti', viewPDF: 'Zobrazit PDF', export: 'Exportovat',
         bomTitle: 'Kusovníky (BOM)', selectModel: 'Model', qty: 'Mn.',
         bomCost: 'Výrobní náklady', unitPriceCol: 'Jedn. cena', lineTotalCol: 'Celkem',
+        quotesTitle: 'Nabídky / Cenové nabídky', totalQuotes: 'Celkem nabídky', newQuote: 'Nová nabídka', validUntil: 'Platnost',
         historyTitle: 'Historie pohybů', historyType: 'Typ',
         historyAll: 'Vše', historyIn: 'Příjmy', historyOut: 'Výdeje',
         docNumber: 'Číslo dok.', priceUnit: 'Jedn. cena', value: 'Hodnota',
@@ -481,8 +488,13 @@ const TRANSLATIONS = {
         convertToInvoice: 'Převést na fakturu',
         quoteDate: 'Datum nabídky',
         totalRepairQuotes: 'Celkem nabídky',
-        pendingQuotes: 'Čekající nabídky',
-        acceptedQuotes: 'Přijaté nabídky',
+        pendingQuotes: 'Čeká',
+        acceptedQuotes: 'Přijato',
+        warrantyRepairs: 'Záruční opravy',
+        repairsUnit: 'oprav',
+        companyCosts: 'náklady společnosti',
+        fixDuplicates: 'Opravit duplikáty',
+        allStatuses: 'Všechny stavy',
         statusPending: 'Čeká',
         statusAccepted: 'Přijato',
         statusRejected: 'Odmítnuto',
@@ -853,12 +865,12 @@ function updateStockDisplay() {
     const tbody = document.getElementById('stockTableBody');
     const search = (document.getElementById('stockSearch')?.value || '').toLowerCase();
     const filter = document.getElementById('stockFilter')?.value || 'all';
-    
+
     if (!currentStock) {
-        tbody.innerHTML = `<tr><td colspan="11" class="text-muted text-center">${t('noData')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
     }
-    
+
     const pendingQty = {};
     const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
     // Include Brouillon, Envoyé, and Partiel (partial receipts)
@@ -871,42 +883,82 @@ function updateStockDisplay() {
             }
         });
     });
-    
+
+    // Calculate demand from received orders (not delivered/invoiced)
+    const demand = {};
+    const receivedOrders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+    const activeOrders = receivedOrders.filter(o =>
+        o.status !== 'delivered' && o.status !== 'invoiced' && o.status !== 'cancelled'
+    );
+
+    activeOrders.forEach(order => {
+        // Calculate demand from PAC quantities
+        if (order.quantities && currentBom) {
+            Object.entries(order.quantities).forEach(([model, qty]) => {
+                if (qty > 0 && currentBom[model]) {
+                    currentBom[model].forEach(bomItem => {
+                        const ref = bomItem.ref;
+                        const qtyNeeded = bomItem.qty * qty;
+                        demand[ref] = (demand[ref] || 0) + qtyNeeded;
+                    });
+                }
+            });
+        }
+
+        // Add stockComponents demand
+        if (order.stockComponents && Array.isArray(order.stockComponents)) {
+            order.stockComponents.forEach(comp => {
+                if (comp.ref && comp.qty > 0) {
+                    demand[comp.ref] = (demand[comp.ref] || 0) + comp.qty;
+                }
+            });
+        }
+    });
+
     const categories = currentLang === 'cz' ? (CONFIG?.CATEGORIES_CZ || {}) : (CONFIG?.CATEGORIES || {});
     
     let filtered = Object.entries(currentStock).filter(([ref, data]) => {
-        const matchSearch = !search || ref.toLowerCase().includes(search) || 
+        const matchSearch = !search || ref.toLowerCase().includes(search) ||
             (data.name && data.name.toLowerCase().includes(search));
         const totalAvail = (data.qty || 0) + (pendingQty[ref] || 0);
+        const componentDemand = demand[ref] || 0;
+        const shortage = componentDemand - totalAvail;
         const minQty = data.min || 0;
-        
-        if (filter === 'low') return matchSearch && totalAvail > 0 && totalAvail <= minQty;
+
+        if (filter === 'low') return matchSearch && shortage > 0;
         if (filter === 'critical') return matchSearch && (data.qty || 0) <= 0;
         return matchSearch;
     });
-    
+
     tbody.innerHTML = filtered.map(([ref, data]) => {
         const qty = data.qty || 0;
         const onOrder = pendingQty[ref] || 0;
+        const componentDemand = demand[ref] || 0;
         const totalAvail = qty + onOrder;
+        const shortage = componentDemand - totalAvail;
         const minQty = data.min || 0;
         const value = data.value || 0;
         const cat = categories[data.category] || data.category || '-';
 
         let statusClass = 'status-ok', statusText = t('statusOk');
         if (qty <= 0) { statusClass = 'status-critical'; statusText = t('statusCritical'); }
-        else if (totalAvail <= minQty) { statusClass = 'status-low'; statusText = t('statusLow'); }
+        else if (shortage > 0) { statusClass = 'status-low'; statusText = t('statusLow'); }
 
         const manufacturerDisplay = data.manufacturer || '-';
 
-        return `<tr class="${qty <= 0 ? 'row-error' : totalAvail <= minQty ? 'row-warning' : ''}">
+        // Highlight shortage in red if missing material
+        const shortageClass = shortage > 0 ? 'text-error font-bold' : shortage < 0 ? 'text-success' : '';
+        const shortageDisplay = shortage > 0 ? `⚠️ ${shortage}` : shortage < 0 ? `✓ ${Math.abs(shortage)}` : '-';
+
+        return `<tr class="${qty <= 0 ? 'row-error' : shortage > 0 ? 'row-warning' : ''}">
             <td><code>${ref}</code></td>
             <td>${data.name || ref}</td>
             <td class="text-muted">${manufacturerDisplay}</td>
             <td>${cat}</td>
             <td class="text-right font-bold">${qty}</td>
             <td class="text-right ${onOrder > 0 ? 'text-info' : ''}">${onOrder > 0 ? '+' + onOrder : '-'}</td>
-            <td class="text-right">${totalAvail}</td>
+            <td class="text-right ${componentDemand > 0 ? 'text-primary font-bold' : ''}">${componentDemand > 0 ? componentDemand : '-'}</td>
+            <td class="text-right ${shortageClass}">${shortageDisplay}</td>
             <td class="text-right text-muted">${minQty}</td>
             <td class="text-right">${formatCurrency(value)}</td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -8447,6 +8499,10 @@ function addPACToRepairQuote() {
                     <input type="text" class="pac-serial" required placeholder="TX9-2024-001">
                 </div>
                 <div class="form-group">
+                    <label>Sériové číslo Alliance</label>
+                    <input type="text" class="pac-serial-alliance" placeholder="Alliance S/N">
+                </div>
+                <div class="form-group">
                     <label>${t('pacModel')} *</label>
                     <select class="pac-model" required onchange="updateComponentsForPAC(${pacCounter})">
                         <option value="">${t('selectModel')}</option>
@@ -8823,6 +8879,7 @@ async function saveRepairQuote() {
         const pacIndex = pacCard.dataset.pacIndex;
         const pacData = {
             serial: pacCard.querySelector('.pac-serial').value,
+            serialAlliance: pacCard.querySelector('.pac-serial-alliance')?.value || '',
             model: pacCard.querySelector('.pac-model').value,
             notes: pacCard.querySelector('.pac-notes')?.value || '',
             underWarranty: pacCard.querySelector('.pac-under-warranty')?.checked || false,
@@ -8903,13 +8960,58 @@ async function updateRepairQuotesDisplay() {
     const pendingCount = quotes.filter(q => q.status === 'pending').length;
     const acceptedCount = quotes.filter(q => q.status === 'accepted').length;
 
-    const totalElement = document.getElementById('totalRepairQuotesValue');
-    const pendingElement = document.getElementById('pendingRepairQuotesCount');
-    const acceptedElement = document.getElementById('acceptedRepairQuotesCount');
+    // Calculate warranty repair statistics
+    let warrantyRepairCount = 0;
+    let warrantyRepairTotalCost = 0;
 
-    if (totalElement) totalElement.textContent = `${totalValue.toFixed(0)} EUR`;
+    quotes.forEach(quote => {
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach(pac => {
+                if (pac.underWarranty) {
+                    warrantyRepairCount++;
+
+                    // Calculate internal cost of warranty repair
+                    // Components: use actual stock cost (we need to get from stock)
+                    if (pac.components && Array.isArray(pac.components)) {
+                        pac.components.forEach(comp => {
+                            // Use 70% of repair price as estimated cost (since we don't have direct access to stock cost here)
+                            const estimatedCost = comp.priceUnit * 0.7;
+                            warrantyRepairTotalCost += comp.qty * estimatedCost;
+                        });
+                    }
+
+                    // Labor: internal cost ~20 EUR/hour (lower than selling price of 30 EUR/h)
+                    if (pac.services && pac.services.labor) {
+                        warrantyRepairTotalCost += pac.services.labor * 20;
+                    }
+
+                    // Refrigerant: cost ~18 EUR/kg (lower than selling price of 25 EUR/kg)
+                    if (pac.services && pac.services.refrigerant) {
+                        warrantyRepairTotalCost += pac.services.refrigerant * 18;
+                    }
+
+                    // Disposal: cost ~12 EUR/kg (lower than selling price of 17 EUR/kg)
+                    if (pac.services && pac.services.disposal) {
+                        warrantyRepairTotalCost += pac.services.disposal * 12;
+                    }
+                }
+            });
+        }
+    });
+
+    const totalCountElement = document.getElementById('repairQuoteTotalCount');
+    const totalValueElement = document.getElementById('repairQuoteValue');
+    const pendingElement = document.getElementById('repairQuotePendingCount');
+    const acceptedElement = document.getElementById('repairQuoteAcceptedCount');
+    const warrantyCountElement = document.getElementById('warrantyRepairCount');
+    const warrantyCostElement = document.getElementById('warrantyRepairCost');
+
+    if (totalCountElement) totalCountElement.textContent = quotes.length;
+    if (totalValueElement) totalValueElement.textContent = totalValue.toFixed(0);
     if (pendingElement) pendingElement.textContent = pendingCount;
     if (acceptedElement) acceptedElement.textContent = acceptedCount;
+    if (warrantyCountElement) warrantyCountElement.textContent = warrantyRepairCount;
+    if (warrantyCostElement) warrantyCostElement.textContent = warrantyRepairTotalCost.toFixed(0);
 
     // Update table
     const tbody = document.getElementById('repairQuotesTableBody');
@@ -8971,9 +9073,10 @@ function showRepairQuotePreview(quote) {
     quote.pacs.forEach(pac => {
         // PAC header
         const warrantyBadge = pac.underWarranty ? ' <span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; margin-left: 8px;">POD ZÁRUKOU - ZDARMA</span>' : '';
+        const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
         pacsTableHtml += `
             <tr class="pac-separator">
-                <td colspan="5"><strong>PAC #${pacNumber} - ${pac.model} (${pac.serial})</strong>${warrantyBadge}</td>
+                <td colspan="5"><strong>PAC #${pacNumber} - ${pac.model} (S/N: ${pac.serial}${allianceSerial})</strong>${warrantyBadge}</td>
             </tr>
         `;
 
@@ -10365,6 +10468,7 @@ function previewRepairQuoteBeforeSave() {
         const pac = {
             model: container.querySelector('.pac-model')?.value || '',
             serial: container.querySelector('.pac-serial')?.value || '',
+            serialAlliance: container.querySelector('.pac-serial-alliance')?.value || '',
             notes: container.querySelector('.pac-notes')?.value || '',
             underWarranty: container.querySelector('.pac-under-warranty')?.checked || false,
             components: [],
