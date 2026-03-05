@@ -1456,6 +1456,15 @@ class StorageAdapter {
         return await this.apiPost('processDelivery', data);
     }
 
+    async deductStockForComponents(components, docNumber, client, date) {
+        return await this.apiPost('deductStockForComponents', {
+            components,
+            docNumber,
+            client,
+            date: date || new Date().toISOString()
+        });
+    }
+
     async createPurchaseOrder(data) {
         return await this.apiPost('createPurchaseOrder', data);
     }

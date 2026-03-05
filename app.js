@@ -6088,6 +6088,36 @@ async function saveIssuedInvoice() {
         delete document.getElementById('invoiceForm').dataset.deliveryId;
     }
 
+    // Deduct stock if this invoice was converted from a repair quote
+    if (window.currentRepairQuoteForStockDeduction &&
+        window.currentRepairQuoteForStockDeduction.components.length > 0 &&
+        storage.getMode() === 'googlesheets') {
+        try {
+            console.log('🔧 Deducting stock for repair quote conversion...', window.currentRepairQuoteForStockDeduction);
+            const deductResult = await storage.deductStockForComponents(
+                window.currentRepairQuoteForStockDeduction.components,
+                invoice.number,
+                window.currentRepairQuoteForStockDeduction.client,
+                new Date().toISOString()
+            );
+
+            if (deductResult.success) {
+                console.log('✅ Stock deducted for repair invoice:', deductResult.deductedComponents, 'components');
+            } else {
+                console.error('❌ Stock deduction failed:', deductResult.errors);
+                // Show warning but don't block invoice creation
+                const errorMsg = deductResult.errors.map(e => `${e.ref}: ${e.error}`).join('\n');
+                showToast('Facture créée mais erreur déduction stock:\n' + errorMsg, 'warning');
+            }
+        } catch (e) {
+            console.error('❌ Failed to deduct stock for repair invoice:', e);
+            showToast('Facture créée mais erreur lors de la déduction du stock: ' + e.message, 'warning');
+        } finally {
+            // Clear the repair quote data
+            window.currentRepairQuoteForStockDeduction = null;
+        }
+    }
+
     closeInvoiceModal();
     await updateInvoicesDisplay();
     await updateDeliveriesDisplay();
@@ -7369,19 +7399,46 @@ async function confirmReceivedOrder(id) {
 
 async function markOrderDelivered(id) {
     console.log('🔄 markOrderDelivered called with id:', id);
-    
+
     let orders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
     const index = orders.findIndex(o => o.id === id);
-    
+
     if (index >= 0) {
-        console.log('📝 Current status:', orders[index].status);
-        orders[index].status = 'delivered';
-        orders[index].delivered = true;
-        orders[index].deliveredDate = new Date().toISOString();
+        const order = orders[index];
+        console.log('📝 Current status:', order.status);
+
+        // Deduct stock for stockComponents BEFORE marking as delivered
+        if (storage.getMode() === 'googlesheets' && order.stockComponents && order.stockComponents.length > 0) {
+            try {
+                console.log('📦 Deducting stock for order components...', order.stockComponents);
+                const deductResult = await storage.deductStockForComponents(
+                    order.stockComponents,
+                    order.orderNumber || id,
+                    order.client || 'Client',
+                    new Date().toISOString()
+                );
+
+                if (!deductResult.success) {
+                    console.error('❌ Stock deduction failed:', deductResult.errors);
+                    const errorMsg = deductResult.errors.map(e => `${e.ref}: ${e.error}`).join('\n');
+                    showToast('Erreur déduction stock:\n' + errorMsg, 'error');
+                    return;
+                }
+                console.log('✅ Stock deducted:', deductResult.deductedComponents, 'components');
+            } catch (e) {
+                console.error('❌ Failed to deduct stock:', e);
+                showToast('Erreur lors de la déduction du stock: ' + e.message, 'error');
+                return;
+            }
+        }
+
+        order.status = 'delivered';
+        order.delivered = true;
+        order.deliveredDate = new Date().toISOString();
         localStorage.setItem('navalo_received_orders', JSON.stringify(orders));
         console.log('✅ localStorage updated to delivered');
-        
-        // Sync to Google Sheets FIRST
+
+        // Sync to Google Sheets
         if (storage.getMode() === 'googlesheets') {
             try {
                 console.log('🔄 Syncing delivered status to Google Sheets...');
@@ -7395,7 +7452,7 @@ async function markOrderDelivered(id) {
                 console.error('❌ Failed to sync to Google Sheets:', e);
             }
         }
-        
+
         // Update display WITHOUT reloading from Google Sheets
         updateReceivedOrdersDisplayLocal();
         showToast(t('saved'), 'success');
@@ -9169,6 +9226,33 @@ async function convertRepairQuoteToInvoice(quoteId) {
         }
 
         console.log('Converting repair quote to invoice:', quote);
+
+        // Extract components for stock deduction
+        const componentsForDeduction = [];
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach(pac => {
+                if (pac.components && Array.isArray(pac.components)) {
+                    pac.components.forEach(comp => {
+                        if (comp.qty > 0 && comp.ref) {
+                            componentsForDeduction.push({
+                                ref: comp.ref,
+                                name: comp.name || comp.ref,
+                                qty: comp.qty
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Store for use after invoice is saved (using window object for global access)
+        window.currentRepairQuoteForStockDeduction = {
+            quoteId: quote.id,
+            quoteNumber: quote.quoteNumber,
+            client: quote.clientName || quote.clientId || 'Client',
+            components: componentsForDeduction
+        };
+        console.log('🔧 Stored repair quote components for stock deduction:', window.currentRepairQuoteForStockDeduction);
 
         // Close preview modal
         closeRepairQuotePreviewModal();

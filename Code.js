@@ -257,6 +257,9 @@ function doPost(e) {
         case 'sendEmail':
           result = sendEmail(data);
           break;
+        case 'deductStockForComponents':
+          result = deductStockForComponents(data.components, data.docNumber, data.client, data.date);
+          break;
       default:
         result = { error: 'Action non reconnue: ' + action };
     }
@@ -1210,6 +1213,108 @@ function processDelivery(data) {
     totalCustom,
     totalValue: Math.round(totalValue * 100) / 100,
     componentsDeducted: Object.keys(required).length + componentItems.length
+  };
+}
+
+/**
+ * Deduct stock for a list of components (used when marking order as delivered or converting repair quote to invoice)
+ * @param {Array} components - Array of {ref, name, qty}
+ * @param {String} docNumber - Document number for history (e.g. order number, invoice number)
+ * @param {String} client - Client name for history
+ * @param {Date} date - Date for history
+ * @returns {Object} {success, errors, deductedComponents, totalValue}
+ */
+function deductStockForComponents(components, docNumber, client, date) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+
+  if (!components || !Array.isArray(components) || components.length === 0) {
+    return { success: true, deductedComponents: 0, totalValue: 0 };
+  }
+
+  const stockData = stockSheet.getDataRange().getValues();
+  const errors = [];
+  let totalValue = 0;
+  let deductedCount = 0;
+
+  components.forEach(item => {
+    const { ref, name, qty } = item;
+    if (!ref || qty <= 0) return;
+
+    // Find component in stock
+    let componentRowIndex = -1;
+    let currentQty = 0;
+    for (let i = 1; i < stockData.length; i++) {
+      if (stockData[i][0] === ref) {
+        componentRowIndex = i + 1;
+        currentQty = stockData[i][4];
+        break;
+      }
+    }
+
+    if (componentRowIndex === -1) {
+      errors.push({ ref, name: name || ref, error: 'Composant non trouvé en stock' });
+      return;
+    }
+
+    if (currentQty < qty) {
+      errors.push({
+        ref,
+        name: name || ref,
+        error: `Stock insuffisant (disponible: ${currentQty}, requis: ${qty})`
+      });
+      return;
+    }
+
+    // Deduct from stock using FIFO
+    let qtyToDeduct = qty;
+    const lots = getStockLots(ref);
+    let deductedValue = 0;
+
+    for (const lot of lots) {
+      if (qtyToDeduct <= 0) break;
+
+      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+      const newRemaining = lot.qtyRemaining - deductFromLot;
+
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      deductedValue += deductFromLot * lot.priceCZK;
+      qtyToDeduct -= deductFromLot;
+    }
+
+    totalValue += deductedValue;
+    deductedCount++;
+
+    // Update stock quantity
+    const newQty = currentQty - qty;
+    stockSheet.getRange(componentRowIndex, 5).setValue(newQty);
+    stockSheet.getRange(componentRowIndex, 8).setValue(new Date());
+
+    // Add to history
+    const avgPrice = qty > 0 ? deductedValue / qty : 0;
+    historySheet.appendRow([
+      date || new Date(),
+      'SORTIE',
+      docNumber || 'N/A',
+      ref,
+      name || ref,
+      -qty,
+      avgPrice,
+      -deductedValue,
+      client || 'N/A'
+    ]);
+  });
+
+  if (errors.length > 0) {
+    return { success: false, errors };
+  }
+
+  return {
+    success: true,
+    deductedComponents: deductedCount,
+    totalValue: Math.round(totalValue * 100) / 100
   };
 }
 
