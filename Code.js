@@ -439,7 +439,7 @@ function getNextDocNumber(type) {
     'pi': 'PI',
     'dev': 'DEV',
     'adj': 'ADJ',
-    'repair_quote': 'DV'
+    'repair_quote': 'DEV'
   };
   
   const prefix = prefixes[type] || type.toUpperCase();
