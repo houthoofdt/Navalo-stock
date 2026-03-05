@@ -3284,7 +3284,7 @@ function updateRepairQuote(data) {
  */
 function sendEmail(data) {
   try {
-    const { to, replyTo, subject, body, htmlContent, documentNumber, documentType } = data;
+    const { to, replyTo, cc, subject, body, htmlContent, documentNumber, documentType } = data;
 
     if (!to || !subject) {
       return { success: false, error: 'Destinataire et sujet requis' };
@@ -3306,6 +3306,11 @@ function sendEmail(data) {
     // Add replyTo if provided
     if (replyTo) {
       emailOptions.replyTo = replyTo;
+    }
+
+    // Add CC if provided (can be comma or semicolon separated)
+    if (cc) {
+      emailOptions.cc = cc;
     }
 
     // Send email with PDF attachment using MailApp (simpler, fewer permissions needed)

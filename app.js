@@ -3972,10 +3972,16 @@ async function sendPurchaseOrderByEmail() {
         return;
     }
 
-    // Confirm send
+    // Confirm send and ask for CC addresses
     if (!confirm(`Envoyer la commande ${currentPO.poNumber} à ${supplier.email}?`)) {
         return;
     }
+
+    // Ask for CC addresses
+    const ccAddresses = prompt(
+        `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules ou points-virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+        ''
+    );
 
     try {
         // Get the PO HTML
@@ -3991,6 +3997,11 @@ async function sendPurchaseOrderByEmail() {
             documentNumber: currentPO.poNumber,
             documentType: 'Objednávka'
         };
+
+        // Add CC if provided
+        if (ccAddresses && ccAddresses.trim()) {
+            emailData.cc = ccAddresses.trim();
+        }
 
         // Send via Google Apps Script
         const result = await storage.apiPost('sendEmail', emailData);
@@ -5152,10 +5163,16 @@ async function sendInvoiceByEmail() {
         return;
     }
 
-    // Confirm send
+    // Confirm send and ask for CC addresses
     if (!confirm(`Envoyer la facture ${currentInvoice.number} à ${client.email}?`)) {
         return;
     }
+
+    // Ask for CC addresses
+    const ccAddresses = prompt(
+        `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules ou points-virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+        ''
+    );
 
     try {
         // Get the invoice HTML
@@ -5171,6 +5188,11 @@ async function sendInvoiceByEmail() {
             documentNumber: currentInvoice.number,
             documentType: currentInvoice.isProforma ? 'Proforma' : 'Faktura'
         };
+
+        // Add CC if provided
+        if (ccAddresses && ccAddresses.trim()) {
+            emailData.cc = ccAddresses.trim();
+        }
 
         // Send via Google Apps Script
         const result = await storage.apiPost('sendEmail', emailData);
