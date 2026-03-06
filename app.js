@@ -11233,7 +11233,7 @@ async function receiveKitsForOrder(orderId) {
 /**
  * View subcontracting order details
  */
-function viewSubcontractingOrder(orderId) {
+async function viewSubcontractingOrder(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
@@ -11312,7 +11312,7 @@ function viewSubcontractingOrder(orderId) {
 /**
  * Delete subcontracting order
  */
-function deleteSubcontractingOrder(orderId) {
+async function deleteSubcontractingOrder(orderId) {
     if (!confirm(t('confirmDelete') || 'Confirmer la suppression ?')) {
         return;
     }
