@@ -10934,6 +10934,8 @@ function updateSubcontractingOrdersDisplay() {
                 <td><span class="badge">${statusIcon} ${statusText}</span></td>
                 <td>
                     <button class="btn btn-icon" onclick="viewSubcontractingOrder('${order.id}')" title="Voir">👁️</button>
+                    <button class="btn btn-icon" onclick="generateSubcontractingPO('${order.id}')" title="Générer bon de commande">📄</button>
+                    <button class="btn btn-icon" onclick="generateSubcontractingBL('${order.id}')" title="Générer bon de livraison">📋</button>
                     <button class="btn btn-icon" onclick="transferComponentsForOrder('${order.id}')" title="Transférer composants">📦</button>
                     <button class="btn btn-icon" onclick="receiveKitsForOrder('${order.id}')" title="Recevoir kits">📥</button>
                     <button class="btn btn-icon btn-danger" onclick="deleteSubcontractingOrder('${order.id}')" title="Supprimer">🗑️</button>
@@ -11323,6 +11325,270 @@ function deleteSubcontractingOrder(orderId) {
     updateSubcontractingOrdersDisplay();
 }
 
+/**
+ * Generate Purchase Order (PO) for subcontractor
+ */
+function generateSubcontractingPO(orderId) {
+    const orders = storage.getSubcontractingOrders() || [];
+    const order = orders.find(o => o.id === orderId);
+
+    if (!order) {
+        showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[order.kitType];
+    if (!bom) {
+        showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+        return;
+    }
+
+    // Calculate total cost
+    const totalCostCZK = bom.assemblyCost * order.quantity;
+    const exchangeRate = storage.getExchangeRate('EUR');
+    const totalCostEUR = (totalCostCZK / exchangeRate).toFixed(2);
+
+    // Generate PO document
+    const poHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bon de Commande ${order.number}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-info { margin-bottom: 20px; }
+        .order-info { margin: 20px 0; padding: 15px; background: #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #4CAF50; color: white; }
+        .total { font-weight: bold; background: #f9f9f9; }
+        .footer { margin-top: 40px; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BON DE COMMANDE</h1>
+        <h2>${order.number}</h2>
+    </div>
+
+    <div class="company-info">
+        <strong>${CONFIG.COMPANY.name}</strong><br>
+        ${CONFIG.COMPANY.address}<br>
+        IČO: ${CONFIG.COMPANY.ico} | DIČ: ${CONFIG.COMPANY.dic}<br>
+        Tel: ${CONFIG.COMPANY.phone} | Email: ${CONFIG.COMPANY.email}
+    </div>
+
+    <div class="order-info">
+        <strong>Fournisseur / Dodavatel:</strong> ${order.subcontractor}<br>
+        <strong>Date de commande:</strong> ${formatDate(order.date)}<br>
+        <strong>Date de livraison souhaitée:</strong> ${formatDate(order.deliveryDate)}<br>
+        <strong>N° Commande:</strong> ${order.number}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Quantité</th>
+                <th>Prix unitaire</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>Assemblage ${bom.name}</strong><br>
+                    <small>Montáž / Assembly of ${order.quantity} kits</small>
+                </td>
+                <td style="text-align: center;">${order.quantity} ks</td>
+                <td style="text-align: right;">${bom.assemblyCost.toFixed(2)} CZK</td>
+                <td style="text-align: right;">${totalCostCZK.toFixed(2)} CZK</td>
+            </tr>
+            <tr class="total">
+                <td colspan="3" style="text-align: right;"><strong>Total HT / Celkem bez DPH:</strong></td>
+                <td style="text-align: right;"><strong>${totalCostCZK.toFixed(2)} CZK</strong><br><small>(~${totalCostEUR} EUR)</small></td>
+            </tr>
+        </tbody>
+    </table>
+
+    ${order.notes ? `<div><strong>Notes:</strong><br>${order.notes}</div>` : ''}
+
+    <div class="footer">
+        <p><strong>Conditions de paiement:</strong> À définir avec le fournisseur</p>
+        <p><strong>Coordonnées bancaires:</strong><br>
+        CZK: ${CONFIG.COMPANY.bank.CZK.account} (${CONFIG.COMPANY.bank.CZK.name})<br>
+        IBAN: ${CONFIG.COMPANY.bank.CZK.iban} | BIC: ${CONFIG.COMPANY.bank.CZK.bic}</p>
+    </div>
+
+    <script>
+        window.print();
+    </script>
+</body>
+</html>`;
+
+    // Open in new window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(poHtml);
+    printWindow.document.close();
+}
+
+/**
+ * Generate Delivery Note (BL) for components to subcontractor
+ */
+function generateSubcontractingBL(orderId) {
+    const orders = storage.getSubcontractingOrders() || [];
+    const order = orders.find(o => o.id === orderId);
+
+    if (!order) {
+        showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+        return;
+    }
+
+    const bom = ASSEMBLY_BOM[order.kitType];
+    if (!bom) {
+        showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+        return;
+    }
+
+    // Ask for quantity to deliver
+    const qtyToDeliver = prompt(`Quantité de kits à livrer (composants):`, order.quantity);
+    if (!qtyToDeliver || isNaN(qtyToDeliver) || qtyToDeliver <= 0) {
+        return;
+    }
+
+    const qty = parseInt(qtyToDeliver);
+
+    // Calculate component quantities
+    const components = bom.components.map(comp => {
+        const stock = currentStock[comp.ref] || {};
+        return {
+            ref: comp.ref,
+            name: stock.name || comp.ref,
+            qtyPerKit: comp.qty,
+            totalQty: comp.qty * qty,
+            available: stock.qty || 0
+        };
+    });
+
+    // Calculate total value
+    const exchangeRate = storage.getExchangeRate('EUR');
+    let totalValueCZK = 0;
+    components.forEach(comp => {
+        const price = getComponentPrice(comp.ref, 'EUR');
+        if (price) {
+            totalValueCZK += (price * exchangeRate) * comp.totalQty;
+        }
+    });
+
+    // Generate BL number
+    const blNumber = `BL-ST-${Date.now()}`;
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    // Generate BL document
+    const blHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bon de Livraison ${blNumber}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-info { margin-bottom: 20px; }
+        .delivery-info { margin: 20px 0; padding: 15px; background: #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #2196F3; color: white; }
+        .total { font-weight: bold; background: #f9f9f9; }
+        .warning { color: #ff9800; font-weight: bold; }
+        .footer { margin-top: 40px; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BON DE LIVRAISON</h1>
+        <h2>${blNumber}</h2>
+    </div>
+
+    <div class="company-info">
+        <strong>${CONFIG.COMPANY.name}</strong><br>
+        ${CONFIG.COMPANY.address}<br>
+        IČO: ${CONFIG.COMPANY.ico} | DIČ: ${CONFIG.COMPANY.dic}<br>
+        Tel: ${CONFIG.COMPANY.phone} | Email: ${CONFIG.COMPANY.email}
+    </div>
+
+    <div class="delivery-info">
+        <strong>Destinataire / Příjemce:</strong> ${order.subcontractor}<br>
+        <strong>Date de livraison:</strong> ${formatDate(currentDate)}<br>
+        <strong>N° BL:</strong> ${blNumber}<br>
+        <strong>N° Commande ST:</strong> ${order.number}<br>
+        <strong>Type de kit:</strong> ${bom.name}<br>
+        <strong>Quantité de kits:</strong> ${qty}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Référence</th>
+                <th>Désignation</th>
+                <th>Qté/kit</th>
+                <th>Kits</th>
+                <th>Qté totale</th>
+                <th>Stock dispo</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${components.map(comp => `
+                <tr>
+                    <td><code>${comp.ref}</code></td>
+                    <td>${comp.name}</td>
+                    <td style="text-align: center;">${comp.qtyPerKit}</td>
+                    <td style="text-align: center;">${qty}</td>
+                    <td style="text-align: center;"><strong>${comp.totalQty}</strong></td>
+                    <td style="text-align: center;" class="${comp.available < comp.totalQty ? 'warning' : ''}">
+                        ${comp.available}${comp.available < comp.totalQty ? ' ⚠️' : ' ✓'}
+                    </td>
+                </tr>
+            `).join('')}
+            <tr class="total">
+                <td colspan="5" style="text-align: right;"><strong>Valeur estimée:</strong></td>
+                <td style="text-align: right;"><strong>${formatCurrency(totalValueCZK)} CZK</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p><strong>Notes:</strong></p>
+        <p>Cette livraison correspond aux composants nécessaires pour l'assemblage de ${qty} kit(s) ${bom.name}.</p>
+        <p>Les composants marqués ⚠️ ont un stock insuffisant.</p>
+        ${order.notes ? `<p><strong>Notes commande:</strong> ${order.notes}</p>` : ''}
+        <br><br>
+        <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+            <div>
+                <p>Signature ${CONFIG.COMPANY.name}:</p>
+                <p style="border-top: 1px solid #000; width: 200px; margin-top: 50px;"></p>
+            </div>
+            <div>
+                <p>Signature ${order.subcontractor}:</p>
+                <p style="border-top: 1px solid #000; width: 200px; margin-top: 50px;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.print();
+    </script>
+</body>
+</html>`;
+
+    // Open in new window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(blHtml);
+    printWindow.document.close();
+}
+
 // Event listener for subcontracting tab
 document.addEventListener('DOMContentLoaded', function() {
     const scTab = document.querySelector('[data-tab="subcontracting"]');
@@ -11342,3 +11608,5 @@ window.transferComponentsForOrder = transferComponentsForOrder;
 window.receiveKitsForOrder = receiveKitsForOrder;
 window.viewSubcontractingOrder = viewSubcontractingOrder;
 window.deleteSubcontractingOrder = deleteSubcontractingOrder;
+window.generateSubcontractingPO = generateSubcontractingPO;
+window.generateSubcontractingBL = generateSubcontractingBL;
