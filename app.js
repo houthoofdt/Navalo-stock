@@ -11328,7 +11328,7 @@ async function deleteSubcontractingOrder(orderId) {
 /**
  * Generate Purchase Order (PO) for subcontractor
  */
-function generateSubcontractingPO(orderId) {
+async function generateSubcontractingPO(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
@@ -11437,7 +11437,7 @@ function generateSubcontractingPO(orderId) {
 /**
  * Generate Delivery Note (BL) for components to subcontractor
  */
-function generateSubcontractingBL(orderId) {
+async function generateSubcontractingBL(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
