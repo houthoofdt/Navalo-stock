@@ -259,6 +259,12 @@ function doPost(e) {
         case 'updateRepairQuote':
           result = updateRepairQuote(data);
           break;
+        case 'saveRepairQuotes':
+          result = saveRepairQuotes(data);
+          break;
+        case 'deleteRepairQuote':
+          result = deleteRepairQuote(data);
+          break;
         case 'saveSubcontractingOrders':
           result = saveSubcontractingOrders(data.orders);
           break;
@@ -3398,6 +3404,76 @@ function updateRepairQuote(data) {
       sheet.getRange(i + 1, 14).setValue(new Date());
 
       return { success: true, quoteId: quoteId };
+    }
+  }
+
+  return { success: false, error: 'Quote not found with ID: ' + quoteId };
+}
+
+function saveRepairQuotes(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  if (!sheet) {
+    return { success: false, error: 'REPAIR_QUOTES sheet not found' };
+  }
+
+  const quotes = data.quotes;
+  if (!quotes || !Array.isArray(quotes)) {
+    return { success: false, error: 'Quotes array required' };
+  }
+
+  // Clear existing data (except header)
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  }
+
+  // Add all quotes
+  quotes.forEach(quote => {
+    const pacsData = JSON.stringify(quote.pacs || []);
+
+    sheet.appendRow([
+      quote.id,
+      quote.createdAt || new Date().toISOString(),
+      quote.quoteNumber,
+      quote.clientOrderNumber || '',
+      quote.date,
+      quote.clientId || '',
+      quote.status || 'pending',
+      quote.client || quote.clientName || '',
+      quote.address || '',
+      pacsData,
+      quote.notes || '',
+      quote.subtotal || 0,
+      quote.vatAmount || 0,
+      quote.updatedAt || new Date().toISOString()
+    ]);
+  });
+
+  return { success: true, count: quotes.length };
+}
+
+function deleteRepairQuote(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.REPAIR_QUOTES);
+
+  if (!sheet) {
+    return { success: false, error: 'REPAIR_QUOTES sheet not found' };
+  }
+
+  const quoteId = data.quoteId;
+  if (!quoteId) {
+    return { success: false, error: 'Quote ID required' };
+  }
+
+  const sheetData = sheet.getDataRange().getValues();
+
+  // Find and delete the row
+  for (let i = 1; i < sheetData.length; i++) {
+    if (sheetData[i][0] === quoteId) {
+      sheet.deleteRow(i + 1);
+      return { success: true, message: 'Quote deleted' };
     }
   }
 

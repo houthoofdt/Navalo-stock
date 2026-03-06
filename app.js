@@ -9666,8 +9666,7 @@ async function acceptRepairQuote(quoteId) {
         };
 
         // Save invoice
-        invoices.push(invoice);
-        await storage.saveInvoices(invoices);
+        await storage.createInvoice(invoice);
         console.log('✅ Invoice created:', invoiceNumber);
 
         // Deduct stock for components
@@ -9715,9 +9714,7 @@ async function acceptRepairQuote(quoteId) {
 
 async function deleteRepairQuote(quoteId) {
     try {
-        const quotes = await storage.getRepairQuotes(100);
-        const filteredQuotes = quotes.filter(q => q.id !== quoteId);
-        await storage.saveRepairQuotes(filteredQuotes);
+        await storage.deleteRepairQuote(quoteId);
         await updateRepairQuotesDisplay();
         showToast(t('deleted') || 'Supprimé', 'success');
     } catch (error) {

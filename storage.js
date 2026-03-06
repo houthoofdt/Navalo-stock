@@ -1639,6 +1639,26 @@ class StorageAdapter {
         return await this.apiPost('updateRepairQuoteStatus', { quoteId, status });
     }
 
+    async saveRepairQuotes(quotes) {
+        if (this.mode === 'local') {
+            localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+            return { success: true };
+        }
+
+        return await this.apiPost('saveRepairQuotes', { quotes });
+    }
+
+    async deleteRepairQuote(quoteId) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+            const filteredQuotes = quotes.filter(q => q.id !== quoteId);
+            localStorage.setItem('navalo_repair_quotes', JSON.stringify(filteredQuotes));
+            return { success: true };
+        }
+
+        return await this.apiPost('deleteRepairQuote', { quoteId });
+    }
+
     // Google Drive methods
     async uploadToDrive(data) {
         return await this.apiPost('uploadToDrive', data);
