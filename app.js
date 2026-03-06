@@ -302,6 +302,10 @@ const TRANSLATIONS = {
         statusAccepted: 'Accepté',
         statusRejected: 'Refusé',
         statusInvoiced: 'Facturé',
+        accept: 'Accepter',
+        confirmAcceptQuote: 'Accepter ce devis et créer une facture automatiquement?\n\nLes composants seront déduits du stock.',
+        quoteAccepted: 'Devis accepté',
+        deleteAcceptedQuote: 'Voulez-vous supprimer le devis accepté maintenant qu\'il a été converti en facture?',
         // Preview
         preview: 'Aperçu',
         receivedOrderPreview: 'Aperçu de la commande reçue',
@@ -511,6 +515,10 @@ const TRANSLATIONS = {
         statusAccepted: 'Přijato',
         statusRejected: 'Odmítnuto',
         statusInvoiced: 'Fakturováno',
+        accept: 'Přijmout',
+        confirmAcceptQuote: 'Přijmout tuto nabídku a automaticky vytvořit fakturu?\n\nKomponenty budou odečteny ze skladu.',
+        quoteAccepted: 'Nabídka přijata',
+        deleteAcceptedQuote: 'Chcete smazat přijatou nabídku, nyní když byla převedena na fakturu?',
         // Preview
         preview: 'Náhled',
         receivedOrderPreview: 'Náhled přijaté objednávky',
@@ -9140,6 +9148,7 @@ async function updateRepairQuotesDisplay() {
                 <td>
                     <button class="btn-icon" onclick="viewRepairQuote('${quote.id}')" title="${t('view')}">👁️</button>
                     <button class="btn-icon" onclick="openRepairQuoteModal('${quote.id}')" title="${t('edit')}">✏️</button>
+                    ${(quote.status === 'pending' || quote.status === 'sent') ? `<button class="btn-icon" onclick="acceptRepairQuote('${quote.id}')" title="${t('accept')}" style="background:#22c55e;color:white;">✓</button>` : ''}
                     ${quote.status === 'accepted' ? `<button class="btn-icon" onclick="convertRepairQuoteToInvoice('${quote.id}')" title="${t('convertToInvoice')}">🧾</button>` : ''}
                 </td>
             </tr>
@@ -9533,6 +9542,190 @@ async function convertRepairQuoteToInvoice(quoteId) {
     }
 }
 
+async function acceptRepairQuote(quoteId) {
+    if (!confirm(t('confirmAcceptQuote') || 'Accepter ce devis et créer une facture automatiquement?\n\nLes composants seront déduits du stock.')) {
+        return;
+    }
+
+    try {
+        // Get repair quote
+        const quotes = await storage.getRepairQuotes(100);
+        const quote = quotes.find(q => q.id === quoteId);
+
+        if (!quote) {
+            showToast(t('error') + ': Devis non trouvé', 'error');
+            return;
+        }
+
+        // Update quote status to accepted
+        quote.status = 'accepted';
+        await storage.saveRepairQuotes(quotes);
+        console.log('✅ Quote status updated to accepted');
+
+        // Extract components for stock deduction
+        const componentsForDeduction = [];
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach(pac => {
+                if (pac.components && Array.isArray(pac.components)) {
+                    pac.components.forEach(comp => {
+                        if (comp.qty > 0 && comp.ref) {
+                            componentsForDeduction.push({
+                                ref: comp.ref,
+                                name: comp.name || comp.ref,
+                                qty: comp.qty
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Generate invoice number
+        const invoices = await storage.getInvoices(1000);
+        const year = new Date().getFullYear();
+        const yearInvoices = invoices.filter(inv => inv.number && inv.number.startsWith(`${year}`));
+        let nextNum = 1;
+        if (yearInvoices.length > 0) {
+            const maxNum = Math.max(...yearInvoices.map(inv => {
+                const match = inv.number.match(/(\d{4})(\d{4})/);
+                return match ? parseInt(match[2]) : 0;
+            }));
+            nextNum = maxNum + 1;
+        }
+        const invoiceNumber = `${year}${String(nextNum).padStart(4, '0')}`;
+
+        // Build invoice items
+        const items = [];
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach((pac, index) => {
+                // Add PAC header
+                const pacHeader = `PAC ${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'})`;
+                items.push({
+                    description: pacHeader,
+                    qty: 1,
+                    pricePerUnit: 0
+                });
+
+                // Add components
+                if (pac.components && Array.isArray(pac.components)) {
+                    pac.components.forEach(comp => {
+                        if (comp.qty > 0 && comp.priceUnit > 0) {
+                            items.push({
+                                description: `  • ${comp.name || comp.ref}`,
+                                qty: comp.qty,
+                                pricePerUnit: comp.priceUnit
+                            });
+                        }
+                    });
+                }
+
+                // Add services
+                if (pac.services) {
+                    if (pac.services.labor > 0) {
+                        items.push({
+                            description: `  • Main d'œuvre`,
+                            qty: 1,
+                            pricePerUnit: pac.services.labor
+                        });
+                    }
+                    if (pac.services.refrigerant > 0) {
+                        items.push({
+                            description: `  • Fluide frigorigène`,
+                            qty: 1,
+                            pricePerUnit: pac.services.refrigerant
+                        });
+                    }
+                    if (pac.services.disposal > 0) {
+                        items.push({
+                            description: `  • Élimination déchets`,
+                            qty: 1,
+                            pricePerUnit: pac.services.disposal
+                        });
+                    }
+                }
+            });
+        }
+
+        // Create invoice object
+        const invoice = {
+            number: invoiceNumber,
+            varSymbol: invoiceNumber,
+            date: new Date().toISOString().split('T')[0],
+            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            clientId: quote.clientId,
+            client: quote.client || quote.clientName,
+            address: quote.address,
+            items: items,
+            currency: 'EUR',
+            subtotal: quote.subtotal || 0,
+            vatRate: 21,
+            vatAmount: (quote.subtotal || 0) * 0.21,
+            total: (quote.subtotal || 0) * 1.21,
+            notes: `Converti du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim(),
+            paid: false
+        };
+
+        // Save invoice
+        invoices.push(invoice);
+        await storage.saveInvoices(invoices);
+        console.log('✅ Invoice created:', invoiceNumber);
+
+        // Deduct stock for components
+        if (componentsForDeduction.length > 0 && storage.getMode() === 'googlesheets') {
+            try {
+                console.log('🔧 Deducting stock for repair quote acceptance...', componentsForDeduction);
+                const deductResult = await storage.deductStockForComponents(
+                    componentsForDeduction,
+                    invoice.number,
+                    invoice.client,
+                    new Date().toISOString()
+                );
+
+                if (deductResult.success) {
+                    console.log('✅ Stock deducted:', deductResult.deductedComponents, 'components');
+                } else {
+                    console.error('❌ Stock deduction failed:', deductResult.errors);
+                    const errorMsg = deductResult.errors.map(e => `${e.ref}: ${e.error}`).join('\n');
+                    showToast('Facture créée mais erreur déduction stock:\n' + errorMsg, 'warning');
+                }
+            } catch (e) {
+                console.error('❌ Failed to deduct stock:', e);
+                showToast('Facture créée mais erreur lors de la déduction du stock: ' + e.message, 'warning');
+            }
+        }
+
+        // Update displays
+        await updateRepairQuotesDisplay();
+        await updateInvoicesDisplay();
+
+        showToast(`✅ ${t('quoteAccepted') || 'Devis accepté'} - Facture ${invoiceNumber} créée`, 'success');
+
+        // Ask if user wants to delete the quote
+        setTimeout(() => {
+            if (confirm(t('deleteAcceptedQuote') || 'Voulez-vous supprimer le devis accepté maintenant qu\'il a été converti en facture?')) {
+                deleteRepairQuote(quoteId);
+            }
+        }, 1000);
+
+    } catch (error) {
+        console.error('Error accepting repair quote:', error);
+        showToast('Erreur lors de l\'acceptation: ' + error.message, 'error');
+    }
+}
+
+async function deleteRepairQuote(quoteId) {
+    try {
+        const quotes = await storage.getRepairQuotes(100);
+        const filteredQuotes = quotes.filter(q => q.id !== quoteId);
+        await storage.saveRepairQuotes(filteredQuotes);
+        await updateRepairQuotesDisplay();
+        showToast(t('deleted') || 'Supprimé', 'success');
+    } catch (error) {
+        console.error('Error deleting repair quote:', error);
+        showToast('Erreur lors de la suppression: ' + error.message, 'error');
+    }
+}
+
 // Make functions globally accessible
 window.openRepairQuoteModal = openRepairQuoteModal;
 window.closeRepairQuoteModal = closeRepairQuoteModal;
@@ -9553,6 +9746,8 @@ window.showRepairQuotePreview = showRepairQuotePreview;
 window.closeRepairQuotePreviewModal = closeRepairQuotePreviewModal;
 window.printRepairQuote = printRepairQuote;
 window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
+window.acceptRepairQuote = acceptRepairQuote;
+window.deleteRepairQuote = deleteRepairQuote;
 
 // ========================================
 //  END REPAIR QUOTES FUNCTIONS

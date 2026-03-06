@@ -26,7 +26,7 @@ const CONFIG = {
         address: 'Radvanická 140/60, 71500 Ostrava - Michálkovice, Česká republika',
         ico: '25352695',
         dic: 'CZ25352695',
-        phone: '731 501 291',
+        phone: '731 259 988',
         email: 'info@navalo.cz',
 
         // Coordonnées bancaires
