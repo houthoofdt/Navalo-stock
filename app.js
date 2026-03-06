@@ -9149,7 +9149,7 @@ async function updateRepairQuotesDisplay() {
                 <td><strong>${quote.quoteNumber || '-'}</strong></td>
                 <td>${quote.client || '-'}</td>
                 <td>${pacCount}</td>
-                <td>${quote.subtotal?.toFixed(2) || '0.00'} EUR</td>
+                <td>${(parseFloat(quote.subtotal) || 0).toFixed(2)} EUR</td>
                 <td><span class="status-badge ${statusClass}">${t('status' + quote.status.charAt(0).toUpperCase() + quote.status.slice(1)) || quote.status}</span></td>
                 <td>
                     <button class="btn-icon" onclick="viewRepairQuote('${quote.id}')" title="${t('view')}">👁️</button>
@@ -9293,7 +9293,7 @@ function showRepairQuotePreview(quote) {
             pacsTableHtml += `
                 <tr class="pac-subtotal">
                     <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
-                    <td style="text-align:right"><strong>${pac.subtotal.toFixed(2)} EUR</strong></td>
+                    <td style="text-align:right"><strong>${(parseFloat(pac.subtotal) || 0).toFixed(2)} EUR</strong></td>
                 </tr>
             `;
         }
@@ -9343,15 +9343,15 @@ function showRepairQuotePreview(quote) {
             <div class="dn-totals">
                 <div class="dn-total-row">
                     <span>${t('subtotalHT')}:</span>
-                    <span>${quote.subtotal.toFixed(2)} EUR</span>
+                    <span>${(parseFloat(quote.subtotal) || 0).toFixed(2)} EUR</span>
                 </div>
                 <div class="dn-total-row">
                     <span>${t('vatAmount')} (21%):</span>
-                    <span>${quote.vat.toFixed(2)} EUR</span>
+                    <span>${(parseFloat(quote.vat || quote.vatAmount) || 0).toFixed(2)} EUR</span>
                 </div>
                 <div class="dn-total-row dn-total-main">
                     <span>${t('totalTTC')}:</span>
-                    <span>${quote.total.toFixed(2)} EUR</span>
+                    <span>${(parseFloat(quote.total) || 0).toFixed(2)} EUR</span>
                 </div>
             </div>
 
@@ -9658,6 +9658,7 @@ async function acceptRepairQuote(quoteId) {
         }
 
         // Create invoice object
+        const subtotal = parseFloat(quote.subtotal) || 0;
         const invoice = {
             number: invoiceNumber,
             varSymbol: invoiceNumber,
@@ -9668,10 +9669,10 @@ async function acceptRepairQuote(quoteId) {
             address: quote.address,
             items: items,
             currency: 'EUR',
-            subtotal: quote.subtotal || 0,
+            subtotal: subtotal,
             vatRate: 21,
-            vatAmount: (quote.subtotal || 0) * 0.21,
-            total: (quote.subtotal || 0) * 1.21,
+            vatAmount: subtotal * 0.21,
+            total: subtotal * 1.21,
             notes: `Converti du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim(),
             paid: false
         };
