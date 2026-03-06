@@ -4518,6 +4518,15 @@ function viewInvoice(invNumber) {
     // Generate items HTML with full columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     const curr = inv.currency || 'CZK';
     let itemsHtml = (inv.items || []).map(item => {
+        // Special formatting for PAC headers
+        if (item.isPacHeader) {
+            return `
+        <tr style="background-color: #f0f0f0; font-weight: bold;">
+            <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
+        </tr>
+    `;
+        }
+
         const itemSubtotal = item.qty * item.price;
         const itemVat = itemSubtotal * vatRate / 100;
         const itemTotal = itemSubtotal + itemVat;
@@ -9609,12 +9618,15 @@ async function acceptRepairQuote(quoteId) {
         const items = [];
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach((pac, index) => {
-                // Add PAC header
+                // Add PAC header as section divider
                 const pacHeader = `PAC ${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'})`;
                 items.push({
+                    name: pacHeader,
                     description: pacHeader,
                     qty: 1,
-                    pricePerUnit: 0
+                    price: 0,
+                    pricePerUnit: 0,
+                    isPacHeader: true  // Special flag to identify PAC headers
                 });
 
                 // Add components
@@ -9622,8 +9634,10 @@ async function acceptRepairQuote(quoteId) {
                     pac.components.forEach(comp => {
                         if (comp.qty > 0 && comp.priceUnit > 0) {
                             items.push({
+                                name: `  • ${comp.name || comp.ref}`,
                                 description: `  • ${comp.name || comp.ref}`,
                                 qty: comp.qty,
+                                price: comp.priceUnit,
                                 pricePerUnit: comp.priceUnit
                             });
                         }
@@ -9634,22 +9648,28 @@ async function acceptRepairQuote(quoteId) {
                 if (pac.services) {
                     if (pac.services.labor > 0) {
                         items.push({
+                            name: `  • Main d'œuvre`,
                             description: `  • Main d'œuvre`,
                             qty: 1,
+                            price: pac.services.labor,
                             pricePerUnit: pac.services.labor
                         });
                     }
                     if (pac.services.refrigerant > 0) {
                         items.push({
+                            name: `  • Fluide frigorigène`,
                             description: `  • Fluide frigorigène`,
                             qty: 1,
+                            price: pac.services.refrigerant,
                             pricePerUnit: pac.services.refrigerant
                         });
                     }
                     if (pac.services.disposal > 0) {
                         items.push({
+                            name: `  • Élimination déchets`,
                             description: `  • Élimination déchets`,
                             qty: 1,
+                            price: pac.services.disposal,
                             pricePerUnit: pac.services.disposal
                         });
                     }
@@ -10686,6 +10706,15 @@ function generateInvoicePreviewHTML(inv) {
 
     // Generate items HTML with full 7 columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     let itemsHtml = (inv.items || []).map(item => {
+        // Special formatting for PAC headers
+        if (item.isPacHeader) {
+            return `
+        <tr style="background-color: #f0f0f0; font-weight: bold;">
+            <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
+        </tr>
+        `;
+        }
+
         const itemSubtotal = item.qty * item.price;
         const itemVat = itemSubtotal * vatRate / 100;
         const itemTotal = itemSubtotal + itemVat;
