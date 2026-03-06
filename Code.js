@@ -22,6 +22,7 @@ const SHEET_NAMES = {
   BOM_TX12_3PH: 'BOM_TX12-3PH',
   BOM_TX12_1PH: 'BOM_TX12-1PH',
   BOM_TH11: 'BOM_TH11',  // NEW: TH11 model
+  BOM_TIZ_TH11: 'BOM_TIZ_TH11',  // NEW: TIZ_TH11 kit
   HISTORY: 'Historique',
   RECEIPTS: 'Prijemky',  // NEW: Receipts/Příjemky
   DELIVERIES: 'Livraisons',
@@ -39,7 +40,7 @@ const SHEET_NAMES = {
 };
 
 // PAC Models configuration
-const PAC_MODELS = ['TX9', 'TX12-3PH', 'TX12-1PH', 'TH11'];
+const PAC_MODELS = ['TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'TIZ_TH11'];
 
 // CNB Exchange Rate API
 const CNB_URL = 'https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt';
@@ -549,8 +550,8 @@ function initializeSpreadsheet() {
     lotsSheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#34a853').setFontColor('white');
   }
   
-  // Initialize BOM sheets (including TH11)
-  const bomSheets = [SHEET_NAMES.BOM_TX9, SHEET_NAMES.BOM_TX12_3PH, SHEET_NAMES.BOM_TX12_1PH, SHEET_NAMES.BOM_TH11];
+  // Initialize BOM sheets (including TH11 and TIZ_TH11)
+  const bomSheets = [SHEET_NAMES.BOM_TX9, SHEET_NAMES.BOM_TX12_3PH, SHEET_NAMES.BOM_TX12_1PH, SHEET_NAMES.BOM_TH11, SHEET_NAMES.BOM_TIZ_TH11];
   bomSheets.forEach(sheetName => {
     const sheet = ss.getSheetByName(sheetName);
     if (sheet.getLastRow() === 0) {
@@ -569,8 +570,8 @@ function initializeSpreadsheet() {
   // Initialize Deliveries sheet
   const deliveriesSheet = ss.getSheetByName(SHEET_NAMES.DELIVERIES);
   if (deliveriesSheet.getLastRow() === 0) {
-    deliveriesSheet.appendRow(['ID', 'Date', 'N° BL', 'Client', 'Adresse', 'TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'Total', 'Valeur CZK', 'Statut', 'Notes']);
-    deliveriesSheet.getRange(1, 1, 1, 13).setFontWeight('bold').setBackground('#ea4335').setFontColor('white');
+    deliveriesSheet.appendRow(['ID', 'Date', 'N° BL', 'Client', 'Adresse', 'TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'TIZ_TH11', 'Total', 'Valeur CZK', 'Statut', 'Notes']);
+    deliveriesSheet.getRange(1, 1, 1, 14).setFontWeight('bold').setBackground('#ea4335').setFontColor('white');
   }
   
   // Initialize Receipts (Prijemky) sheet
@@ -1896,7 +1897,8 @@ function getAllBom() {
     'TX9': SHEET_NAMES.BOM_TX9,
     'TX12-3PH': SHEET_NAMES.BOM_TX12_3PH,
     'TX12-1PH': SHEET_NAMES.BOM_TX12_1PH,
-    'TH11': SHEET_NAMES.BOM_TH11
+    'TH11': SHEET_NAMES.BOM_TH11,
+    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11
   };
 
   PAC_MODELS.forEach(model => {
@@ -1927,7 +1929,8 @@ function saveBom(bomData) {
     'TX9': SHEET_NAMES.BOM_TX9,
     'TX12-3PH': SHEET_NAMES.BOM_TX12_3PH,
     'TX12-1PH': SHEET_NAMES.BOM_TX12_1PH,
-    'TH11': SHEET_NAMES.BOM_TH11
+    'TH11': SHEET_NAMES.BOM_TH11,
+    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11
   };
 
   let updated = 0;
@@ -2458,7 +2461,7 @@ function importBomData() {
   }
   
   Logger.log('BOM data imported successfully!');
-  return { success: true, message: 'Données BOM importées (TX9, TX12-3PH, TX12-1PH, TH11)' };
+  return { success: true, message: 'Données BOM importées (TX9, TX12-3PH, TX12-1PH, TH11, TIZ_TH11)' };
 }
 
 // ========================================

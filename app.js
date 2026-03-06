@@ -48,6 +48,19 @@ const ASSEMBLY_BOM = {
             { ref: 'MDF3H02', qty: 1 }
         ],
         assemblyCost: 2450 // CZK par kit (travail + tubes)
+    },
+    'TIZ_TH11': {
+        name: 'Kit TIZ TH11',
+        components: [
+            { ref: '00062_LP_0.7/1.7', qty: 1 },
+            { ref: '00062_HP_26', qty: 1 },
+            { ref: '6.04726.0000', qty: 1 },
+            { ref: '01413', qty: 1 },
+            { ref: '6.04677.0000', qty: 1 },
+            { ref: 'TGEN2,5_134', qty: 1 },
+            { ref: '00063', qty: 2 }
+        ],
+        assemblyCost: 2195 // CZK par kit (travail + tubes)
     }
 };
 

@@ -413,19 +413,31 @@ const BOM_TH11 = [
     { ref: 'Sada_komplet_Cu', name: 'Kompletní sada Cu trubek T9/T11', category: 'tuyauterie', qty: 1, manufacturer: 'Navalo' },
 ];
 
+// BOM TIZ_TH11 (Kit à assembler)
+const BOM_TIZ_TH11 = [
+    { ref: '00062_LP_0.7/1.7', name: 'Presostat LP ACB-2UA521W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '00062_HP_26', name: 'Presostat HP ACB-2UB507W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '6.04726.0000', name: 'Filtr Emerson FDB 084S dehydrátor jednosměrný', category: 'refrigeration', qty: 1, manufacturer: 'Emerson' },
+    { ref: '01413', name: 'Sběrač chladiva 1,6l', category: 'refrigeration', qty: 1, manufacturer: '' },
+    { ref: '6.04677.0000', name: 'Průhledítko Sanhua 12mm SYJ-42025', category: 'refrigeration', qty: 1, manufacturer: 'Sanhua' },
+    { ref: 'TGEN2,5_134', name: 'Ventil expanzní TGEN2.5/R134a Danfoss 067N5192', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '00063', name: 'Ventil plnící ¼"', category: 'refrigeration', qty: 2, manufacturer: '' }
+];
+
 // Combined BOM for app
 const SAMPLE_BOM = {
     'TX9': BOM_TX9,
     'TX12-3PH': BOM_TX12_3PH,
     'TX12-1PH': BOM_TX12_1PH,
-    'TH11': BOM_TH11
+    'TH11': BOM_TH11,
+    'TIZ_TH11': BOM_TIZ_TH11
 };
 
 // Generate initial stock from data
 function generateInitialStock() {
     return {
         components: INITIAL_STOCK,
-        pac: { 'TX9': 0, 'TX12-3PH': 0, 'TX12-1PH': 0, 'TH11': 0 }
+        pac: { 'TX9': 0, 'TX12-3PH': 0, 'TX12-1PH': 0, 'TH11': 0, 'TIZ_TH11': 0 }
     };
 }
 
