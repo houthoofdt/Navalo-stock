@@ -158,7 +158,7 @@ const TRANSLATIONS = {
         bomCost: 'Coût de fabrication', unitPriceCol: 'Prix Unit.', lineTotalCol: 'Total Ligne',
         quotesTitle: 'Devis / Offres de prix', totalQuotes: 'Total Devis', newQuote: 'Nouveau devis', validUntil: 'Validité',
         historyTitle: 'Historique des mouvements', historyType: 'Type',
-        historyAll: 'Tous', historyIn: 'Entrées', historyOut: 'Sorties',
+        historyAll: 'Tous', historyIn: 'Entrées', historyOut: 'Sorties', filterByRef: 'Filtrer par référence...',
         docNumber: 'N° Doc', priceUnit: 'Prix Unit.', value: 'Valeur',
         partner: 'Partenaire', entryType: 'ENTRÉE', exitType: 'SORTIE',
         contactsTitle: 'Gestion des Contacts', newContact: 'Nouveau Contact',
@@ -368,7 +368,7 @@ const TRANSLATIONS = {
         bomCost: 'Výrobní náklady', unitPriceCol: 'Jedn. cena', lineTotalCol: 'Celkem',
         quotesTitle: 'Nabídky / Cenové nabídky', totalQuotes: 'Celkem nabídky', newQuote: 'Nová nabídka', validUntil: 'Platnost',
         historyTitle: 'Historie pohybů', historyType: 'Typ',
-        historyAll: 'Vše', historyIn: 'Příjmy', historyOut: 'Výdeje',
+        historyAll: 'Vše', historyIn: 'Příjmy', historyOut: 'Výdeje', filterByRef: 'Filtrovat podle reference...',
         docNumber: 'Číslo dok.', priceUnit: 'Jedn. cena', value: 'Hodnota',
         partner: 'Partner', entryType: 'PŘÍJEM', exitType: 'VÝDEJ',
         contactsTitle: 'Správa kontaktů', newContact: 'Nový kontakt',
@@ -951,7 +951,7 @@ function updateStockDisplay() {
         const shortageDisplay = shortage > 0 ? `⚠️ ${shortage}` : shortage < 0 ? `✓ ${Math.abs(shortage)}` : '-';
 
         return `<tr class="${qty <= 0 ? 'row-error' : shortage > 0 ? 'row-warning' : ''}">
-            <td><code>${ref}</code></td>
+            <td><code style="cursor: pointer; color: #2563eb;" onclick="filterHistoryByComponent('${ref}')" title="Voir l'historique">${ref}</code></td>
             <td>${data.name || ref}</td>
             <td class="text-muted">${manufacturerDisplay}</td>
             <td>${cat}</td>
@@ -977,20 +977,75 @@ function updateStockDisplay() {
 
 async function updateHistoryDisplay() {
     try {
-        const history = await storage.getHistory(100);
+        console.log('=== updateHistoryDisplay START ===');
+        const history = await storage.getHistory(200);
+        console.log('Raw history data length:', history?.length || 0);
+
         const tbody = document.getElementById('historyTableBody');
-        if (!tbody) return;
-        
+        if (!tbody) {
+            console.log('ERROR: historyTableBody element not found!');
+            return;
+        }
+
         const typeFilter = document.getElementById('historyType')?.value || 'all';
+        const componentFilterInput = document.getElementById('historyComponentFilter');
+        const componentFilter = (componentFilterInput?.value || '').trim();
+
+        console.log('Filter input element exists:', !!componentFilterInput);
+        console.log('Filter input value:', componentFilterInput?.value);
+        console.log('Type filter:', typeFilter);
+        console.log('Component filter (trimmed):', componentFilter);
+
         let filtered = Array.isArray(history) ? history : [];
-        if (typeFilter !== 'all') filtered = filtered.filter(h => h.type === typeFilter);
-        
+        console.log('Initial filtered length:', filtered.length);
+
+        // Log first few entries to see data structure
+        if (filtered.length > 0) {
+            console.log('Sample history entry:', JSON.stringify(filtered[0], null, 2));
+            console.log('First 5 refs:', filtered.slice(0, 5).map(h => h.ref));
+        }
+
+        // Filter by type
+        if (typeFilter !== 'all') {
+            const beforeLength = filtered.length;
+            filtered = filtered.filter(h => h.type === typeFilter);
+            console.log(`Type filter: ${beforeLength} → ${filtered.length}`);
+        }
+
+        // Filter by component reference (case-insensitive)
+        if (componentFilter) {
+            const filterLower = componentFilter.toLowerCase();
+            console.log('Filtering by:', filterLower);
+
+            const beforeLength = filtered.length;
+            filtered = filtered.filter(h => {
+                // Convert to string first to handle numbers or other types
+                const ref = String(h.ref || '').toLowerCase();
+                const name = String(h.name || '').toLowerCase();
+                const matches = ref.includes(filterLower) || name.includes(filterLower);
+
+                // Log first few matches/non-matches for debugging
+                if (beforeLength <= 10 || matches) {
+                    console.log(`Checking: ref="${h.ref}" name="${h.name}" matches=${matches}`);
+                }
+
+                return matches;
+            });
+            console.log(`Component filter: ${beforeLength} → ${filtered.length}`);
+        }
+
+        console.log('Final filtered length:', filtered.length);
+
         if (filtered.length === 0) {
+            console.log('No results after filtering');
             tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">${t('noData')}</td></tr>`;
             return;
         }
-        
-        tbody.innerHTML = filtered.slice(0, 50).map(h => {
+
+        const displayCount = Math.min(filtered.length, 100);
+        console.log(`Rendering ${displayCount} rows`);
+
+        tbody.innerHTML = filtered.slice(0, 100).map(h => {
             const typeLabel = h.type === 'ENTRÉE' ? t('entryType') : t('exitType');
             return `<tr>
                 <td>${formatDate(h.date)}</td>
@@ -1003,7 +1058,40 @@ async function updateHistoryDisplay() {
                 <td>${h.partner || '-'}</td>
             </tr>`;
         }).join('');
-    } catch (e) { console.error('History error:', e); }
+
+        console.log('=== updateHistoryDisplay END ===');
+    } catch (e) {
+        console.error('History error:', e);
+        console.error('Error stack:', e.stack);
+        const tbody = document.getElementById('historyTableBody');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">Erreur: ${e.message}</td></tr>`;
+        }
+    }
+}
+
+function filterHistoryByComponent(ref) {
+    // Switch to history tab
+    const historyTab = document.querySelector('[data-tab="historique"]');
+    if (historyTab) {
+        historyTab.click();
+    }
+
+    // Set the filter
+    const filterInput = document.getElementById('historyComponentFilter');
+    if (filterInput) {
+        filterInput.value = ref;
+    }
+
+    // Update display
+    setTimeout(() => {
+        updateHistoryDisplay();
+        // Scroll to top of history table
+        const historySection = document.getElementById('tab-historique');
+        if (historySection) {
+            historySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
 }
 
 // ========================================
