@@ -306,6 +306,9 @@ const TRANSLATIONS = {
         confirmAcceptQuote: 'Accepter ce devis et créer une facture automatiquement?\n\nLes composants seront déduits du stock.',
         quoteAccepted: 'Devis accepté',
         deleteAcceptedQuote: 'Voulez-vous supprimer le devis accepté maintenant qu\'il a été converti en facture?',
+        sendEmail: 'Envoyer email',
+        emailSent: 'Email envoyé',
+        emailError: 'Erreur lors de l\'envoi',
         // Preview
         preview: 'Aperçu',
         receivedOrderPreview: 'Aperçu de la commande reçue',
@@ -519,6 +522,9 @@ const TRANSLATIONS = {
         confirmAcceptQuote: 'Přijmout tuto nabídku a automaticky vytvořit fakturu?\n\nKomponenty budou odečteny ze skladu.',
         quoteAccepted: 'Nabídka přijata',
         deleteAcceptedQuote: 'Chcete smazat přijatou nabídku, nyní když byla převedena na fakturu?',
+        sendEmail: 'Odeslat email',
+        emailSent: 'Email odeslán',
+        emailError: 'Chyba při odesílání',
         // Preview
         preview: 'Náhled',
         receivedOrderPreview: 'Náhled přijaté objednávky',
@@ -9583,11 +9589,11 @@ async function acceptRepairQuote(quoteId) {
         // Generate invoice number
         const invoices = await storage.getInvoices(1000);
         const year = new Date().getFullYear();
-        const yearInvoices = invoices.filter(inv => inv.number && inv.number.startsWith(`${year}`));
+        const yearInvoices = invoices.filter(inv => inv.number && String(inv.number).startsWith(`${year}`));
         let nextNum = 1;
         if (yearInvoices.length > 0) {
             const maxNum = Math.max(...yearInvoices.map(inv => {
-                const match = inv.number.match(/(\d{4})(\d{4})/);
+                const match = String(inv.number).match(/(\d{4})(\d{4})/);
                 return match ? parseInt(match[2]) : 0;
             }));
             nextNum = maxNum + 1;
@@ -9723,6 +9729,83 @@ async function deleteRepairQuote(quoteId) {
     }
 }
 
+async function sendRepairQuoteByEmail() {
+    if (!currentRepairQuotePreview) {
+        showToast(t('error') || 'Erreur', 'error');
+        return;
+    }
+
+    try {
+        // Get the quote
+        const quotes = await storage.getRepairQuotes(100);
+        const quote = quotes.find(q => q.id === currentRepairQuotePreview);
+
+        if (!quote) {
+            showToast(t('error') + ': Devis non trouvé', 'error');
+            return;
+        }
+
+        // Get client email
+        const contacts = await storage.getContacts();
+        const client = contacts.find(c => c.id === quote.clientId);
+
+        if (!client || !client.email) {
+            showToast('Email du client non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
+            return;
+        }
+
+        // Confirm send
+        if (!confirm(`Envoyer le devis ${quote.quoteNumber} à ${client.email}?`)) {
+            return;
+        }
+
+        // Ask for CC addresses
+        const ccAddresses = prompt(
+            `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules ou points-virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+            ''
+        );
+
+        // Get the quote HTML
+        const quoteHtml = document.getElementById('repairQuotePreview').innerHTML;
+
+        // Prepare email data
+        const emailData = {
+            to: client.email,
+            replyTo: 'tomas.karas@hotjet.cz',
+            subject: `${currentLang === 'cz' ? 'Nabídka opravy' : 'Devis de réparation'} ${quote.quoteNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: currentLang === 'cz' ?
+                `Dobrý den,\n\nV příloze naleznete nabídku opravy ${quote.quoteNumber}.\n\nPro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}` :
+                `Bonjour,\n\nVous trouverez en pièce jointe notre devis de réparation ${quote.quoteNumber}.\n\nPour toute réponse, contactez: tomas.karas@hotjet.cz\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            htmlContent: quoteHtml,
+            documentNumber: quote.quoteNumber,
+            documentType: currentLang === 'cz' ? 'Nabídka opravy' : 'Devis de réparation'
+        };
+
+        // Add CC if provided
+        if (ccAddresses && ccAddresses.trim()) {
+            emailData.cc = ccAddresses.trim();
+        }
+
+        // Send via Google Apps Script
+        const result = await storage.apiPost('sendEmail', emailData);
+
+        if (result && result.success) {
+            showToast(`${t('emailSent')} - ${client.email}`, 'success');
+
+            // Update quote status to 'sent' if it was 'pending'
+            if (quote.status === 'pending') {
+                await storage.updateRepairQuoteStatus(quote.id, 'sent');
+                await updateRepairQuotesDisplay();
+            }
+        } else {
+            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+        }
+    } catch (error) {
+        console.error('Error sending repair quote:', error);
+        showToast(t('emailError') + ': ' + error.message, 'error');
+    }
+}
+
 // Make functions globally accessible
 window.openRepairQuoteModal = openRepairQuoteModal;
 window.closeRepairQuoteModal = closeRepairQuoteModal;
@@ -9745,6 +9828,7 @@ window.printRepairQuote = printRepairQuote;
 window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
 window.acceptRepairQuote = acceptRepairQuote;
 window.deleteRepairQuote = deleteRepairQuote;
+window.sendRepairQuoteByEmail = sendRepairQuoteByEmail;
 
 // ========================================
 //  END REPAIR QUOTES FUNCTIONS
@@ -11482,16 +11566,25 @@ async function viewSubcontractingOrder(orderId) {
     viewDiv.innerHTML = html;
     viewDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:10000;max-width:600px;max-height:80vh;overflow-y:auto;';
 
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'margin-top:20px;display:flex;gap:10px;justify-content:flex-end;';
+
+    const sendEmailBtn = document.createElement('button');
+    sendEmailBtn.textContent = '📧 ' + t('sendEmail');
+    sendEmailBtn.className = 'btn btn-secondary';
+    sendEmailBtn.onclick = () => sendSubcontractingOrderByEmail(orderId);
+
     const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ Fermer';
+    closeBtn.textContent = '✕ ' + t('close');
     closeBtn.className = 'btn btn-outline';
-    closeBtn.style.cssText = 'margin-top:20px;';
     closeBtn.onclick = () => {
         document.body.removeChild(overlay);
         document.body.removeChild(viewDiv);
     };
 
-    viewDiv.appendChild(closeBtn);
+    btnContainer.appendChild(sendEmailBtn);
+    btnContainer.appendChild(closeBtn);
+    viewDiv.appendChild(btnContainer);
 
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;';
@@ -11515,6 +11608,131 @@ async function deleteSubcontractingOrder(orderId) {
 
     showToast(t('orderDeleted') || 'Commande supprimée', 'success');
     await updateSubcontractingOrdersDisplay();
+}
+
+/**
+ * Send subcontracting order by email
+ */
+async function sendSubcontractingOrderByEmail(orderId) {
+    try {
+        const orders = await storage.getSubcontractingOrders() || [];
+        const order = orders.find(o => o.id === orderId);
+
+        if (!order) {
+            showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
+            return;
+        }
+
+        const bom = ASSEMBLY_BOM[order.kitType];
+        if (!bom) {
+            showToast(t('invalidKitType') || 'Type de kit invalide', 'error');
+            return;
+        }
+
+        // Default email for subcontractor
+        const subcontractorEmail = 'tomas.karas@hotjet.cz';
+
+        // Confirm send
+        if (!confirm(`Envoyer la commande de sous-traitance ${order.number} à ${subcontractorEmail}?`)) {
+            return;
+        }
+
+        // Ask for CC addresses
+        const ccAddresses = prompt(
+            `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules ou points-virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+            ''
+        );
+
+        // Generate the PO HTML
+        const totalCostCZK = bom.assemblyCost * order.quantity;
+        const exchangeRate = storage.getExchangeRate('EUR');
+        const totalCostEUR = (totalCostCZK / exchangeRate).toFixed(2);
+
+        const lang = currentLang || 'cz';
+        const labels = {
+            title: lang === 'cz' ? 'OBJEDNÁVKA SUBDODÁVKY' : 'COMMANDE SOUS-TRAITANCE',
+            orderNumber: lang === 'cz' ? 'Číslo objednávky' : 'N° Commande',
+            date: lang === 'cz' ? 'Datum' : 'Date',
+            subcontractor: lang === 'cz' ? 'Subdodavatel' : 'Sous-traitant',
+            kitType: lang === 'cz' ? 'Typ sady' : 'Type de kit',
+            quantity: lang === 'cz' ? 'Množství' : 'Quantité',
+            assemblyPrice: lang === 'cz' ? 'Cena montáže/ks' : 'Prix assemblage/pcs',
+            totalCost: lang === 'cz' ? 'Celková cena' : 'Coût total',
+            deliveryDate: lang === 'cz' ? 'Datum dodání' : 'Date livraison',
+            notes: lang === 'cz' ? 'Poznámky' : 'Notes',
+            components: lang === 'cz' ? 'Komponenty k montáži' : 'Composants à assembler'
+        };
+
+        let componentsHtml = '<h3>' + labels.components + ':</h3><table style="width:100%;border-collapse:collapse;margin-top:10px;"><thead><tr style="background:#f0f0f0;"><th style="border:1px solid #ddd;padding:8px;text-align:left;">Réf</th><th style="border:1px solid #ddd;padding:8px;text-align:left;">Nom</th><th style="border:1px solid #ddd;padding:8px;text-align:center;">Qté/kit</th><th style="border:1px solid #ddd;padding:8px;text-align:center;">Total</th></tr></thead><tbody>';
+
+        bom.components.forEach(comp => {
+            const stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+            const stockItem = stock[comp.ref];
+            const totalNeeded = comp.qty * order.quantity;
+
+            componentsHtml += `<tr>
+                <td style="border:1px solid #ddd;padding:8px;">${comp.ref}</td>
+                <td style="border:1px solid #ddd;padding:8px;">${stockItem ? stockItem.name : comp.ref}</td>
+                <td style="border:1px solid #ddd;padding:8px;text-align:center;">${comp.qty}</td>
+                <td style="border:1px solid #ddd;padding:8px;text-align:center;"><strong>${totalNeeded}</strong></td>
+            </tr>`;
+        });
+
+        componentsHtml += '</tbody></table>';
+
+        const htmlContent = `
+            <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;">
+                <h1 style="text-align:center;color:#333;">${labels.title}</h1>
+                <div style="margin:20px 0;">
+                    <p><strong>${labels.orderNumber}:</strong> ${order.number}</p>
+                    <p><strong>${labels.date}:</strong> ${formatDate(order.date)}</p>
+                    <p><strong>${labels.subcontractor}:</strong> ${order.subcontractor}</p>
+                    <p><strong>${labels.kitType}:</strong> ${bom.name}</p>
+                    <p><strong>${labels.quantity}:</strong> ${order.quantity} kits</p>
+                    <p><strong>${labels.assemblyPrice}:</strong> ${bom.assemblyCost} CZK / ${(bom.assemblyCost / exchangeRate).toFixed(2)} EUR</p>
+                    <p><strong>${labels.totalCost}:</strong> ${totalCostCZK} CZK / ${totalCostEUR} EUR</p>
+                    ${order.deliveryDate ? `<p><strong>${labels.deliveryDate}:</strong> ${formatDate(order.deliveryDate)}</p>` : ''}
+                    ${order.notes ? `<p><strong>${labels.notes}:</strong><br>${order.notes}</p>` : ''}
+                </div>
+                ${componentsHtml}
+                <div style="margin-top:40px;padding-top:20px;border-top:2px solid #333;">
+                    <p>${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}</p>
+                    <p>${CONFIG?.COMPANY?.address || ''}</p>
+                    <p>${CONFIG?.COMPANY?.phone || ''}</p>
+                </div>
+            </div>
+        `;
+
+        // Prepare email data
+        const emailData = {
+            to: subcontractorEmail,
+            replyTo: 'tomas.karas@hotjet.cz',
+            subject: `${labels.title} ${order.number} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: lang === 'cz' ?
+                `Dobrý den,\n\nV příloze naleznete objednávku subdodávky ${order.number}.\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}` :
+                `Bonjour,\n\nVous trouverez en pièce jointe la commande de sous-traitance ${order.number}.\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            htmlContent: htmlContent,
+            documentNumber: order.number,
+            documentType: labels.title
+        };
+
+        // Add CC if provided
+        if (ccAddresses && ccAddresses.trim()) {
+            emailData.cc = ccAddresses.trim();
+        }
+
+        // Send via Google Apps Script
+        const result = await storage.apiPost('sendEmail', emailData);
+
+        if (result && result.success) {
+            showToast(`${t('emailSent')} - ${subcontractorEmail}`, 'success');
+        } else {
+            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+        }
+    } catch (error) {
+        console.error('Error sending subcontracting order:', error);
+        showToast(t('emailError') + ': ' + error.message, 'error');
+    }
 }
 
 /**
@@ -11861,3 +12079,4 @@ window.viewSubcontractingOrder = viewSubcontractingOrder;
 window.deleteSubcontractingOrder = deleteSubcontractingOrder;
 window.generateSubcontractingPO = generateSubcontractingPO;
 window.generateSubcontractingBL = generateSubcontractingBL;
+window.sendSubcontractingOrderByEmail = sendSubcontractingOrderByEmail;
