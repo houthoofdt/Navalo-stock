@@ -11593,7 +11593,7 @@ async function generateSubcontractingBL(orderId) {
 document.addEventListener('DOMContentLoaded', function() {
     const scTab = document.querySelector('[data-tab="subcontracting"]');
     if (scTab) {
-        scTab.addEventListener('click', function() {
+        scTab.addEventListener('click', async function() {
             await updateSubcontractingOrdersDisplay();
         });
     }
