@@ -9625,6 +9625,7 @@ async function acceptRepairQuote(quoteId) {
         const invoiceNumber = `FV${year}${String(nextNum).padStart(3, '0')}`;
 
         // Build invoice items
+        const serviceRates = getServiceRates();
         const items = [];
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach((pac, index) => {
@@ -9654,33 +9655,33 @@ async function acceptRepairQuote(quoteId) {
                     });
                 }
 
-                // Add services
+                // Add services with correct quantities and unit prices
                 if (pac.services) {
                     if (pac.services.labor > 0) {
                         items.push({
                             name: `  • Main d'œuvre`,
                             description: `  • Main d'œuvre`,
-                            qty: 1,
-                            price: pac.services.labor,
-                            pricePerUnit: pac.services.labor
+                            qty: pac.services.labor,  // Hours
+                            price: serviceRates.labor.price,  // EUR/hour
+                            pricePerUnit: serviceRates.labor.price
                         });
                     }
                     if (pac.services.refrigerant > 0) {
                         items.push({
                             name: `  • Fluide frigorigène`,
                             description: `  • Fluide frigorigène`,
-                            qty: 1,
-                            price: pac.services.refrigerant,
-                            pricePerUnit: pac.services.refrigerant
+                            qty: pac.services.refrigerant,  // kg
+                            price: serviceRates.refrigerantR134a.price,  // EUR/kg
+                            pricePerUnit: serviceRates.refrigerantR134a.price
                         });
                     }
                     if (pac.services.disposal > 0) {
                         items.push({
                             name: `  • Élimination déchets`,
                             description: `  • Élimination déchets`,
-                            qty: 1,
-                            price: pac.services.disposal,
-                            pricePerUnit: pac.services.disposal
+                            qty: pac.services.disposal,  // kg
+                            price: serviceRates.disposal.price,  // EUR/kg
+                            pricePerUnit: serviceRates.disposal.price
                         });
                     }
                 }
