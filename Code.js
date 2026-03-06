@@ -3434,20 +3434,21 @@ function saveRepairQuotes(data) {
     const pacsData = JSON.stringify(quote.pacs || []);
 
     sheet.appendRow([
-      quote.id,
-      quote.createdAt || new Date().toISOString(),
-      quote.quoteNumber,
-      quote.clientOrderNumber || '',
-      quote.date,
-      quote.clientId || '',
-      quote.status || 'pending',
-      quote.client || quote.clientName || '',
-      quote.address || '',
-      pacsData,
-      quote.notes || '',
-      quote.subtotal || 0,
-      quote.vatAmount || 0,
-      quote.updatedAt || new Date().toISOString()
+      quote.id,                               // 0: ID
+      quote.date,                             // 1: Date
+      quote.quoteNumber,                      // 2: Quote Number
+      quote.clientId || '',                   // 3: Client ID
+      quote.client || quote.clientName || '', // 4: Client Name
+      quote.address || '',                    // 5: Address
+      quote.status || 'pending',              // 6: Status
+      pacsData,                               // 7: PACs Data (JSON)
+      quote.notes || '',                      // 8: Notes
+      quote.subtotal || 0,                    // 9: Subtotal
+      quote.vat || quote.vatAmount || 0,      // 10: VAT
+      quote.total || 0,                       // 11: Total
+      quote.createdAt || new Date().toISOString(), // 12: Created At
+      quote.updatedAt || new Date().toISOString(), // 13: Updated At
+      quote.clientOrderNumber || ''           // 14: Client Order Number
     ]);
   });
 
