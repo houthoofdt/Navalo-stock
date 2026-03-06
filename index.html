@@ -851,12 +851,13 @@
                 <div class="tab-header">
                     <h2 data-i18n="historyTitle">Historique des mouvements</h2>
                     <div class="tab-actions">
-                        <select id="historyType" class="filter-select">
-                            <option value="all">Tous</option>
-                            <option value="ENTRÉE">Entrées</option>
-                            <option value="SORTIE">Sorties</option>
+                        <input type="text" id="historyComponentFilter" class="search-input" data-i18n-placeholder="filterByRef" placeholder="Filtrer par référence..." onchange="updateHistoryDisplay()" oninput="updateHistoryDisplay()">
+                        <select id="historyType" class="filter-select" onchange="updateHistoryDisplay()">
+                            <option value="all" data-i18n="historyAll">Tous</option>
+                            <option value="ENTRÉE" data-i18n="historyIn">Entrées</option>
+                            <option value="SORTIE" data-i18n="historyOut">Sorties</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="exportHistory()">📥 Export CSV</button>
+                        <button class="btn btn-secondary" onclick="exportHistory()">📥 <span data-i18n="export">Export CSV</span></button>
                     </div>
                 </div>
 
