@@ -9586,19 +9586,24 @@ async function acceptRepairQuote(quoteId) {
             });
         }
 
-        // Generate invoice number
+        // Generate invoice number using FV format
         const invoices = await storage.getInvoices(1000);
         const year = new Date().getFullYear();
-        const yearInvoices = invoices.filter(inv => inv.number && String(inv.number).startsWith(`${year}`));
-        let nextNum = 1;
-        if (yearInvoices.length > 0) {
-            const maxNum = Math.max(...yearInvoices.map(inv => {
-                const match = String(inv.number).match(/(\d{4})(\d{4})/);
-                return match ? parseInt(match[2]) : 0;
-            }));
-            nextNum = maxNum + 1;
-        }
-        const invoiceNumber = `${year}${String(nextNum).padStart(4, '0')}`;
+
+        // Find max number from FV invoices for this year
+        let maxNum = 0;
+        invoices.forEach(inv => {
+            if (inv.number) {
+                const match = String(inv.number).match(/FV(\d{4})(\d{3})/);
+                if (match && parseInt(match[1]) === year) {
+                    const num = parseInt(match[2]);
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+        });
+
+        const nextNum = maxNum + 1;
+        const invoiceNumber = `FV${year}${String(nextNum).padStart(3, '0')}`;
 
         // Build invoice items
         const items = [];
