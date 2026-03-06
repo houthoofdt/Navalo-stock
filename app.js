@@ -11348,6 +11348,26 @@ async function generateSubcontractingPO(orderId) {
     const exchangeRate = storage.getExchangeRate('EUR');
     const totalCostEUR = (totalCostCZK / exchangeRate).toFixed(2);
 
+    // Bilingual labels
+    const lang = currentLang || 'cz';
+    const labels = {
+        title: lang === 'cz' ? 'OBJEDNÁVKA' : 'BON DE COMMANDE',
+        supplier: lang === 'cz' ? 'Dodavatel' : 'Fournisseur',
+        orderDate: lang === 'cz' ? 'Datum objednávky' : 'Date de commande',
+        deliveryDate: lang === 'cz' ? 'Požadované datum dodání' : 'Date de livraison souhaitée',
+        orderNum: lang === 'cz' ? 'Č. objednávky' : 'N° Commande',
+        description: lang === 'cz' ? 'Popis' : 'Description',
+        quantity: lang === 'cz' ? 'Množství' : 'Quantité',
+        unitPrice: lang === 'cz' ? 'Jednotková cena' : 'Prix unitaire',
+        total: lang === 'cz' ? 'Celkem' : 'Total',
+        assembly: lang === 'cz' ? 'Montáž' : 'Assemblage',
+        totalExclVAT: lang === 'cz' ? 'Celkem bez DPH' : 'Total HT',
+        notes: lang === 'cz' ? 'Poznámky' : 'Notes',
+        paymentTerms: lang === 'cz' ? 'Platební podmínky' : 'Conditions de paiement',
+        paymentTermsText: lang === 'cz' ? 'Sjednat s dodavatelem' : 'À définir avec le fournisseur',
+        bankDetails: lang === 'cz' ? 'Bankovní spojení' : 'Coordonnées bancaires'
+    };
+
     // Generate PO document
     const poHtml = `
 <!DOCTYPE html>
@@ -11369,7 +11389,7 @@ async function generateSubcontractingPO(orderId) {
 </head>
 <body>
     <div class="header">
-        <h1>BON DE COMMANDE</h1>
+        <h1>${labels.title}</h1>
         <h2>${order.number}</h2>
     </div>
 
@@ -11381,43 +11401,43 @@ async function generateSubcontractingPO(orderId) {
     </div>
 
     <div class="order-info">
-        <strong>Fournisseur / Dodavatel:</strong> ${order.subcontractor}<br>
-        <strong>Date de commande:</strong> ${formatDate(order.date)}<br>
-        <strong>Date de livraison souhaitée:</strong> ${formatDate(order.deliveryDate)}<br>
-        <strong>N° Commande:</strong> ${order.number}
+        <strong>${labels.supplier}:</strong> ${order.subcontractor}<br>
+        <strong>${labels.orderDate}:</strong> ${formatDate(order.date)}<br>
+        <strong>${labels.deliveryDate}:</strong> ${formatDate(order.deliveryDate)}<br>
+        <strong>${labels.orderNum}:</strong> ${order.number}
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Description</th>
-                <th>Quantité</th>
-                <th>Prix unitaire</th>
-                <th>Total</th>
+                <th>${labels.description}</th>
+                <th>${labels.quantity}</th>
+                <th>${labels.unitPrice}</th>
+                <th>${labels.total}</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>
-                    <strong>Assemblage ${bom.name}</strong><br>
-                    <small>Montáž / Assembly of ${order.quantity} kits</small>
+                    <strong>${labels.assembly} ${bom.name}</strong><br>
+                    <small>${order.quantity} kits</small>
                 </td>
                 <td style="text-align: center;">${order.quantity} ks</td>
                 <td style="text-align: right;">${bom.assemblyCost.toFixed(2)} CZK</td>
                 <td style="text-align: right;">${totalCostCZK.toFixed(2)} CZK</td>
             </tr>
             <tr class="total">
-                <td colspan="3" style="text-align: right;"><strong>Total HT / Celkem bez DPH:</strong></td>
+                <td colspan="3" style="text-align: right;"><strong>${labels.totalExclVAT}:</strong></td>
                 <td style="text-align: right;"><strong>${totalCostCZK.toFixed(2)} CZK</strong><br><small>(~${totalCostEUR} EUR)</small></td>
             </tr>
         </tbody>
     </table>
 
-    ${order.notes ? `<div><strong>Notes:</strong><br>${order.notes}</div>` : ''}
+    ${order.notes ? `<div><strong>${labels.notes}:</strong><br>${order.notes}</div>` : ''}
 
     <div class="footer">
-        <p><strong>Conditions de paiement:</strong> À définir avec le fournisseur</p>
-        <p><strong>Coordonnées bancaires:</strong><br>
+        <p><strong>${labels.paymentTerms}:</strong> ${labels.paymentTermsText}</p>
+        <p><strong>${labels.bankDetails}:</strong><br>
         CZK: ${CONFIG.COMPANY.bank.CZK.account} (${CONFIG.COMPANY.bank.CZK.name})<br>
         IBAN: ${CONFIG.COMPANY.bank.CZK.iban} | BIC: ${CONFIG.COMPANY.bank.CZK.bic}</p>
     </div>
@@ -11482,9 +11502,48 @@ async function generateSubcontractingBL(orderId) {
         }
     });
 
-    // Generate BL number
-    const blNumber = `BL-ST-${Date.now()}`;
+    // Generate BL number (BL-ST-2026XXX format)
+    const year = new Date().getFullYear();
+    const deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
+    const stDeliveries = deliveries.filter(d => d.blNumber && d.blNumber.includes(`BL-ST-${year}`));
+
+    let nextNum = 1;
+    if (stDeliveries.length > 0) {
+        const maxNum = Math.max(...stDeliveries.map(d => {
+            const match = d.blNumber.match(/BL-ST-\d{4}-(\d{3})/);
+            return match ? parseInt(match[1]) : 0;
+        }));
+        nextNum = maxNum + 1;
+    }
+
+    const blNumber = `BL-ST-${year}-${String(nextNum).padStart(3, '0')}`;
     const currentDate = new Date().toISOString().split('T')[0];
+
+    // Bilingual labels
+    const lang = currentLang || 'cz';
+    const labels = {
+        title: lang === 'cz' ? 'DODACÍ LIST' : 'BON DE LIVRAISON',
+        recipient: lang === 'cz' ? 'Příjemce' : 'Destinataire',
+        deliveryDate: lang === 'cz' ? 'Datum dodání' : 'Date de livraison',
+        blNum: lang === 'cz' ? 'Č. DL' : 'N° BL',
+        orderNum: lang === 'cz' ? 'Č. objednávky ST' : 'N° Commande ST',
+        kitType: lang === 'cz' ? 'Typ kitu' : 'Type de kit',
+        kitQuantity: lang === 'cz' ? 'Množství kitů' : 'Quantité de kits',
+        reference: lang === 'cz' ? 'Reference' : 'Référence',
+        designation: lang === 'cz' ? 'Označení' : 'Désignation',
+        qtyPerKit: lang === 'cz' ? 'Mn./kit' : 'Qté/kit',
+        kits: lang === 'cz' ? 'Kity' : 'Kits',
+        totalQty: lang === 'cz' ? 'Celk. mn.' : 'Qté totale',
+        stockAvail: lang === 'cz' ? 'Sklad disp.' : 'Stock dispo',
+        estimatedValue: lang === 'cz' ? 'Odhadovaná hodnota' : 'Valeur estimée',
+        notes: lang === 'cz' ? 'Poznámky' : 'Notes',
+        notesText: lang === 'cz'
+            ? `Tato dodávka odpovídá komponentům potřebným pro montáž ${qty} kit(ů) ${bom.name}.`
+            : `Cette livraison correspond aux composants nécessaires pour l'assemblage de ${qty} kit(s) ${bom.name}.`,
+        insufficientStock: lang === 'cz' ? 'Komponenty označené ⚠️ mají nedostatečný sklad.' : 'Les composants marqués ⚠️ ont un stock insuffisant.',
+        orderNotes: lang === 'cz' ? 'Poznámky k objednávce' : 'Notes commande',
+        signature: lang === 'cz' ? 'Podpis' : 'Signature'
+    };
 
     // Generate BL document
     const blHtml = `
@@ -11508,7 +11567,7 @@ async function generateSubcontractingBL(orderId) {
 </head>
 <body>
     <div class="header">
-        <h1>BON DE LIVRAISON</h1>
+        <h1>${labels.title}</h1>
         <h2>${blNumber}</h2>
     </div>
 
@@ -11520,23 +11579,23 @@ async function generateSubcontractingBL(orderId) {
     </div>
 
     <div class="delivery-info">
-        <strong>Destinataire / Příjemce:</strong> ${order.subcontractor}<br>
-        <strong>Date de livraison:</strong> ${formatDate(currentDate)}<br>
-        <strong>N° BL:</strong> ${blNumber}<br>
-        <strong>N° Commande ST:</strong> ${order.number}<br>
-        <strong>Type de kit:</strong> ${bom.name}<br>
-        <strong>Quantité de kits:</strong> ${qty}
+        <strong>${labels.recipient}:</strong> ${order.subcontractor}<br>
+        <strong>${labels.deliveryDate}:</strong> ${formatDate(currentDate)}<br>
+        <strong>${labels.blNum}:</strong> ${blNumber}<br>
+        <strong>${labels.orderNum}:</strong> ${order.number}<br>
+        <strong>${labels.kitType}:</strong> ${bom.name}<br>
+        <strong>${labels.kitQuantity}:</strong> ${qty}
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Référence</th>
-                <th>Désignation</th>
-                <th>Qté/kit</th>
-                <th>Kits</th>
-                <th>Qté totale</th>
-                <th>Stock dispo</th>
+                <th>${labels.reference}</th>
+                <th>${labels.designation}</th>
+                <th>${labels.qtyPerKit}</th>
+                <th>${labels.kits}</th>
+                <th>${labels.totalQty}</th>
+                <th>${labels.stockAvail}</th>
             </tr>
         </thead>
         <tbody>
@@ -11553,25 +11612,25 @@ async function generateSubcontractingBL(orderId) {
                 </tr>
             `).join('')}
             <tr class="total">
-                <td colspan="5" style="text-align: right;"><strong>Valeur estimée:</strong></td>
+                <td colspan="5" style="text-align: right;"><strong>${labels.estimatedValue}:</strong></td>
                 <td style="text-align: right;"><strong>${formatCurrency(totalValueCZK)} CZK</strong></td>
             </tr>
         </tbody>
     </table>
 
     <div class="footer">
-        <p><strong>Notes:</strong></p>
-        <p>Cette livraison correspond aux composants nécessaires pour l'assemblage de ${qty} kit(s) ${bom.name}.</p>
-        <p>Les composants marqués ⚠️ ont un stock insuffisant.</p>
-        ${order.notes ? `<p><strong>Notes commande:</strong> ${order.notes}</p>` : ''}
+        <p><strong>${labels.notes}:</strong></p>
+        <p>${labels.notesText}</p>
+        <p>${labels.insufficientStock}</p>
+        ${order.notes ? `<p><strong>${labels.orderNotes}:</strong> ${order.notes}</p>` : ''}
         <br><br>
         <div style="display: flex; justify-content: space-between; margin-top: 50px;">
             <div>
-                <p>Signature ${CONFIG.COMPANY.name}:</p>
+                <p>${labels.signature} ${CONFIG.COMPANY.name}:</p>
                 <p style="border-top: 1px solid #000; width: 200px; margin-top: 50px;"></p>
             </div>
             <div>
-                <p>Signature ${order.subcontractor}:</p>
+                <p>${labels.signature} ${order.subcontractor}:</p>
                 <p style="border-top: 1px solid #000; width: 200px; margin-top: 50px;"></p>
             </div>
         </div>
