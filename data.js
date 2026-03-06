@@ -418,10 +418,9 @@ const BOM_TIZ_TH11 = [
     { ref: '00062_LP_0.7/1.7', name: 'Presostat LP ACB-2UA521W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
     { ref: '00062_HP_26', name: 'Presostat HP ACB-2UB507W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
     { ref: '6.04726.0000', name: 'Filtr Emerson FDB 084S dehydrátor jednosměrný', category: 'refrigeration', qty: 1, manufacturer: 'Emerson' },
-    { ref: '01413', name: 'Sběrač chladiva 1,6l', category: 'refrigeration', qty: 1, manufacturer: '' },
     { ref: '6.04677.0000', name: 'Průhledítko Sanhua 12mm SYJ-42025', category: 'refrigeration', qty: 1, manufacturer: 'Sanhua' },
     { ref: 'TGEN2,5_134', name: 'Ventil expanzní TGEN2.5/R134a Danfoss 067N5192', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
-    { ref: '00063', name: 'Ventil plnící ¼"', category: 'refrigeration', qty: 2, manufacturer: '' }
+    { ref: '63', name: 'Composant 63', category: 'refrigeration', qty: 2, manufacturer: '' }
 ];
 
 // Combined BOM for app
