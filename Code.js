@@ -36,7 +36,8 @@ const SHEET_NAMES = {
   COMPONENT_PRICES: 'Prix_Composants',  // NEW: Component prices
   EXCHANGE_RATES: 'Taux_Change',
   ADJUSTMENTS: 'Ajustements',  // NEW: Stock adjustments
-  REPAIR_QUOTES: 'Devis_Reparations'  // NEW: Repair quotes
+  REPAIR_QUOTES: 'Devis_Reparations',  // NEW: Repair quotes
+  SUBCONTRACTING: 'Sous_Traitance'  // NEW: Subcontracting orders
 };
 
 // PAC Models configuration
@@ -117,6 +118,9 @@ function doGet(e) {
         break;
       case 'getRepairQuotes':
         result = getRepairQuotes(e.parameter.limit || 50);
+        break;
+      case 'getSubcontractingOrders':
+        result = getSubcontractingOrders(e.parameter.limit || 100);
         break;
       default:
         result = { error: 'Action non reconnue: ' + action };
@@ -254,6 +258,12 @@ function doPost(e) {
           break;
         case 'updateRepairQuote':
           result = updateRepairQuote(data);
+          break;
+        case 'saveSubcontractingOrders':
+          result = saveSubcontractingOrders(data.orders);
+          break;
+        case 'deleteSubcontractingOrder':
+          result = deleteSubcontractingOrder(data.id);
           break;
         case 'sendEmail':
           result = sendEmail(data);
@@ -694,6 +704,17 @@ if (devisSheet.getLastRow() === 0) {
     ]);
     repairQuotesSheet.getRange(1, 1, 1, 14).setFontWeight('bold')
       .setBackground('#ff6f00').setFontColor('white');
+  }
+
+  // Initialize Subcontracting Orders sheet
+  const subcontractingSheet = ss.getSheetByName(SHEET_NAMES.SUBCONTRACTING);
+  if (subcontractingSheet.getLastRow() === 0) {
+    subcontractingSheet.appendRow([
+      'ID', 'N° Ordre', 'Date', 'Sous-traitant', 'Type de Kit', 'Quantité',
+      'Date de Livraison', 'Statut', 'Transféré', 'Reçu', 'Notes', 'Créé le'
+    ]);
+    subcontractingSheet.getRange(1, 1, 1, 12).setFontWeight('bold')
+      .setBackground('#9c27b0').setFontColor('white');
   }
 
   // Fetch initial exchange rates
@@ -3468,4 +3489,107 @@ function generatePdfFromHtml(htmlContent, filename) {
   pdfBlob.setName((filename || 'document') + '.pdf');
 
   return pdfBlob;
+}
+// ========================================
+// SUBCONTRACTING ORDERS
+// ========================================
+
+/**
+ * Get subcontracting orders
+ */
+function getSubcontractingOrders(limit) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.SUBCONTRACTING);
+  
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return [];
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const orders = [];
+  
+  // Start from row 2 (skip header) and get last 'limit' rows
+  const startRow = Math.max(1, data.length - limit);
+  
+  for (let i = startRow; i < data.length; i++) {
+    const row = data[i];
+    orders.push({
+      id: row[0],
+      number: row[1],
+      date: row[2],
+      subcontractor: row[3],
+      kitType: row[4],
+      quantity: row[5],
+      deliveryDate: row[6],
+      status: row[7] || 'pending',
+      transferred: row[8] ? JSON.parse(row[8]) : {},
+      received: row[9] || 0,
+      notes: row[10] || '',
+      createdAt: row[11]
+    });
+  }
+  
+  return orders.reverse();
+}
+
+/**
+ * Save subcontracting orders (full array)
+ */
+function saveSubcontractingOrders(orders) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.SUBCONTRACTING);
+  
+  if (!sheet) {
+    return { success: false, error: 'Subcontracting sheet not found' };
+  }
+  
+  // Clear existing data (keep header)
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+  }
+  
+  // Add all orders
+  if (orders && orders.length > 0) {
+    const rows = orders.map(order => [
+      order.id,
+      order.number,
+      order.date,
+      order.subcontractor,
+      order.kitType,
+      order.quantity,
+      order.deliveryDate || '',
+      order.status || 'pending',
+      JSON.stringify(order.transferred || {}),
+      order.received || 0,
+      order.notes || '',
+      order.createdAt || new Date().toISOString()
+    ]);
+    
+    sheet.getRange(2, 1, rows.length, 12).setValues(rows);
+  }
+  
+  return { success: true };
+}
+
+/**
+ * Delete subcontracting order
+ */
+function deleteSubcontractingOrder(orderId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAMES.SUBCONTRACTING);
+  
+  if (!sheet) {
+    return { success: false, error: 'Subcontracting sheet not found' };
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === orderId) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  
+  return { success: false, error: 'Order not found' };
 }

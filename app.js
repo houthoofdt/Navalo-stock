@@ -10702,8 +10702,8 @@ function getNextDocumentNumber(type) {
 /**
  * Get next subcontracting order number
  */
-function getNextSubcontractingOrderNumber() {
-    const orders = storage.getSubcontractingOrders() || [];
+async function getNextSubcontractingOrderNumber() {
+    const orders = await storage.getSubcontractingOrders() || [];
     const year = new Date().getFullYear();
     const yearOrders = orders.filter(o => o.number.includes(`ST-${year}`));
 
@@ -10742,7 +10742,7 @@ function openSubcontractingOrderModal(orderId = null) {
 
     if (orderId) {
         // Edit mode
-        const orders = storage.getSubcontractingOrders() || [];
+        const orders = await storage.getSubcontractingOrders() || [];
         const order = orders.find(o => o.id === orderId);
         if (!order) {
             showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -10781,7 +10781,7 @@ function openSubcontractingOrderModal(orderId = null) {
 /**
  * Close subcontracting order modal
  */
-function closeSubcontractingOrderModal() {
+async function closeSubcontractingOrderModal() {
     const modal = document.getElementById('subcontractingOrderModal');
     modal.style.display = 'none';
     modal.classList.remove('active');
@@ -10870,7 +10870,7 @@ function saveSubcontractingOrder(event) {
     }
 
     // Save order
-    let orders = storage.getSubcontractingOrders() || [];
+    let orders = await storage.getSubcontractingOrders() || [];
 
     if (editingSubcontractingOrderId) {
         // Edit existing
@@ -10904,8 +10904,8 @@ function saveSubcontractingOrder(event) {
 /**
  * Update subcontracting orders display
  */
-function updateSubcontractingOrdersDisplay() {
-    const orders = storage.getSubcontractingOrders() || [];
+async function updateSubcontractingOrdersDisplay() {
+    const orders = await storage.getSubcontractingOrders() || [];
     const tbody = document.getElementById('subcontractingOrdersBody');
 
     if (orders.length === 0) {
@@ -10964,7 +10964,7 @@ function updateSubcontractingSummary(orders) {
  * Transfer components for a subcontracting order
  */
 async function transferComponentsForOrder(orderId) {
-    const orders = storage.getSubcontractingOrders() || [];
+    const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
     if (!order) {
@@ -11131,7 +11131,7 @@ async function transferComponentsForOrder(orderId) {
  * Receive assembled kits for a subcontracting order
  */
 async function receiveKitsForOrder(orderId) {
-    const orders = storage.getSubcontractingOrders() || [];
+    const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
     if (!order) {
@@ -11234,7 +11234,7 @@ async function receiveKitsForOrder(orderId) {
  * View subcontracting order details
  */
 function viewSubcontractingOrder(orderId) {
-    const orders = storage.getSubcontractingOrders() || [];
+    const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
     if (!order) {
@@ -11317,7 +11317,7 @@ function deleteSubcontractingOrder(orderId) {
         return;
     }
 
-    let orders = storage.getSubcontractingOrders() || [];
+    let orders = await storage.getSubcontractingOrders() || [];
     orders = orders.filter(o => o.id !== orderId);
     storage.saveSubcontractingOrders(orders);
 
@@ -11329,7 +11329,7 @@ function deleteSubcontractingOrder(orderId) {
  * Generate Purchase Order (PO) for subcontractor
  */
 function generateSubcontractingPO(orderId) {
-    const orders = storage.getSubcontractingOrders() || [];
+    const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
     if (!order) {
@@ -11438,7 +11438,7 @@ function generateSubcontractingPO(orderId) {
  * Generate Delivery Note (BL) for components to subcontractor
  */
 function generateSubcontractingBL(orderId) {
-    const orders = storage.getSubcontractingOrders() || [];
+    const orders = await storage.getSubcontractingOrders() || [];
     const order = orders.find(o => o.id === orderId);
 
     if (!order) {

@@ -1710,25 +1710,34 @@ class StorageAdapter {
     // SUBCONTRACTING ORDERS
     // ========================================
 
-    getSubcontractingOrders() {
-        return JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
+    async getSubcontractingOrders(limit = 100) {
+        if (this.storageMode === 'googlesheets') {
+            return await this.apiGet('getSubcontractingOrders', { limit });
+        } else {
+            return JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
+        }
     }
 
-    saveSubcontractingOrders(orders) {
+    async saveSubcontractingOrders(orders) {
         localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(orders));
 
-        // If hybrid mode, add to sync queue
-        if (this.hybridMode) {
-            this.addToSyncQueue('saveSubcontractingOrders', { orders });
+        if (this.storageMode === 'googlesheets') {
+            return await this.apiPost('saveSubcontractingOrders', { orders });
         }
 
         return { success: true };
     }
 
     async deleteSubcontractingOrder(id) {
-        let orders = this.getSubcontractingOrders();
+        if (this.storageMode === 'googlesheets') {
+            await this.apiPost('deleteSubcontractingOrder', { id });
+        }
+
+        let orders = JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
         orders = orders.filter(o => o.id !== id);
-        return this.saveSubcontractingOrders(orders);
+        localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(orders));
+
+        return { success: true };
     }
 }
 
