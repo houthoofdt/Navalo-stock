@@ -9572,12 +9572,22 @@ async function acceptRepairQuote(quoteId) {
             return;
         }
 
+        // Get correct client name from contacts (in case quote data is corrupted)
+        let clientName = quote.client || quote.clientName || 'Client';
+        if (quote.clientId) {
+            const contacts = await storage.getContacts();
+            const contact = contacts.find(c => c.id === quote.clientId);
+            if (contact && contact.name) {
+                clientName = contact.name;
+            }
+        }
+
         // Update quote status to accepted
         quote.status = 'accepted';
         await storage.saveRepairQuotes(quotes);
         console.log('✅ Quote status updated to accepted');
 
-        // Extract components for stock deduction
+        // Extract components for stock deduction (exclude PAC headers)
         const componentsForDeduction = [];
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach(pac => {
@@ -9685,7 +9695,7 @@ async function acceptRepairQuote(quoteId) {
             date: new Date().toISOString().split('T')[0],
             dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             clientId: quote.clientId,
-            client: quote.client || quote.clientName,
+            client: clientName,  // Use fetched client name from contacts
             address: quote.address,
             items: items,
             currency: 'EUR',
