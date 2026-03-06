@@ -10839,7 +10839,7 @@ function updateScKitInfo() {
 /**
  * Save subcontracting order
  */
-function saveSubcontractingOrder(event) {
+async function saveSubcontractingOrder(event) {
     event.preventDefault();
 
     const orderData = {
@@ -10888,7 +10888,7 @@ function saveSubcontractingOrder(event) {
         orders.push(orderData);
     }
 
-    storage.saveSubcontractingOrders(orders);
+    await storage.saveSubcontractingOrders(orders);
 
     showToast(
         editingSubcontractingOrderId
@@ -10898,7 +10898,7 @@ function saveSubcontractingOrder(event) {
     );
 
     closeSubcontractingOrderModal();
-    updateSubcontractingOrdersDisplay();
+    await updateSubcontractingOrdersDisplay();
 }
 
 /**
@@ -11114,14 +11114,14 @@ async function transferComponentsForOrder(orderId) {
         order.status = 'in_progress';
     }
 
-    storage.saveSubcontractingOrders(orders);
+    await storage.saveSubcontractingOrders(orders);
 
     showToast(
         `BL ${blNumber} créé - ${qty} kits transférés`,
         'success'
     );
 
-    updateSubcontractingOrdersDisplay();
+    await updateSubcontractingOrdersDisplay();
     updateStockDisplay();
 
     console.log('✓ Stock mis à jour:', stock);
@@ -11217,14 +11217,14 @@ async function receiveKitsForOrder(orderId) {
         order.status = 'in_progress';
     }
 
-    storage.saveSubcontractingOrders(orders);
+    await storage.saveSubcontractingOrders(orders);
 
     showToast(
         `Réception ${receiptNumber} créée - ${qty} kits reçus`,
         'success'
     );
 
-    updateSubcontractingOrdersDisplay();
+    await updateSubcontractingOrdersDisplay();
     updateStockDisplay();
 
     console.log('✓ Stock kit mis à jour:', stock[order.kitType]);
@@ -11319,10 +11319,10 @@ function deleteSubcontractingOrder(orderId) {
 
     let orders = await storage.getSubcontractingOrders() || [];
     orders = orders.filter(o => o.id !== orderId);
-    storage.saveSubcontractingOrders(orders);
+    await storage.saveSubcontractingOrders(orders);
 
     showToast(t('orderDeleted') || 'Commande supprimée', 'success');
-    updateSubcontractingOrdersDisplay();
+    await updateSubcontractingOrdersDisplay();
 }
 
 /**
@@ -11594,7 +11594,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const scTab = document.querySelector('[data-tab="subcontracting"]');
     if (scTab) {
         scTab.addEventListener('click', function() {
-            updateSubcontractingOrdersDisplay();
+            await updateSubcontractingOrdersDisplay();
         });
     }
 });
