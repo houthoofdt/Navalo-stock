@@ -2256,7 +2256,7 @@ async function getNextReceiptNumber(consume = false) {
     let maxNum = 0;
     existingReceipts.forEach(r => {
         if (r.receiptNumber) {
-            const match = r.receiptNumber.match(/PŘ(\d{4})(\d{3})/);
+            const match = String(r.receiptNumber).match(/PŘ(\d{4})(\d{3})/);
             if (match && parseInt(match[1]) === year) {
                 const num = parseInt(match[2]);
                 if (num > maxNum) maxNum = num;
@@ -4288,7 +4288,7 @@ async function updateInvoicesDisplay() {
     // Normalize isProforma field for all invoices
     invoices = invoices.map(inv => ({
         ...inv,
-        isProforma: inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'))
+        isProforma: inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'))
     }));
 
     // Update localStorage with normalized data
@@ -4400,7 +4400,7 @@ function generateProformaDeductionItemHtml(inv) {
 // Generate deposit amount section for proforma invoices
 function generateProformaDepositHtml(inv, totalWithVat, currency) {
     // Only for proformas
-    if (!inv.isProforma && inv.type !== 'proforma' && !(inv.number && inv.number.startsWith('PF'))) {
+    if (!inv.isProforma && inv.type !== 'proforma' && !(inv.number && String(inv.number).startsWith('PF'))) {
         return '';
     }
 
@@ -4696,7 +4696,7 @@ function populatePaidProformaSelect() {
     // Filter: proformas that are paid and not already used in another invoice
     // Check both isProforma flag and type === 'proforma' (from Google Sheets)
     const paidProformas = invoices.filter(inv => {
-        const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+        const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'));
         return isProformaDoc && inv.paid && !inv.usedInInvoice;
     });
 
@@ -5091,7 +5091,7 @@ async function getNextInvoiceNumber(consume = false) {
     let maxNum = 0;
     existingInvoices.forEach(inv => {
         if (inv.number) {
-            const match = inv.number.match(/FV(\d{4})(\d{3})/);
+            const match = String(inv.number).match(/FV(\d{4})(\d{3})/);
             if (match && parseInt(match[1]) === year) {
                 const num = parseInt(match[2]);
                 if (num > maxNum) maxNum = num;
@@ -5139,7 +5139,7 @@ async function getNextProformaNumber(consume = false) {
     let maxNum = 0;
     existingInvoices.forEach(inv => {
         if (inv.number && inv.isProforma) {
-            const match = inv.number.match(/PF(\d{4})(\d{3})/);
+            const match = String(inv.number).match(/PF(\d{4})(\d{3})/);
             if (match && parseInt(match[1]) === year) {
                 const num = parseInt(match[2]);
                 if (num > maxNum) maxNum = num;
@@ -5961,7 +5961,7 @@ function loadRecOrderToInvoice() {
     // AUTOMATICALLY link paid proforma if exists for this order
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const paidProforma = invoices.find(inv => {
-        const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+        const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'));
         const isForThisOrder = inv.linkedOrder === orderId;
         const isPaid = inv.isPaid || inv.paid;
         const notUsed = !inv.usedInInvoice;
@@ -6312,7 +6312,7 @@ function editInvoice(invNumber) {
     document.getElementById('invClientDic').value = inv.clientDic || '';
     document.getElementById('invClientOrderNum').value = inv.clientOrderNumber || '';
     // Check if this is a proforma using all indicators
-    const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+    const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'));
     const proformaCheckbox = document.getElementById('invIsProforma');
     if (proformaCheckbox) proformaCheckbox.checked = isProformaDoc;
 
@@ -6391,7 +6391,7 @@ function getNextQuoteNumber(consume = false) {
 
     existingQuotes.forEach(q => {
         if (q.number) {
-            const match = q.number.match(/DEV(\d{4})(\d{3})/);
+            const match = String(q.number).match(/DEV(\d{4})(\d{3})/);
             if (match && parseInt(match[1]) === year) {
                 const num = parseInt(match[2]);
                 if (num > maxNum) maxNum = num;
@@ -10714,7 +10714,7 @@ function generateInvoicePreviewHTML(inv) {
     const bankInfo = curr === 'EUR' ? company.bank?.EUR : company.bank?.CZK;
 
     // Determine document type and title
-    const isProforma = inv.isProforma || inv.type === 'proforma' || (inv.number && inv.number.startsWith('PF'));
+    const isProforma = inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'));
 
     // CZK conversion for EUR invoices (NOT shown for proforma, NOT shown when there's proforma deduction)
     let czkConversionHtml = '';
@@ -10981,14 +10981,14 @@ function getNextDocumentNumber(type) {
 async function getNextSubcontractingOrderNumber() {
     const orders = await storage.getSubcontractingOrders() || [];
     const year = new Date().getFullYear();
-    const yearOrders = orders.filter(o => o.number.includes(`ST-${year}`));
+    const yearOrders = orders.filter(o => o.number && String(o.number).includes(`ST-${year}`));
 
     if (yearOrders.length === 0) {
         return `ST-${year}-001`;
     }
 
     const lastNum = Math.max(...yearOrders.map(o => {
-        const match = o.number.match(/ST-\d{4}-(\d{3})/);
+        const match = String(o.number).match(/ST-\d{4}-(\d{3})/);
         return match ? parseInt(match[1]) : 0;
     }));
 
@@ -11920,7 +11920,7 @@ async function generateSubcontractingBL(orderId) {
     let nextNum = 1;
     if (stDeliveries.length > 0) {
         const maxNum = Math.max(...stDeliveries.map(d => {
-            const match = d.blNumber.match(/BL-ST-\d{4}-(\d{3})/);
+            const match = String(d.blNumber).match(/BL-ST-\d{4}-(\d{3})/);
             return match ? parseInt(match[1]) : 0;
         }));
         nextNum = maxNum + 1;
