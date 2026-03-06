@@ -10722,7 +10722,7 @@ async function getNextSubcontractingOrderNumber() {
 /**
  * Open subcontracting order modal (new or edit)
  */
-function openSubcontractingOrderModal(orderId = null) {
+async function openSubcontractingOrderModal(orderId = null) {
     editingSubcontractingOrderId = orderId;
 
     // Populate subcontractor dropdown from contacts (read directly from localStorage)
@@ -10760,7 +10760,7 @@ function openSubcontractingOrderModal(orderId = null) {
         updateScKitInfo();
     } else {
         // New order mode
-        document.getElementById('scOrderNumber').value = getNextSubcontractingOrderNumber();
+        document.getElementById('scOrderNumber').value = await getNextSubcontractingOrderNumber();
         document.getElementById('scDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('scQuantity').value = '1';
 
