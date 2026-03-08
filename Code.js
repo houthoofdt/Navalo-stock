@@ -1662,14 +1662,36 @@ function createInvoice(data) {
   const invNumber = number || getNextDocNumber(isProforma ? 'pf' : 'fv');
   const invId = data.id || Utilities.getUuid();
 
+  // Parse dates to avoid timezone issues
+  // If date is a string like "2026-03-06", parse it as local date
+  let parsedDate = date;
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    parsedDate = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
+  } else if (!date) {
+    parsedDate = new Date();
+  }
+
+  let parsedDueDate = dueDate;
+  if (typeof dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    const [year, month, day] = dueDate.split('-').map(Number);
+    parsedDueDate = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
+  }
+
+  let parsedTaxDate = taxDate;
+  if (typeof taxDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(taxDate)) {
+    const [year, month, day] = taxDate.split('-').map(Number);
+    parsedTaxDate = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
+  }
+
   // Check if invoice with this number already exists (update instead of create)
   const existingData = invSheet.getDataRange().getValues();
   for (let i = 1; i < existingData.length; i++) {
     if (existingData[i][1] === invNumber) {
       // Update existing invoice
       const rowNum = i + 1;
-      invSheet.getRange(rowNum, 3).setValue(date || new Date());
-      invSheet.getRange(rowNum, 4).setValue(dueDate || '');
+      invSheet.getRange(rowNum, 3).setValue(parsedDate);
+      invSheet.getRange(rowNum, 4).setValue(parsedDueDate || '');
       invSheet.getRange(rowNum, 5).setValue(client || '');
       invSheet.getRange(rowNum, 6).setValue(subtotal || 0);
       invSheet.getRange(rowNum, 7).setValue(vat || 0);
@@ -1686,7 +1708,7 @@ function createInvoice(data) {
       invSheet.getRange(rowNum, 19).setValue(clientIco || ''); // S: clientIco (décalé)
       invSheet.getRange(rowNum, 20).setValue(clientDic || ''); // T: clientDic (décalé)
       invSheet.getRange(rowNum, 21).setValue(varSymbol || ''); // U: varSymbol (décalé)
-      invSheet.getRange(rowNum, 22).setValue(taxDate || ''); // V: taxDate (décalé)
+      invSheet.getRange(rowNum, 22).setValue(parsedTaxDate || ''); // V: taxDate (décalé)
       invSheet.getRange(rowNum, 23).setValue(exchangeRate || ''); // W: exchangeRate (décalé)
       invSheet.getRange(rowNum, 24).setValue(linkedOrder || ''); // X: linkedOrder (décalé)
       invSheet.getRange(rowNum, 25).setValue(JSON.stringify(linkedProforma || null)); // Y: linkedProforma (décalé)
@@ -1707,8 +1729,8 @@ function createInvoice(data) {
   invSheet.appendRow([
     invId,                              // A: id
     invNumber,                          // B: number
-    date || new Date(),                 // C: date
-    dueDate || '',                      // D: dueDate
+    parsedDate,                         // C: date
+    parsedDueDate || '',                // D: dueDate
     client || '',                       // E: client
     subtotal || 0,                      // F: subtotal
     vat || 0,                           // G: vat
@@ -1726,7 +1748,7 @@ function createInvoice(data) {
     clientIco || '',                    // S: clientIco (décalé)
     clientDic || '',                    // T: clientDic (décalé)
     varSymbol || '',                    // U: varSymbol (décalé)
-    taxDate || '',                      // V: taxDate (décalé)
+    parsedTaxDate || '',                // V: taxDate (décalé)
     exchangeRate || '',                 // W: exchangeRate (décalé)
     linkedOrder || '',                  // X: linkedOrder (décalé)
     JSON.stringify(linkedProforma || null), // Y: linkedProforma (décalé)
@@ -3334,7 +3356,10 @@ function getRepairQuotes(limit = 100) {
       total: row[11],
       createdAt: row[12],
       updatedAt: row[13],
-      clientOrderNumber: row[14] || ''
+      clientOrderNumber: row[14] || '',
+      ticketNumber: row[15] || '',
+      invoiceNumber: row[16] || '',
+      invoiceDate: row[17] || ''
     });
   }
 
@@ -3448,7 +3473,10 @@ function saveRepairQuotes(data) {
       quote.total || 0,                       // 11: Total
       quote.createdAt || new Date().toISOString(), // 12: Created At
       quote.updatedAt || new Date().toISOString(), // 13: Updated At
-      quote.clientOrderNumber || ''           // 14: Client Order Number
+      quote.clientOrderNumber || '',          // 14: Client Order Number
+      quote.ticketNumber || '',               // 15: Ticket Number
+      quote.invoiceNumber || '',              // 16: Invoice Number
+      quote.invoiceDate || ''                 // 17: Invoice Date
     ]);
   });
 
