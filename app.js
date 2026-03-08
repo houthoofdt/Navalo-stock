@@ -198,7 +198,7 @@ const TRANSLATIONS = {
         selectAtLeastOne: 'Sélectionnez au moins un élément',
         // Received Orders
         navObjPrijate: 'Cmd. reçues', receivedOrdersTitle: 'Commandes reçues',
-        newReceivedOrder: 'Nouvelle commande', clientOrderNum: 'N° cmd client', linkedOrder: 'Commande liée', none: 'Aucune', orderNum: 'N° Commande',
+        newReceivedOrder: 'Nouvelle commande', clientOrderNum: 'N° cmd client', ticketNumber: 'N° Ticket', linkedOrder: 'Commande liée', none: 'Aucune', orderNum: 'N° Commande',
         deliveryDate: 'Date livraison', recOrdNew: 'Nouvelle', recOrdConfirmed: 'Confirmée',
         recOrdDelivered: 'Livrée', recOrdInvoiced: 'Facturée', toDeliver: 'À livrer',
         orderConfirmation: 'Confirmation de commande', products: 'Produits',
@@ -414,7 +414,7 @@ const TRANSLATIONS = {
         noData: 'Žádná data', selectAtLeastOne: 'Vyberte alespoň jednu položku',
         // Received Orders
         navObjPrijate: 'Obj. přijaté', receivedOrdersTitle: 'Přijaté objednávky',
-        newReceivedOrder: 'Nová objednávka', clientOrderNum: 'Číslo obj. zákazníka', linkedOrder: 'Propojená objednávka', none: 'Žádná', orderNum: 'Číslo objednávky',
+        newReceivedOrder: 'Nová objednávka', clientOrderNum: 'Číslo obj. zákazníka', ticketNumber: 'Číslo tiketu', linkedOrder: 'Propojená objednávka', none: 'Žádná', orderNum: 'Číslo objednávky',
         deliveryDate: 'Datum dodání', recOrdNew: 'Nová', recOrdConfirmed: 'Potvrzeno',
         recOrdDelivered: 'Dodáno', recOrdInvoiced: 'Fakturováno', toDeliver: 'K dodání',
         orderConfirmation: 'Potvrzení objednávky', products: 'Produkty',
@@ -4520,6 +4520,7 @@ function viewInvoice(invNumber) {
     let itemsHtml = (inv.items || []).map(item => {
         // Special formatting for PAC headers
         if (item.isPacHeader) {
+
             return `
         <tr style="background-color: #f0f0f0; font-weight: bold;">
             <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
@@ -8495,6 +8496,7 @@ async function loadRepairQuoteData(quoteId) {
 
     // Load basic fields
     document.getElementById('repairQuoteNumber').value = quote.quoteNumber || '';
+    document.getElementById('repairQuoteTicketNum').value = quote.ticketNumber || '';
     document.getElementById('repairQuoteClientOrderNum').value = quote.clientOrderNumber || '';
     document.getElementById('repairQuoteDate').value = formatDateForInput(quote.date);
     document.getElementById('repairQuoteNotes').value = quote.notes || '';
@@ -8503,7 +8505,13 @@ async function loadRepairQuoteData(quoteId) {
     const clientSelect = document.getElementById('repairQuoteClient');
     if (quote.clientId) {
         clientSelect.value = quote.clientId;
-        onRepairQuoteClientChange();
+        await onRepairQuoteClientChange();
+
+        // Restore linked order after orders are loaded
+        if (quote.linkedOrderId) {
+            const linkedOrderSelect = document.getElementById('repairQuoteLinkedOrder');
+            linkedOrderSelect.value = quote.linkedOrderId;
+        }
     }
 
     // Override address if stored
@@ -8575,9 +8583,14 @@ function populateRepairQuoteClientSelect() {
     });
 }
 
-function onRepairQuoteClientChange() {
+async function onRepairQuoteClientChange() {
     const select = document.getElementById('repairQuoteClient');
     const clientId = select.value;
+    const linkedOrderSelect = document.getElementById('repairQuoteLinkedOrder');
+
+    // Reset linked order select
+    linkedOrderSelect.innerHTML = '<option value="">-- Aucune --</option>';
+
     if (!clientId) {
         document.getElementById('repairQuoteAddress').value = '';
         return;
@@ -8588,6 +8601,44 @@ function onRepairQuoteClientChange() {
 
     if (client) {
         document.getElementById('repairQuoteAddress').value = client.address || '';
+    }
+
+    // Populate linked orders for this client
+    try {
+        const orders = await storage.getReceivedOrders(500);
+        const clientOrders = orders.filter(o => o.clientId === clientId || o.client === client?.name);
+
+        clientOrders.forEach(order => {
+            const opt = document.createElement('option');
+            opt.value = order.id;
+            opt.textContent = `${order.orderNumber} - ${formatDate(order.date)}${order.clientOrderNumber ? ` (${order.clientOrderNumber})` : ''}`;
+            opt.dataset.clientOrderNumber = order.clientOrderNumber || '';
+            opt.dataset.ticketNumber = order.ticketNumber || '';
+            linkedOrderSelect.appendChild(opt);
+        });
+    } catch (e) {
+        console.error('Error loading client orders:', e);
+    }
+}
+
+function onRepairQuoteLinkedOrderChange() {
+    const select = document.getElementById('repairQuoteLinkedOrder');
+    const selectedOption = select.selectedOptions[0];
+
+    if (!selectedOption || !selectedOption.value) {
+        return;
+    }
+
+    // Auto-fill client order number
+    const clientOrderNumber = selectedOption.dataset.clientOrderNumber;
+    if (clientOrderNumber) {
+        document.getElementById('repairQuoteClientOrderNum').value = clientOrderNumber;
+    }
+
+    // Auto-fill ticket number if available
+    const ticketNumber = selectedOption.dataset.ticketNumber;
+    if (ticketNumber) {
+        document.getElementById('repairQuoteTicketNum').value = ticketNumber;
     }
 }
 
@@ -8984,10 +9035,18 @@ async function saveRepairQuote() {
     const clientId = clientSelect.value;
     const clientName = clientSelect.options[clientSelect.selectedIndex].textContent;
 
+    // Get linked order info
+    const linkedOrderSelect = document.getElementById('repairQuoteLinkedOrder');
+    const linkedOrderId = linkedOrderSelect?.value || '';
+    const linkedOrderNumber = linkedOrderId ? linkedOrderSelect.options[linkedOrderSelect.selectedIndex]?.textContent.split(' - ')[0] : '';
+
     // Collect form data
     const quoteData = {
         quoteNumber: document.getElementById('repairQuoteNumber').value,
+        ticketNumber: document.getElementById('repairQuoteTicketNum').value,
         clientOrderNumber: document.getElementById('repairQuoteClientOrderNum').value,
+        linkedOrderId: linkedOrderId,
+        linkedOrderNumber: linkedOrderNumber,
         date: document.getElementById('repairQuoteDate').value,
         clientId: clientId,
         client: clientName,
@@ -9152,19 +9211,27 @@ async function updateRepairQuotesDisplay() {
 
         const pacCount = quote.pacs?.length || 0;
 
+        // Build status display with invoice link if invoiced
+        let statusDisplay = '';
+        if (quote.status === 'invoiced' && quote.invoiceNumber) {
+            statusDisplay = `<span class="status-badge ${statusClass}">✓ ${quote.invoiceNumber}</span>`;
+        } else {
+            statusDisplay = `<span class="status-badge ${statusClass}">${t('status' + quote.status.charAt(0).toUpperCase() + quote.status.slice(1)) || quote.status}</span>`;
+        }
+
         return `
             <tr>
                 <td>${formatDate(quote.date) || '-'}</td>
-                <td><strong>${quote.quoteNumber || '-'}</strong></td>
+                <td><strong>${quote.quoteNumber || '-'}</strong>${quote.ticketNumber ? `<br><small style="color:#666;">Ticket: ${quote.ticketNumber}</small>` : ''}</td>
                 <td>${quote.client || '-'}</td>
                 <td>${pacCount}</td>
                 <td>${(parseFloat(quote.subtotal) || 0).toFixed(2)} EUR</td>
-                <td><span class="status-badge ${statusClass}">${t('status' + quote.status.charAt(0).toUpperCase() + quote.status.slice(1)) || quote.status}</span></td>
+                <td>${statusDisplay}</td>
                 <td>
                     <button class="btn-icon" onclick="viewRepairQuote('${quote.id}')" title="${t('view')}">👁️</button>
-                    <button class="btn-icon" onclick="openRepairQuoteModal('${quote.id}')" title="${t('edit')}">✏️</button>
+                    ${quote.status !== 'invoiced' ? `<button class="btn-icon" onclick="openRepairQuoteModal('${quote.id}')" title="${t('edit')}">✏️</button>` : ''}
                     ${(quote.status === 'pending' || quote.status === 'sent') ? `<button class="btn-icon" onclick="acceptRepairQuote('${quote.id}')" title="${t('accept')}" style="background:#22c55e;color:white;">✓</button>` : ''}
-                    ${quote.status === 'accepted' ? `<button class="btn-icon" onclick="convertRepairQuoteToInvoice('${quote.id}')" title="${t('convertToInvoice')}">🧾</button>` : ''}
+                    ${quote.status === 'invoiced' && quote.invoiceNumber ? `<button class="btn-icon" onclick="viewInvoice('${quote.invoiceNumber}')" title="Voir facture ${quote.invoiceNumber}">🧾</button>` : ''}
                 </td>
             </tr>
         `;
@@ -9172,6 +9239,19 @@ async function updateRepairQuotesDisplay() {
 }
 
 let currentRepairQuotePreview = null;
+
+function getServiceRates() {
+    // Return service rates from REPAIR_PRICE_LIST in data.js
+    if (typeof REPAIR_PRICE_LIST !== 'undefined' && REPAIR_PRICE_LIST.services) {
+        return REPAIR_PRICE_LIST.services;
+    }
+    // Fallback to default rates if REPAIR_PRICE_LIST is not loaded
+    return {
+        labor: { price: 30, unit: 'EUR/hod', label: 'Main d\'œuvre' },
+        refrigerantR134a: { price: 25, unit: 'EUR/kg', label: 'Réfrigérant R134a' },
+        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' }
+    };
+}
 
 async function viewRepairQuote(quoteId) {
     const quotes = await storage.getRepairQuotes(100);
@@ -9320,6 +9400,7 @@ function showRepairQuotePreview(quote) {
                 <div class="dn-info">
                     <h1>${quote.quoteNumber}</h1>
                     <p>${t('date')}: ${formatDate(quote.date)}</p>
+                    ${quote.ticketNumber ? `<p style="color: #10b981; font-weight: bold;">${t('ticketNumber')}: ${quote.ticketNumber}</p>` : ''}
                     ${quote.clientOrderNumber ? `<p style="color: #0066cc; font-weight: bold;">${t('clientOrderNum')}: ${quote.clientOrderNumber}</p>` : ''}
                 </div>
             </div>
@@ -9499,32 +9580,36 @@ async function convertRepairQuoteToInvoice(quoteId) {
         // Clear default items
         document.getElementById('invItems').innerHTML = '';
 
+        // Build PAC info for notes
+        const pacInfoLines = [];
+
         // Add items from repair quote
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach((pac, index) => {
-                // Add PAC header as item
-                const pacHeader = `PAC ${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'})`;
-                addInvoiceItemRow(pacHeader, 1, 0);
+                // Store PAC info for notes (NOT as an invoice line item)
+                const pacInfo = `PAC ${index + 1}: ${pac.model} - S/N ${pac.serial || 'N/A'}${pac.serialAlliance ? ` (Alliance: ${pac.serialAlliance})` : ''}`;
+                pacInfoLines.push(pacInfo);
 
-                // Add components
+                // Add components (without bullet points since they're the only items now)
                 if (pac.components && Array.isArray(pac.components)) {
                     pac.components.forEach(comp => {
                         if (comp.qty > 0 && comp.priceUnit > 0) {
-                            addInvoiceItemRow(`  • ${comp.name || comp.ref}`, comp.qty, comp.priceUnit);
+                            addInvoiceItemRow(comp.name || comp.ref, comp.qty, comp.priceUnit);
                         }
                     });
                 }
 
-                // Add services (stored as totals)
+                // Add services
+                const serviceRates = getServiceRates();
                 if (pac.services) {
                     if (pac.services.labor > 0) {
-                        addInvoiceItemRow(`  • Main d'œuvre`, 1, pac.services.labor);
+                        addInvoiceItemRow(`Main d'œuvre`, pac.services.labor, serviceRates.labor.price);
                     }
                     if (pac.services.refrigerant > 0) {
-                        addInvoiceItemRow(`  • Fluide frigorigène`, 1, pac.services.refrigerant);
+                        addInvoiceItemRow(`Fluide frigorigène`, pac.services.refrigerant, serviceRates.refrigerantR134a.price);
                     }
                     if (pac.services.disposal > 0) {
-                        addInvoiceItemRow(`  • Élimination déchets`, 1, pac.services.disposal);
+                        addInvoiceItemRow(`Élimination déchets`, pac.services.disposal, serviceRates.disposal.price);
                     }
                 }
             });
@@ -9541,10 +9626,35 @@ async function convertRepairQuoteToInvoice(quoteId) {
         // Calculate total
         calculateInvoiceTotal();
 
-        // Add note about repair quote
+        // Build notes with all info
         const notesField = document.getElementById('invNotes');
         if (notesField) {
-            notesField.value = `Converti du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim();
+            let notes = `Devis réparation: ${quote.quoteNumber}`;
+            if (quote.ticketNumber) {
+                notes += `\nTicket: ${quote.ticketNumber}`;
+            }
+            if (quote.clientOrderNumber) {
+                notes += `\nCommande client: ${quote.clientOrderNumber}`;
+            }
+            if (pacInfoLines.length > 0) {
+                notes += '\n\n' + pacInfoLines.join('\n');
+            }
+            if (quote.notes) {
+                notes += '\n\n' + quote.notes;
+            }
+            notesField.value = notes.trim();
+        }
+
+        // Set client order number field if it exists
+        const clientOrderField = document.getElementById('invClientOrderNum');
+        if (clientOrderField && quote.clientOrderNumber) {
+            clientOrderField.value = quote.clientOrderNumber;
+        }
+
+        // Set linked order if exists
+        const linkedOrderField = document.getElementById('invLinkedOrder');
+        if (linkedOrderField && quote.linkedOrderId) {
+            linkedOrderField.value = quote.linkedOrderId;
         }
 
         // Show invoice modal
@@ -9582,10 +9692,8 @@ async function acceptRepairQuote(quoteId) {
             }
         }
 
-        // Update quote status to accepted
-        quote.status = 'accepted';
-        await storage.saveRepairQuotes(quotes);
-        console.log('✅ Quote status updated to accepted');
+        // Don't update quote status yet - will update after invoice is created
+        console.log('🔧 Creating invoice from repair quote...');
 
         // Extract components for stock deduction (exclude PAC headers)
         const componentsForDeduction = [];
@@ -9627,26 +9735,22 @@ async function acceptRepairQuote(quoteId) {
         // Build invoice items
         const serviceRates = getServiceRates();
         const items = [];
+
+        // Track PAC info for notes
+        const pacInfoLines = [];
+
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach((pac, index) => {
-                // Add PAC header as section divider
-                const pacHeader = `PAC ${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'})`;
-                items.push({
-                    name: pacHeader,
-                    description: pacHeader,
-                    qty: 1,
-                    price: 0,
-                    pricePerUnit: 0,
-                    isPacHeader: true  // Special flag to identify PAC headers
-                });
+                const pacInfo = `PAC ${index + 1}: ${pac.model} - S/N ${pac.serial || 'N/A'}${pac.serialAlliance ? ` (Alliance: ${pac.serialAlliance})` : ''}`;
+                pacInfoLines.push(pacInfo);
 
                 // Add components
                 if (pac.components && Array.isArray(pac.components)) {
                     pac.components.forEach(comp => {
                         if (comp.qty > 0 && comp.priceUnit > 0) {
                             items.push({
-                                name: `  • ${comp.name || comp.ref}`,
-                                description: `  • ${comp.name || comp.ref}`,
+                                name: comp.name || comp.ref,
+                                description: comp.name || comp.ref,
                                 qty: comp.qty,
                                 price: comp.priceUnit,
                                 pricePerUnit: comp.priceUnit
@@ -9659,8 +9763,8 @@ async function acceptRepairQuote(quoteId) {
                 if (pac.services) {
                     if (pac.services.labor > 0) {
                         items.push({
-                            name: `  • Main d'œuvre`,
-                            description: `  • Main d'œuvre`,
+                            name: `Main d'œuvre`,
+                            description: `Main d'œuvre`,
                             qty: pac.services.labor,  // Hours
                             price: serviceRates.labor.price,  // EUR/hour
                             pricePerUnit: serviceRates.labor.price
@@ -9668,8 +9772,8 @@ async function acceptRepairQuote(quoteId) {
                     }
                     if (pac.services.refrigerant > 0) {
                         items.push({
-                            name: `  • Fluide frigorigène`,
-                            description: `  • Fluide frigorigène`,
+                            name: `Fluide frigorigène`,
+                            description: `Fluide frigorigène`,
                             qty: pac.services.refrigerant,  // kg
                             price: serviceRates.refrigerantR134a.price,  // EUR/kg
                             pricePerUnit: serviceRates.refrigerantR134a.price
@@ -9677,8 +9781,8 @@ async function acceptRepairQuote(quoteId) {
                     }
                     if (pac.services.disposal > 0) {
                         items.push({
-                            name: `  • Élimination déchets`,
-                            description: `  • Élimination déchets`,
+                            name: `Élimination déchets`,
+                            description: `Élimination déchets`,
                             qty: pac.services.disposal,  // kg
                             price: serviceRates.disposal.price,  // EUR/kg
                             pricePerUnit: serviceRates.disposal.price
@@ -9688,29 +9792,74 @@ async function acceptRepairQuote(quoteId) {
             });
         }
 
+        // Build notes with PAC info, ticket, and client order
+        let invoiceNotes = `Devis réparation: ${quote.quoteNumber}`;
+        if (quote.ticketNumber) {
+            invoiceNotes += `\nTicket: ${quote.ticketNumber}`;
+        }
+        if (quote.clientOrderNumber) {
+            invoiceNotes += `\nCommande client: ${quote.clientOrderNumber}`;
+        }
+        if (pacInfoLines.length > 0) {
+            invoiceNotes += '\n\n' + pacInfoLines.join('\n');
+        }
+        if (quote.notes) {
+            invoiceNotes += '\n\n' + quote.notes;
+        }
+
+        // Get local dates (avoid timezone issues)
+        const now = new Date();
+        const invoiceDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const dueDateTime = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+        const dueDate = `${dueDateTime.getFullYear()}-${String(dueDateTime.getMonth() + 1).padStart(2, '0')}-${String(dueDateTime.getDate()).padStart(2, '0')}`;
+
+        // Get CNB exchange rate for EUR
+        let exchangeRateValue = null;
+        try {
+            const rateInfo = await storage.getExchangeRateForDate('EUR', invoiceDate);
+            if (rateInfo && rateInfo.rate) {
+                exchangeRateValue = rateInfo.rate;
+                console.log(`✅ CNB rate for ${invoiceDate}: ${exchangeRateValue.toFixed(3)}`);
+            }
+        } catch (e) {
+            console.warn('Failed to fetch CNB rate:', e);
+        }
+
         // Create invoice object
         const subtotal = parseFloat(quote.subtotal) || 0;
         const invoice = {
             number: invoiceNumber,
             varSymbol: invoiceNumber,
-            date: new Date().toISOString().split('T')[0],
-            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            date: invoiceDate,
+            taxDate: invoiceDate,
+            dueDate: dueDate,
             clientId: quote.clientId,
             client: clientName,  // Use fetched client name from contacts
             address: quote.address,
             items: items,
             currency: 'EUR',
+            exchangeRate: exchangeRateValue,
             subtotal: subtotal,
             vatRate: 21,
-            vatAmount: subtotal * 0.21,
+            vat: subtotal * 0.21,
             total: subtotal * 1.21,
-            notes: `Converti du devis de réparation ${quote.quoteNumber}\n${quote.notes || ''}`.trim(),
-            paid: false
+            notes: invoiceNotes.trim(),
+            paid: false,
+            clientOrderNumber: quote.clientOrderNumber || '',
+            linkedOrder: quote.linkedOrderId || '',
+            linkedOrderNumber: quote.linkedOrderNumber || ''
         };
 
         // Save invoice
         await storage.createInvoice(invoice);
         console.log('✅ Invoice created:', invoiceNumber);
+
+        // Update quote status to invoiced and store invoice number
+        quote.status = 'invoiced';
+        quote.invoiceNumber = invoiceNumber;
+        quote.invoiceDate = invoiceDate;
+        await storage.saveRepairQuotes(quotes);
+        console.log('✅ Quote status updated to invoiced');
 
         // Deduct stock for components
         if (componentsForDeduction.length > 0 && storage.getMode() === 'googlesheets') {
@@ -9720,7 +9869,7 @@ async function acceptRepairQuote(quoteId) {
                     componentsForDeduction,
                     invoice.number,
                     invoice.client,
-                    new Date().toISOString()
+                    invoiceDate
                 );
 
                 if (deductResult.success) {
@@ -9740,14 +9889,7 @@ async function acceptRepairQuote(quoteId) {
         await updateRepairQuotesDisplay();
         await updateInvoicesDisplay();
 
-        showToast(`✅ ${t('quoteAccepted') || 'Devis accepté'} - Facture ${invoiceNumber} créée`, 'success');
-
-        // Ask if user wants to delete the quote
-        setTimeout(() => {
-            if (confirm(t('deleteAcceptedQuote') || 'Voulez-vous supprimer le devis accepté maintenant qu\'il a été converti en facture?')) {
-                deleteRepairQuote(quoteId);
-            }
-        }, 1000);
+        showToast(`✅ Facture ${invoiceNumber} créée à partir du devis ${quote.quoteNumber}`, 'success');
 
     } catch (error) {
         console.error('Error accepting repair quote:', error);
@@ -9848,6 +9990,7 @@ window.openRepairQuoteModal = openRepairQuoteModal;
 window.closeRepairQuoteModal = closeRepairQuoteModal;
 window.populateRepairQuoteClientSelect = populateRepairQuoteClientSelect;
 window.onRepairQuoteClientChange = onRepairQuoteClientChange;
+window.onRepairQuoteLinkedOrderChange = onRepairQuoteLinkedOrderChange;
 window.addPACToRepairQuote = addPACToRepairQuote;
 window.removePACFromQuote = removePACFromQuote;
 window.updateComponentsForPAC = updateComponentsForPAC;
@@ -10719,6 +10862,7 @@ function generateInvoicePreviewHTML(inv) {
     let itemsHtml = (inv.items || []).map(item => {
         // Special formatting for PAC headers
         if (item.isPacHeader) {
+
             return `
         <tr style="background-color: #f0f0f0; font-weight: bold;">
             <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
@@ -10876,6 +11020,7 @@ function previewRepairQuoteBeforeSave() {
     // Collect repair quote data from form
     const quoteData = {
         quoteNumber: document.getElementById('repairQuoteNumber')?.value || 'PREVIEW',
+        ticketNumber: document.getElementById('repairQuoteTicketNum')?.value || '',
         clientOrderNumber: document.getElementById('repairQuoteClientOrderNum')?.value || '',
         date: document.getElementById('repairQuoteDate')?.value || new Date().toISOString().split('T')[0],
         client: document.getElementById('repairQuoteClient')?.selectedOptions[0]?.text || '',
