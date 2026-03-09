@@ -8451,7 +8451,7 @@ window.syncNowManual = syncNowManual;
 let currentRepairQuote = null;
 let pacCounter = 0;
 
-function openRepairQuoteModal(quoteId = null) {
+async function openRepairQuoteModal(quoteId = null) {
     currentRepairQuote = quoteId;
     pacCounter = 0;
 
@@ -8468,20 +8468,43 @@ function openRepairQuoteModal(quoteId = null) {
     if (quoteId) {
         // Edit mode - load existing quote
         title.textContent = t('editRepairQuote') || 'Modifier devis';
-        loadRepairQuoteData(quoteId);
+        await loadRepairQuoteData(quoteId);
     } else {
         // New quote mode
         title.textContent = t('newRepairQuote');
         document.getElementById('repairQuoteDate').valueAsDate = new Date();
 
-        // Generate quote number
-        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
-        const year = new Date().getFullYear();
-        const nextNum = config.next_repair_quote || 1;
-        document.getElementById('repairQuoteNumber').value = `DV${year}${String(nextNum).padStart(3, '0')}`;
+        // Generate quote number - check existing quotes to find next available
+        await generateNextRepairQuoteNumber();
     }
 
     modal.style.display = 'flex';
+}
+
+async function generateNextRepairQuoteNumber() {
+    const year = new Date().getFullYear();
+    let maxNum = 0;
+
+    try {
+        // Get all existing repair quotes
+        const quotes = await storage.getRepairQuotes(500);
+
+        // Find the highest number for this year
+        quotes.forEach(quote => {
+            if (quote.quoteNumber) {
+                const match = String(quote.quoteNumber).match(/DV(\d{4})(\d{3})/);
+                if (match && parseInt(match[1]) === year) {
+                    const num = parseInt(match[2]);
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error fetching quotes for number generation:', e);
+    }
+
+    const nextNum = maxNum + 1;
+    document.getElementById('repairQuoteNumber').value = `DV${year}${String(nextNum).padStart(3, '0')}`;
 }
 
 async function loadRepairQuoteData(quoteId) {
