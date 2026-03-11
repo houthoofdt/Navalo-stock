@@ -10048,11 +10048,17 @@ async function createDeliveryFromRepairQuote(quoteId) {
         // Close preview modal
         closeRepairQuotePreviewModal();
 
-        // Open delivery modal
-        openDeliveryModal();
+        // Navigate to delivery tab (sorties)
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelector('.nav-btn[data-tab="sorties"]')?.classList.add('active');
+        document.getElementById('tab-sorties')?.classList.add('active');
 
-        // Wait for modal to open
+        // Wait for tab to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Set today's date
+        document.getElementById('deliveryDate').valueAsDate = new Date();
 
         // Fill client info
         const clientSelect = document.getElementById('deliveryClient');
@@ -10069,7 +10075,7 @@ async function createDeliveryFromRepairQuote(quoteId) {
         }
 
         // Fill address
-        const addressField = document.getElementById('deliveryAddress');
+        const addressField = document.getElementById('deliveryClientAddress');
         if (addressField) {
             addressField.value = clientAddress;
         }
