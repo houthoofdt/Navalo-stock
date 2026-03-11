@@ -1639,6 +1639,22 @@ class StorageAdapter {
         return await this.apiPost('updateRepairQuoteStatus', { quoteId, status });
     }
 
+    async updateRepairQuote(quoteData) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
+            const index = quotes.findIndex(q => q.id === quoteData.id);
+            if (index !== -1) {
+                quoteData.updatedAt = new Date().toISOString();
+                quotes[index] = { ...quotes[index], ...quoteData };
+                localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+                return { success: true };
+            }
+            return { success: false, error: 'Quote not found' };
+        }
+
+        return await this.apiPost('updateRepairQuote', quoteData);
+    }
+
     async saveRepairQuotes(quotes) {
         if (this.mode === 'local') {
             localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));

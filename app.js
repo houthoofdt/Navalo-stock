@@ -9128,15 +9128,16 @@ async function saveRepairQuote() {
     // Save to storage
     try {
         if (currentRepairQuote) {
-            // Update existing - for now just update in localStorage
-            let quotes = JSON.parse(localStorage.getItem('navalo_repair_quotes') || '[]');
-            const index = quotes.findIndex(q => q.id === currentRepairQuote);
-            if (index !== -1) {
-                quoteData.id = currentRepairQuote;
-                quoteData.updatedAt = new Date().toISOString();
-                quotes[index] = quoteData;
-                localStorage.setItem('navalo_repair_quotes', JSON.stringify(quotes));
+            // Update existing quote via storage API
+            quoteData.id = currentRepairQuote;
+            quoteData.updatedAt = new Date().toISOString();
+            const result = await storage.updateRepairQuote(quoteData);
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update repair quote');
             }
+
+            console.log('✅ Repair quote updated:', result);
         } else {
             // Create new - use storage API
             const result = await storage.createRepairQuote(quoteData);

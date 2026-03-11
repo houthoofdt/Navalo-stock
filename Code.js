@@ -3411,25 +3411,40 @@ function updateRepairQuote(data) {
   // Find the row with this quote ID
   for (let i = 1; i < sheetData.length; i++) {
     if (sheetData[i][0] === quoteId) {
-      // Update quote number if provided (column 3)
-      if (data.quoteNumber) {
-        sheet.getRange(i + 1, 3).setValue(data.quoteNumber);
+      const rowNum = i + 1;
+
+      // Update all fields
+      sheet.getRange(rowNum, 2).setValue(data.date || sheetData[i][1]);
+      sheet.getRange(rowNum, 3).setValue(data.quoteNumber || sheetData[i][2]);
+      sheet.getRange(rowNum, 4).setValue(data.clientId || sheetData[i][3]);
+      sheet.getRange(rowNum, 5).setValue(data.client || data.clientName || sheetData[i][4]);
+      sheet.getRange(rowNum, 6).setValue(data.address || sheetData[i][5]);
+      sheet.getRange(rowNum, 7).setValue(data.status || sheetData[i][6]);
+
+      // PACs data as JSON
+      if (data.pacs) {
+        sheet.getRange(rowNum, 8).setValue(JSON.stringify(data.pacs));
       }
 
-      // Update status if provided (column 7)
-      if (data.status) {
-        sheet.getRange(i + 1, 7).setValue(data.status);
-      }
-
-      // Update full quote data if provided (all columns)
-      if (data.quote) {
-        const quote = data.quote;
-        sheet.getRange(i + 1, 3).setValue(quote.quoteNumber || sheetData[i][2]);
-        sheet.getRange(i + 1, 7).setValue(quote.status || sheetData[i][6]);
-      }
+      sheet.getRange(rowNum, 9).setValue(data.notes !== undefined ? data.notes : sheetData[i][8]);
+      sheet.getRange(rowNum, 10).setValue(data.subtotal || sheetData[i][9]);
+      sheet.getRange(rowNum, 11).setValue(data.vat || data.vatAmount || sheetData[i][10]);
+      sheet.getRange(rowNum, 12).setValue(data.total || sheetData[i][11]);
 
       // Update timestamp
-      sheet.getRange(i + 1, 14).setValue(new Date());
+      sheet.getRange(rowNum, 14).setValue(new Date().toISOString());
+
+      // Client order number and ticket
+      sheet.getRange(rowNum, 15).setValue(data.clientOrderNumber || sheetData[i][14] || '');
+      sheet.getRange(rowNum, 16).setValue(data.ticketNumber || sheetData[i][15] || '');
+
+      // Invoice info (keep existing if not provided)
+      sheet.getRange(rowNum, 17).setValue(data.invoiceNumber || sheetData[i][16] || '');
+      sheet.getRange(rowNum, 18).setValue(data.invoiceDate || sheetData[i][17] || '');
+
+      // Linked order
+      sheet.getRange(rowNum, 19).setValue(data.linkedOrderId || sheetData[i][18] || '');
+      sheet.getRange(rowNum, 20).setValue(data.linkedOrderNumber || sheetData[i][19] || '');
 
       return { success: true, quoteId: quoteId };
     }
