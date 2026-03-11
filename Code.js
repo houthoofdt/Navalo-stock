@@ -752,11 +752,12 @@ function createRepairQuotesSheet() {
   sheet.appendRow([
     'ID', 'Date', 'N° Devis', 'ID Client', 'Nom Client', 'Adresse',
     'Statut', 'Données PACs', 'Notes', 'Sous-total', 'TVA', 'Total',
-    'Créé le', 'Mis à jour le'
+    'Créé le', 'Mis à jour le', 'N° Cmd Client', 'N° Ticket',
+    'N° Facture', 'Date Facture', 'ID Commande Liée', 'N° Commande Liée'
   ]);
 
   // Format headers
-  sheet.getRange(1, 1, 1, 14)
+  sheet.getRange(1, 1, 1, 20)
     .setFontWeight('bold')
     .setBackground('#ff6f00')
     .setFontColor('white');
@@ -3359,7 +3360,9 @@ function getRepairQuotes(limit = 100) {
       clientOrderNumber: row[14] || '',
       ticketNumber: row[15] || '',
       invoiceNumber: row[16] || '',
-      invoiceDate: row[17] || ''
+      invoiceDate: row[17] || '',
+      linkedOrderId: row[18] || '',
+      linkedOrderNumber: row[19] || ''
     });
   }
 
@@ -3476,7 +3479,9 @@ function saveRepairQuotes(data) {
       quote.clientOrderNumber || '',          // 14: Client Order Number
       quote.ticketNumber || '',               // 15: Ticket Number
       quote.invoiceNumber || '',              // 16: Invoice Number
-      quote.invoiceDate || ''                 // 17: Invoice Date
+      quote.invoiceDate || '',                // 17: Invoice Date
+      quote.linkedOrderId || '',              // 18: Linked Order ID
+      quote.linkedOrderNumber || ''           // 19: Linked Order Number
     ]);
   });
 
