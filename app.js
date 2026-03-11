@@ -10083,22 +10083,36 @@ async function createDeliveryFromRepairQuote(quoteId) {
 
         // Extract components from PACs and add as delivery custom items
         const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
+        console.log('🔧 Creating delivery from repair quote:', quote);
+        console.log('🔧 PACs:', quote.pacs);
+        console.log('🔧 Custom items container:', customItemsContainer);
+
         if (customItemsContainer) {
             customItemsContainer.innerHTML = ''; // Clear existing items
 
+            let itemsAdded = 0;
             if (quote.pacs && Array.isArray(quote.pacs)) {
-                quote.pacs.forEach(pac => {
+                quote.pacs.forEach((pac, pacIndex) => {
+                    console.log(`🔧 PAC ${pacIndex}:`, pac);
+                    console.log(`🔧 PAC ${pacIndex} components:`, pac.components);
+
                     if (pac.components && Array.isArray(pac.components)) {
                         pac.components.forEach(comp => {
+                            console.log('🔧 Component:', comp);
                             if (comp.qty > 0 && comp.ref) {
                                 // Add component as custom delivery item
                                 const itemName = `${comp.ref} - ${comp.name || comp.ref}`;
+                                console.log(`🔧 Adding item: ${itemName}, qty: ${comp.qty}`);
                                 addDeliveryCustomItemRow(itemName, comp.qty);
+                                itemsAdded++;
                             }
                         });
                     }
                 });
             }
+            console.log(`🔧 Total items added: ${itemsAdded}`);
+        } else {
+            console.error('❌ deliveryCustomItemsContainer not found!');
         }
 
         // Set notes with PAC info
