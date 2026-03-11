@@ -1594,8 +1594,13 @@ async function processDelivery() {
         }
     }
 
+    const clientSelect = document.getElementById('deliveryClient');
+    const clientName = clientSelect?.selectedOptions[0]?.text || '';
+    const clientId = clientSelect?.value || '';
+
     const data = {
-        client: document.getElementById('deliveryClient').value,
+        client: clientName,
+        clientId: clientId,
         clientAddress: document.getElementById('deliveryClientAddress').value,
         date: document.getElementById('deliveryDate').value,
         linkedOrderId,
