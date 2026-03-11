@@ -10095,18 +10095,41 @@ async function createDeliveryFromRepairQuote(quoteId) {
                 quote.pacs.forEach((pac, pacIndex) => {
                     console.log(`🔧 PAC ${pacIndex}:`, pac);
                     console.log(`🔧 PAC ${pacIndex} components:`, pac.components);
+                    console.log(`🔧 PAC ${pacIndex} services:`, pac.services);
 
+                    // Add components
                     if (pac.components && Array.isArray(pac.components)) {
                         pac.components.forEach(comp => {
                             console.log('🔧 Component:', comp);
                             if (comp.qty > 0 && comp.ref) {
-                                // Add component as custom delivery item
                                 const itemName = `${comp.ref} - ${comp.name || comp.ref}`;
-                                console.log(`🔧 Adding item: ${itemName}, qty: ${comp.qty}`);
+                                console.log(`🔧 Adding component: ${itemName}, qty: ${comp.qty}`);
                                 addDeliveryCustomItemRow(itemName, comp.qty);
                                 itemsAdded++;
                             }
                         });
+                    }
+
+                    // Add services (refrigerant, labor, disposal)
+                    if (pac.services) {
+                        if (pac.services.refrigerant > 0) {
+                            const refQty = pac.services.refrigerant;
+                            console.log(`🔧 Adding refrigerant: ${refQty} kg`);
+                            addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
+                            itemsAdded++;
+                        }
+                        if (pac.services.labor > 0) {
+                            const laborQty = pac.services.labor;
+                            console.log(`🔧 Adding labor: ${laborQty} h`);
+                            addDeliveryCustomItemRow(`Main d'œuvre (PAC ${pacIndex + 1})`, laborQty);
+                            itemsAdded++;
+                        }
+                        if (pac.services.disposal > 0) {
+                            const dispQty = pac.services.disposal;
+                            console.log(`🔧 Adding disposal: ${dispQty} kg`);
+                            addDeliveryCustomItemRow(`Élimination déchets (PAC ${pacIndex + 1})`, dispQty);
+                            itemsAdded++;
+                        }
                     }
                 });
             }
