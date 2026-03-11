@@ -10110,26 +10110,12 @@ async function createDeliveryFromRepairQuote(quoteId) {
                         });
                     }
 
-                    // Add services (refrigerant, labor, disposal)
-                    if (pac.services) {
-                        if (pac.services.refrigerant > 0) {
-                            const refQty = pac.services.refrigerant;
-                            console.log(`🔧 Adding refrigerant: ${refQty} kg`);
-                            addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
-                            itemsAdded++;
-                        }
-                        if (pac.services.labor > 0) {
-                            const laborQty = pac.services.labor;
-                            console.log(`🔧 Adding labor: ${laborQty} h`);
-                            addDeliveryCustomItemRow(`Main d'œuvre (PAC ${pacIndex + 1})`, laborQty);
-                            itemsAdded++;
-                        }
-                        if (pac.services.disposal > 0) {
-                            const dispQty = pac.services.disposal;
-                            console.log(`🔧 Adding disposal: ${dispQty} kg`);
-                            addDeliveryCustomItemRow(`Élimination déchets (PAC ${pacIndex + 1})`, dispQty);
-                            itemsAdded++;
-                        }
+                    // Add refrigerant only (not labor or disposal)
+                    if (pac.services && pac.services.refrigerant > 0) {
+                        const refQty = Math.round(pac.services.refrigerant); // Round to integer
+                        console.log(`🔧 Adding refrigerant: ${refQty} kg`);
+                        addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
+                        itemsAdded++;
                     }
                 });
             }
@@ -10788,8 +10774,11 @@ function printReceipt() {
 // DELIVERY PREVIEW (BEFORE SAVE)
 function previewDeliveryBeforeSave() {
     // Collect delivery data from form
+    const clientSelect = document.getElementById('deliveryClient');
+    const clientName = clientSelect?.selectedOptions[0]?.text || '';
+
     const deliveryData = {
-        client: document.getElementById('deliveryClient')?.value || '',
+        client: clientName,
         clientAddress: document.getElementById('deliveryClientAddress')?.value || '',
         clientOrderNum: document.getElementById('deliveryClientOrderNum')?.value || '',
         clientOrderNumber: document.getElementById('deliveryClientOrderNum')?.value || '',
