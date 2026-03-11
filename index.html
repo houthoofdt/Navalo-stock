@@ -1598,7 +1598,8 @@
                 <button class="btn btn-outline" onclick="closeRepairQuotePreviewModal()" data-i18n="close">Fermer</button>
                 <button class="btn btn-secondary" onclick="printRepairQuote()">🖨️ <span data-i18n="print">Imprimer</span></button>
                 <button class="btn btn-secondary" onclick="sendRepairQuoteByEmail()">📧 <span data-i18n="sendEmail">Envoyer email</span></button>
-                <button class="btn btn-primary" onclick="convertRepairQuoteToInvoice(currentRepairQuotePreview)" data-i18n="convertToInvoice">Convertir en facture</button>
+                <button class="btn btn-secondary" onclick="createDeliveryFromRepairQuote(currentRepairQuotePreview)">📦 Créer BL</button>
+                <button class="btn btn-primary" onclick="convertRepairQuoteToInvoice(currentRepairQuotePreview)">Convertir en facture</button>
             </div>
         </div>
     </div>

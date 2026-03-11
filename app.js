@@ -9705,13 +9705,20 @@ async function acceptRepairQuote(quoteId) {
             return;
         }
 
-        // Get correct client name from contacts (in case quote data is corrupted)
+        // Get correct client info from contacts
         let clientName = quote.client || quote.clientName || 'Client';
+        let clientAddress = quote.address || '';
+        let clientIco = '';
+        let clientDic = '';
+
         if (quote.clientId) {
             const contacts = await storage.getContacts();
             const contact = contacts.find(c => c.id === quote.clientId);
-            if (contact && contact.name) {
-                clientName = contact.name;
+            if (contact) {
+                clientName = contact.name || clientName;
+                clientAddress = contact.address || clientAddress;
+                clientIco = contact.ico || '';
+                clientDic = contact.dic || '';
             }
         }
 
@@ -9850,15 +9857,21 @@ async function acceptRepairQuote(quoteId) {
 
         // Create invoice object
         const subtotal = parseFloat(quote.subtotal) || 0;
+
+        // Use client order number as varSymbol if available, otherwise use invoice number
+        const varSymbol = quote.clientOrderNumber || invoiceNumber.replace(/\D/g, '');
+
         const invoice = {
             number: invoiceNumber,
-            varSymbol: invoiceNumber,
+            varSymbol: varSymbol,
             date: invoiceDate,
             taxDate: invoiceDate,
             dueDate: dueDate,
             clientId: quote.clientId,
-            client: clientName,  // Use fetched client name from contacts
-            address: quote.address,
+            client: clientName,
+            clientAddress: clientAddress,
+            clientIco: clientIco,
+            clientDic: clientDic,
             items: items,
             currency: 'EUR',
             exchangeRate: exchangeRateValue,
@@ -10008,6 +10021,99 @@ async function sendRepairQuoteByEmail() {
     }
 }
 
+// Create delivery note from repair quote
+async function createDeliveryFromRepairQuote(quoteId) {
+    try {
+        const quotes = await storage.getRepairQuotes(100);
+        const quote = quotes.find(q => q.id === quoteId);
+
+        if (!quote) {
+            showToast('Devis non trouvé', 'error');
+            return;
+        }
+
+        // Get client info
+        let clientName = quote.client || '';
+        let clientAddress = quote.address || '';
+
+        if (quote.clientId) {
+            const contacts = await storage.getContacts();
+            const contact = contacts.find(c => c.id === quote.clientId);
+            if (contact) {
+                clientName = contact.name || clientName;
+                clientAddress = contact.address || clientAddress;
+            }
+        }
+
+        // Close preview modal
+        closeRepairQuotePreviewModal();
+
+        // Open delivery modal
+        openDeliveryModal();
+
+        // Wait for modal to open
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Fill client info
+        const clientSelect = document.getElementById('deliveryClient');
+        if (clientSelect && quote.clientId) {
+            clientSelect.value = quote.clientId;
+            const event = new Event('change', { bubbles: true });
+            clientSelect.dispatchEvent(event);
+        }
+
+        // Fill client order number
+        const clientOrderField = document.getElementById('deliveryClientOrderNum');
+        if (clientOrderField && quote.clientOrderNumber) {
+            clientOrderField.value = quote.clientOrderNumber;
+        }
+
+        // Fill address
+        const addressField = document.getElementById('deliveryAddress');
+        if (addressField) {
+            addressField.value = clientAddress;
+        }
+
+        // Extract components from PACs and add as delivery custom items
+        const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
+        if (customItemsContainer) {
+            customItemsContainer.innerHTML = ''; // Clear existing items
+
+            if (quote.pacs && Array.isArray(quote.pacs)) {
+                quote.pacs.forEach(pac => {
+                    if (pac.components && Array.isArray(pac.components)) {
+                        pac.components.forEach(comp => {
+                            if (comp.qty > 0 && comp.ref) {
+                                // Add component as custom delivery item
+                                const itemName = `${comp.ref} - ${comp.name || comp.ref}`;
+                                addDeliveryCustomItemRow(itemName, comp.qty);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
+        // Set notes with PAC info
+        const notesField = document.getElementById('deliveryNotes');
+        if (notesField) {
+            let notes = `Devis: ${quote.quoteNumber}`;
+            if (quote.ticketNumber) {
+                notes += ` | Ticket: ${quote.ticketNumber}`;
+            }
+            quote.pacs?.forEach((pac, index) => {
+                notes += `\nPAC ${index + 1}: ${pac.model} - S/N ${pac.serial || 'N/A'}`;
+            });
+            notesField.value = notes;
+        }
+
+        showToast('Bon de livraison pré-rempli depuis le devis', 'success');
+    } catch (error) {
+        console.error('Error creating delivery from repair quote:', error);
+        showToast('Erreur: ' + error.message, 'error');
+    }
+}
+
 // Make functions globally accessible
 window.openRepairQuoteModal = openRepairQuoteModal;
 window.closeRepairQuoteModal = closeRepairQuoteModal;
@@ -10029,6 +10135,7 @@ window.showRepairQuotePreview = showRepairQuotePreview;
 window.closeRepairQuotePreviewModal = closeRepairQuotePreviewModal;
 window.printRepairQuote = printRepairQuote;
 window.convertRepairQuoteToInvoice = convertRepairQuoteToInvoice;
+window.createDeliveryFromRepairQuote = createDeliveryFromRepairQuote;
 window.acceptRepairQuote = acceptRepairQuote;
 window.deleteRepairQuote = deleteRepairQuote;
 window.sendRepairQuoteByEmail = sendRepairQuoteByEmail;
