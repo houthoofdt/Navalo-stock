@@ -2349,7 +2349,7 @@ function toggleRecInvProformaFields() {
     }
 }
 
-// Populate dropdown with paid received proformas for deduction
+// Populate dropdown with received proformas for deduction
 function populateRecInvPaidProformas() {
     const select = document.getElementById('recInvLinkedProforma');
     if (!select) return;
@@ -2357,19 +2357,37 @@ function populateRecInvPaidProformas() {
     select.innerHTML = '<option value="">-- Aucune --</option>';
 
     const invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
-    const paidProformas = invoices.filter(inv => inv.isProforma && inv.paid);
+    console.log('All received invoices:', invoices);
 
-    paidProformas.forEach(pf => {
+    // Show all proformas, with paid ones first
+    const proformas = invoices.filter(inv => inv.isProforma);
+    console.log('Proformas found:', proformas);
+
+    // Sort: paid first, then by date
+    proformas.sort((a, b) => {
+        if (a.paid && !b.paid) return -1;
+        if (!a.paid && b.paid) return 1;
+        return 0;
+    });
+
+    proformas.forEach(pf => {
         const depositPercent = pf.depositPercent || 100;
         const depositAmount = pf.total * (depositPercent / 100);
         const opt = document.createElement('option');
         opt.value = pf.id;
-        opt.textContent = `${pf.internalNumber} - ${pf.supplier} - ${formatCurrency(depositAmount)} ${pf.currency}`;
+        const paidStatus = pf.paid ? '✓ PAYÉ' : '⏳ Non payé';
+        opt.textContent = `${pf.internalNumber} - ${pf.supplier} - ${formatCurrency(depositAmount)} ${pf.currency} [${paidStatus}]`;
         opt.dataset.total = depositAmount;
         opt.dataset.subtotal = pf.subtotal * (depositPercent / 100);
         opt.dataset.vat = pf.vat * (depositPercent / 100);
         opt.dataset.currency = pf.currency;
         opt.dataset.supplier = pf.supplier;
+        opt.dataset.paid = pf.paid ? 'true' : 'false';
+        // Disable non-paid proformas (can't deduct what wasn't paid)
+        if (!pf.paid) {
+            opt.disabled = true;
+            opt.style.color = '#999';
+        }
         select.appendChild(opt);
     });
 }
