@@ -6098,6 +6098,23 @@ function addInvoiceItemRow(name = '', qty = 1, price = 0) {
     calculateInvoiceTotal();
 }
 
+// Add PAC header row for repair quote invoices
+function addInvoicePacHeaderRow(pacInfo) {
+    const container = document.getElementById('invItems');
+    const row = document.createElement('div');
+    row.className = 'item-row pac-header-row';
+    row.style.cssText = 'background: #dbeafe; padding: 8px; border-radius: 4px; margin-bottom: 4px;';
+    row.innerHTML = `
+        <input type="text" class="inv-item-name pac-header" value="${pacInfo}" readonly style="flex: 4; font-weight: bold; background: transparent; border: none;">
+        <input type="hidden" class="inv-item-qty" value="0">
+        <input type="hidden" class="inv-item-price" value="0">
+        <input type="hidden" class="inv-item-total" value="0">
+        <input type="hidden" class="is-pac-header" value="true">
+        <button type="button" class="btn-icon btn-remove" onclick="removeInvItemRow(this)">✕</button>
+    `;
+    container.appendChild(row);
+}
+
 function removeInvItemRow(btn) {
     btn.closest('.item-row').remove();
     calculateInvoiceTotal();
@@ -6140,7 +6157,12 @@ async function saveIssuedInvoice() {
         const name = row.querySelector('.inv-item-name')?.value;
         const qty = parseFloat(row.querySelector('.inv-item-qty')?.value) || 0;
         const price = parseFloat(row.querySelector('.inv-item-price')?.value) || 0;
-        if (name && qty > 0) {
+        const isPacHeader = row.querySelector('.is-pac-header')?.value === 'true';
+
+        if (isPacHeader && name) {
+            // PAC header row - save with special flag
+            items.push({ name, qty: 0, price: 0, total: 0, isPacHeader: true });
+        } else if (name && qty > 0) {
             items.push({ name, qty, price, total: qty * price });
         }
     });
@@ -9701,11 +9723,8 @@ async function convertRepairQuoteToInvoice(quoteId) {
         // Open invoice modal
         await openFreeInvoiceModal();
 
-        // Set variable symbol to client order number if available
-        const varSymbolField = document.getElementById('invVarSymbol');
-        if (varSymbolField && quote.clientOrderNumber) {
-            varSymbolField.value = quote.clientOrderNumber;
-        }
+        // Note: Variable symbol is set automatically from invoice number in openFreeInvoiceModal
+        // Don't override it with client order number - that goes in invClientOrderNum field
 
         // Populate client - invoice select uses client ID as value
         const clientSelect = document.getElementById('invClient');
@@ -9748,9 +9767,13 @@ async function convertRepairQuoteToInvoice(quoteId) {
             quote.pacs.forEach((pac, index) => {
                 console.log(`PAC ${index + 1}:`, pac);
 
-                // Store PAC info for notes (NOT as an invoice line item)
-                const pacInfo = `PAC ${index + 1}: ${pac.model} - S/N ${pac.serial || 'N/A'}${pac.serialAlliance ? ` (Alliance: ${pac.serialAlliance})` : ''}`;
-                pacInfoLines.push(pacInfo);
+                // Add PAC header row
+                const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
+                const pacHeader = `PAC #${index + 1} - ${pac.model} (S/N: ${pac.serial || 'N/A'}${allianceSerial})`;
+                addInvoicePacHeaderRow(pacHeader);
+
+                // Store PAC info for notes as well
+                pacInfoLines.push(pacHeader);
 
                 // Add components - use total if priceUnit is not set
                 if (pac.components && Array.isArray(pac.components)) {
