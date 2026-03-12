@@ -1595,8 +1595,14 @@ async function processDelivery() {
     }
 
     const clientSelect = document.getElementById('deliveryClient');
-    const clientName = clientSelect?.selectedOptions[0]?.text || '';
+    // Get client name from selected option, or use fallback stored in data attribute
+    let clientName = clientSelect?.selectedOptions[0]?.text || '';
+    if (!clientName || clientName === (t('selectContact') || '-- Sélectionner --')) {
+        clientName = clientSelect?.dataset?.clientNameFallback || '';
+    }
     const clientId = clientSelect?.value || '';
+
+    console.log('processDelivery - clientName:', clientName, 'clientId:', clientId);
 
     const data = {
         client: clientName,
@@ -10063,15 +10069,38 @@ async function createDeliveryFromRepairQuote(quoteId) {
         // Wait for tab to be visible
         await new Promise(resolve => setTimeout(resolve, 100));
 
+        // Ensure client selects are populated
+        populateClientSelects();
+
         // Set today's date
         document.getElementById('deliveryDate').valueAsDate = new Date();
 
-        // Fill client info
+        // Fill client info - delivery client select uses name as value, not ID
         const clientSelect = document.getElementById('deliveryClient');
-        if (clientSelect && quote.clientId) {
-            clientSelect.value = quote.clientId;
+        if (clientSelect && clientName) {
+            // Find option by client name (delivery select uses name as value)
+            const options = Array.from(clientSelect.options);
+            const matchingOption = options.find(opt => opt.value === clientName || opt.textContent === clientName);
+            if (matchingOption) {
+                clientSelect.value = matchingOption.value;
+                console.log('Client set via matching option:', matchingOption.value);
+            } else {
+                // Add the client as a new option if not found
+                const newOpt = document.createElement('option');
+                newOpt.value = clientName;
+                newOpt.textContent = clientName;
+                newOpt.dataset.address = clientAddress;
+                clientSelect.appendChild(newOpt);
+                clientSelect.value = clientName;
+                console.log('Client added as new option:', clientName);
+            }
             const event = new Event('change', { bubbles: true });
             clientSelect.dispatchEvent(event);
+        }
+
+        // Store client name as data attribute for fallback
+        if (clientSelect) {
+            clientSelect.dataset.clientNameFallback = clientName;
         }
 
         // Fill client order number
@@ -10780,7 +10809,11 @@ function printReceipt() {
 function previewDeliveryBeforeSave() {
     // Collect delivery data from form
     const clientSelect = document.getElementById('deliveryClient');
-    const clientName = clientSelect?.selectedOptions[0]?.text || '';
+    let clientName = clientSelect?.selectedOptions[0]?.text || '';
+    // Use fallback if no client selected
+    if (!clientName || clientName === (t('selectContact') || '-- Sélectionner --')) {
+        clientName = clientSelect?.dataset?.clientNameFallback || '';
+    }
 
     const deliveryData = {
         client: clientName,

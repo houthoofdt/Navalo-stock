@@ -2232,24 +2232,51 @@ function getDeliveries(limit) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.DELIVERIES);
   const data = sheet.getDataRange().getValues();
-  
+
   const deliveries = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+    // Parse componentItems and customItems from JSON (columns 16 and 17)
+    let componentItems = [];
+    let customItems = [];
+    try {
+      const compStr = data[i][16];
+      if (compStr && typeof compStr === 'string' && compStr.trim() !== '') {
+        componentItems = JSON.parse(compStr);
+      }
+    } catch (e) { componentItems = []; }
+
+    try {
+      const custStr = data[i][17];
+      if (custStr && typeof custStr === 'string' && custStr.trim() !== '') {
+        customItems = JSON.parse(custStr);
+      }
+    } catch (e) { customItems = []; }
+
+    const quantities = {
+      'TX9': data[i][5], 'TX12-3PH': data[i][6],
+      'TX12-1PH': data[i][7], 'TH11': data[i][8]
+    };
+
     deliveries.push({
       id: data[i][0], date: data[i][1], blNumber: data[i][2],
       client: data[i][3], clientAddress: data[i][4],
-      quantities: {
-        'TX9': data[i][5], 'TX12-3PH': data[i][6],
-        'TX12-1PH': data[i][7], 'TH11': data[i][8]
+      quantities: quantities,
+      // Also provide items format for showDeliveryNote compatibility
+      items: {
+        pac: quantities,
+        components: componentItems,
+        custom: customItems
       },
       total: data[i][9], value: data[i][10],
       status: data[i][11], notes: data[i][12],
       linkedOrderId: data[i][13] || '',
       clientOrderNumber: data[i][14] || '',
-      invoiceNumber: data[i][15] || ''
+      invoiceNumber: data[i][15] || '',
+      totalComponents: data[i][18] || 0,
+      totalCustom: data[i][19] || 0
     });
   }
-  
+
   return deliveries.reverse();
 }
 
