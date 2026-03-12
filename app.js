@@ -4609,13 +4609,16 @@ function viewInvoice(invNumber) {
 
     // Generate items HTML with full columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     const curr = inv.currency || 'CZK';
+    let isUnderPacHeader = false;
     let itemsHtml = (inv.items || []).map(item => {
-        // Special formatting for PAC headers
+        // Special formatting for PAC headers (like in repair quote)
         if (item.isPacHeader) {
-
+            isUnderPacHeader = true;
             return `
-        <tr style="background-color: #f0f0f0; font-weight: bold;">
-            <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
+        <tr style="background-color: #dbeafe;">
+            <td colspan="7" style="padding: 10px; border-top: 2px solid #3b82f6; font-weight: bold; font-size: 11px;">
+                ${item.name}
+            </td>
         </tr>
     `;
         }
@@ -4623,9 +4626,11 @@ function viewInvoice(invNumber) {
         const itemSubtotal = item.qty * item.price;
         const itemVat = itemSubtotal * vatRate / 100;
         const itemTotal = itemSubtotal + itemVat;
+        // Add slight indent for items under PAC header
+        const indent = isUnderPacHeader ? 'padding-left: 20px;' : '';
         return `
         <tr>
-            <td>${item.name}</td>
+            <td style="${indent}">${item.name}</td>
             <td class="text-center">${item.qty}</td>
             <td class="text-center">ks</td>
             <td class="text-right">${formatCurrency(item.price)} ${curr}</td>
@@ -11182,12 +11187,24 @@ function previewInvoiceBeforeSave() {
         const nameInput = row.querySelector('.inv-item-name');
         const qtyInput = row.querySelector('.inv-item-qty');
         const priceInput = row.querySelector('.inv-item-price');
+        const isPacHeaderInput = row.querySelector('.is-pac-header');
 
         const name = nameInput?.value;
         const qty = parseFloat(qtyInput?.value) || 0;
         const price = parseFloat(priceInput?.value) || 0;
+        const isPacHeader = isPacHeaderInput?.value === 'true';
 
-        if (name && qty > 0) {
+        if (isPacHeader && name) {
+            // PAC header row
+            invoiceData.items.push({
+                name,
+                qty: 0,
+                unit: '',
+                price: 0,
+                total: 0,
+                isPacHeader: true
+            });
+        } else if (name && qty > 0) {
             invoiceData.items.push({
                 name,
                 qty,
@@ -11223,13 +11240,16 @@ function generateInvoicePreviewHTML(inv) {
     const varSymbol = inv.varSymbol || inv.number.replace(/\D/g, '');
 
     // Generate items HTML with full 7 columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
+    let isUnderPacHeader = false;
     let itemsHtml = (inv.items || []).map(item => {
-        // Special formatting for PAC headers
+        // Special formatting for PAC headers (like in repair quote)
         if (item.isPacHeader) {
-
+            isUnderPacHeader = true;
             return `
-        <tr style="background-color: #f0f0f0; font-weight: bold;">
-            <td colspan="7" style="padding: 8px; border-top: 2px solid #333; border-bottom: 1px solid #999;">${item.name}</td>
+        <tr style="background-color: #dbeafe;">
+            <td colspan="7" style="padding: 10px; border-top: 2px solid #3b82f6; font-weight: bold; font-size: 11px;">
+                ${item.name}
+            </td>
         </tr>
         `;
         }
@@ -11237,9 +11257,11 @@ function generateInvoicePreviewHTML(inv) {
         const itemSubtotal = item.qty * item.price;
         const itemVat = itemSubtotal * vatRate / 100;
         const itemTotal = itemSubtotal + itemVat;
+        // Add slight indent for items under PAC header
+        const indent = isUnderPacHeader ? 'padding-left: 20px;' : '';
         return `
         <tr>
-            <td>${item.name}</td>
+            <td style="${indent}">${item.name}</td>
             <td class="text-center">${item.qty}</td>
             <td class="text-center">ks</td>
             <td class="text-right">${formatCurrency(item.price)} ${curr}</td>
