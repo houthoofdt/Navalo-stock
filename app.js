@@ -1604,6 +1604,17 @@ async function processDelivery() {
 
     console.log('processDelivery - clientName:', clientName, 'clientId:', clientId);
 
+    // Get repair quote data if this delivery is created from a repair quote
+    let repairQuoteData = null;
+    const deliveryForm = document.getElementById('tab-sorties');
+    if (deliveryForm?.dataset?.repairQuoteData) {
+        try {
+            repairQuoteData = JSON.parse(deliveryForm.dataset.repairQuoteData);
+        } catch (e) {
+            console.warn('Could not parse repairQuoteData:', e);
+        }
+    }
+
     const data = {
         client: clientName,
         clientId: clientId,
@@ -1611,7 +1622,8 @@ async function processDelivery() {
         date: document.getElementById('deliveryDate').value,
         linkedOrderId,
         clientOrderNumber: document.getElementById('deliveryClientOrderNum')?.value || '',
-        items // Pass all items: { pac: {}, components: [], custom: [] }
+        items, // Pass all items: { pac: {}, components: [], custom: [] }
+        repairQuoteData // Pass repair quote data if available
     };
 
     try {
@@ -1619,7 +1631,7 @@ async function processDelivery() {
         if (result.success) {
             const totalItems = result.totalPac + result.totalComponents + result.totalCustom;
             showToast(`BL ${result.blNumber} - ${totalItems} articles livrés`, 'success');
-            currentDelivery = { ...data, blNumber: result.blNumber, value: result.totalValue };
+            currentDelivery = { ...data, blNumber: result.blNumber, value: result.totalValue, repairQuoteData };
             showDeliveryNote(currentDelivery);
             clearDeliveryForm();
             await refreshAllData();
@@ -1792,6 +1804,18 @@ function clearDeliveryForm() {
     // Clear component and custom item rows
     document.getElementById('deliveryComponentsContainer').innerHTML = '';
     document.getElementById('deliveryCustomItemsContainer').innerHTML = '';
+
+    // Clear repair quote data
+    const deliveryForm = document.getElementById('tab-sorties');
+    if (deliveryForm) {
+        delete deliveryForm.dataset.repairQuoteData;
+    }
+
+    // Clear client fallback
+    const clientSelect = document.getElementById('deliveryClient');
+    if (clientSelect) {
+        delete clientSelect.dataset.clientNameFallback;
+    }
 
     // Hide order status
     const statusDiv = document.getElementById('deliveryOrderStatus');
@@ -2072,17 +2096,6 @@ async function viewDelivery(id) {
 
 function showDeliveryNote(d) {
     const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
-
-    // Support both old format (quantities) and new format (items)
-    const q = d.items?.pac || d.quantities || {};
-    const components = d.items?.components || [];
-    const customItems = d.items?.custom || [];
-
-    const models = getPacModels();
-    const totalPac = models.reduce((sum, m) => sum + (q[m.id] || 0), 0);
-    const totalComponents = components.reduce((sum, c) => sum + c.qty, 0);
-    const totalCustom = customItems.reduce((sum, c) => sum + c.qty, 0);
-    const total = totalPac + totalComponents + totalCustom;
     const pcs = t('pieces');
 
     // Get linked order info if available
@@ -2091,25 +2104,93 @@ function showDeliveryNote(d) {
         orderInfo = `<p><strong>${t('clientOrderNum')}:</strong> ${d.clientOrderNumber || d.linkedOrderNumber}</p>`;
     }
 
-    // Generate PAC items rows
-    const pacItemsHtml = models.map(m => {
-        const qty = q[m.id] || 0;
-        return qty > 0 ? `<tr><td>${m.fullName}</td><td>${qty}</td><td>${pcs}</td></tr>` : '';
-    }).join('');
+    let itemsHtml = '';
+    let total = 0;
 
-    // Generate component items rows
-    const componentItemsHtml = components.map(c =>
-        `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
-    ).join('');
+    // Check if this is a repair quote delivery
+    if (d.repairQuoteData && d.repairQuoteData.pacs && d.repairQuoteData.pacs.length > 0) {
+        // Display in repair quote format with PAC structure
+        let pacNumber = 1;
+        d.repairQuoteData.pacs.forEach(pac => {
+            const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
 
-    // Generate custom items rows
-    const customItemsHtml = customItems.map(c =>
-        `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
-    ).join('');
+            // PAC header
+            itemsHtml += `
+                <tr style="background: #dbeafe;">
+                    <td colspan="3"><strong>PAC #${pacNumber} - ${pac.model} (S/N: ${pac.serial || 'N/A'}${allianceSerial})</strong></td>
+                </tr>
+            `;
 
-    const itemsHtml = pacItemsHtml + componentItemsHtml + customItemsHtml;
-    
-    // NO FIFO VALUE on BL
+            // Components
+            if (pac.components && pac.components.length > 0) {
+                pac.components.forEach(comp => {
+                    if (comp.qty > 0) {
+                        itemsHtml += `
+                            <tr>
+                                <td style="padding-left: 20px;">${comp.name || comp.ref}</td>
+                                <td style="text-align:center">${comp.qty}</td>
+                                <td>${pcs}</td>
+                            </tr>
+                        `;
+                        total += comp.qty;
+                    }
+                });
+            }
+
+            // Refrigerant (if any)
+            if (pac.services && pac.services.refrigerant > 0) {
+                const refQty = Math.round(pac.services.refrigerant);
+                itemsHtml += `
+                    <tr>
+                        <td style="padding-left: 20px;">Fluide frigorigène R134a</td>
+                        <td style="text-align:center">${refQty}</td>
+                        <td>kg</td>
+                    </tr>
+                `;
+                total += refQty;
+            }
+
+            pacNumber++;
+        });
+
+        // Add quote reference
+        if (d.repairQuoteData.quoteNumber) {
+            orderInfo += `<p><strong>Devis:</strong> ${d.repairQuoteData.quoteNumber}</p>`;
+        }
+        if (d.repairQuoteData.ticketNumber) {
+            orderInfo += `<p><strong>Ticket:</strong> ${d.repairQuoteData.ticketNumber}</p>`;
+        }
+    } else {
+        // Standard delivery format
+        const q = d.items?.pac || d.quantities || {};
+        const components = d.items?.components || [];
+        const customItems = d.items?.custom || [];
+
+        const models = getPacModels();
+        const totalPac = models.reduce((sum, m) => sum + (q[m.id] || 0), 0);
+        const totalComponents = components.reduce((sum, c) => sum + c.qty, 0);
+        const totalCustom = customItems.reduce((sum, c) => sum + c.qty, 0);
+        total = totalPac + totalComponents + totalCustom;
+
+        // Generate PAC items rows
+        const pacItemsHtml = models.map(m => {
+            const qty = q[m.id] || 0;
+            return qty > 0 ? `<tr><td>${m.fullName}</td><td>${qty}</td><td>${pcs}</td></tr>` : '';
+        }).join('');
+
+        // Generate component items rows
+        const componentItemsHtml = components.map(c =>
+            `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
+        ).join('');
+
+        // Generate custom items rows
+        const customItemsHtml = customItems.map(c =>
+            `<tr><td>${c.name}</td><td>${c.qty}</td><td>${pcs}</td></tr>`
+        ).join('');
+
+        itemsHtml = pacItemsHtml + componentItemsHtml + customItemsHtml;
+    }
+
     document.getElementById('deliveryPreview').innerHTML = `
         <div class="delivery-note">
             <div class="dn-header">
@@ -10115,29 +10196,33 @@ async function createDeliveryFromRepairQuote(quoteId) {
             addressField.value = clientAddress;
         }
 
-        // Extract components from PACs and add as delivery custom items
-        const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
-        console.log('🔧 Creating delivery from repair quote:', quote);
-        console.log('🔧 PACs:', quote.pacs);
-        console.log('🔧 Custom items container:', customItemsContainer);
+        // Store repair quote data for the delivery note
+        // This will be saved with the delivery and displayed in the same format as the quote
+        const repairQuoteData = {
+            quoteNumber: quote.quoteNumber,
+            ticketNumber: quote.ticketNumber,
+            pacs: quote.pacs || []
+        };
 
+        // Store in a hidden field or data attribute for later use
+        const deliveryForm = document.getElementById('tab-sorties');
+        if (deliveryForm) {
+            deliveryForm.dataset.repairQuoteData = JSON.stringify(repairQuoteData);
+        }
+
+        // Also add items to custom items container for the total count
+        const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
         if (customItemsContainer) {
             customItemsContainer.innerHTML = ''; // Clear existing items
 
             let itemsAdded = 0;
             if (quote.pacs && Array.isArray(quote.pacs)) {
                 quote.pacs.forEach((pac, pacIndex) => {
-                    console.log(`🔧 PAC ${pacIndex}:`, pac);
-                    console.log(`🔧 PAC ${pacIndex} components:`, pac.components);
-                    console.log(`🔧 PAC ${pacIndex} services:`, pac.services);
-
                     // Add components
                     if (pac.components && Array.isArray(pac.components)) {
                         pac.components.forEach(comp => {
-                            console.log('🔧 Component:', comp);
                             if (comp.qty > 0 && comp.ref) {
                                 const itemName = `${comp.ref} - ${comp.name || comp.ref}`;
-                                console.log(`🔧 Adding component: ${itemName}, qty: ${comp.qty}`);
                                 addDeliveryCustomItemRow(itemName, comp.qty);
                                 itemsAdded++;
                             }
@@ -10146,16 +10231,13 @@ async function createDeliveryFromRepairQuote(quoteId) {
 
                     // Add refrigerant only (not labor or disposal)
                     if (pac.services && pac.services.refrigerant > 0) {
-                        const refQty = Math.round(pac.services.refrigerant); // Round to integer
-                        console.log(`🔧 Adding refrigerant: ${refQty} kg`);
+                        const refQty = Math.round(pac.services.refrigerant);
                         addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
                         itemsAdded++;
                     }
                 });
             }
-            console.log(`🔧 Total items added: ${itemsAdded}`);
-        } else {
-            console.error('❌ deliveryCustomItemsContainer not found!');
+            console.log(`Total items added: ${itemsAdded}`);
         }
 
         // Set notes with PAC info

@@ -1096,7 +1096,7 @@ function processDelivery(data) {
     return { success: false, error: 'No items specified' };
   }
 
-  const { client, clientAddress, notes, date, linkedOrderId, clientOrderNumber } = data;
+  const { client, clientAddress, notes, date, linkedOrderId, clientOrderNumber, repairQuoteData } = data;
   const quantities = items.pac || {};
   const componentItems = items.components || [];
   const customItems = items.custom || [];
@@ -1228,10 +1228,11 @@ function processDelivery(data) {
     quantities['TX12-1PH'] || 0, quantities['TH11'] || 0,
     totalPac, Math.round(totalValue * 100) / 100, 'Créé', notes || '',
     linkedOrderId || '', clientOrderNumber || '', '', // invoiceNumber
-    JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems
-    JSON.stringify(customItems.length > 0 ? customItems : []), // customItems
-    totalComponents,
-    totalCustom
+    JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems col 16
+    JSON.stringify(customItems.length > 0 ? customItems : []), // customItems col 17
+    totalComponents, // col 18
+    totalCustom, // col 19
+    repairQuoteData ? JSON.stringify(repairQuoteData) : '' // repairQuoteData col 20
   ]);
   
   getStockValuation();
@@ -2257,6 +2258,15 @@ function getDeliveries(limit) {
       'TX12-1PH': data[i][7], 'TH11': data[i][8]
     };
 
+    // Parse repairQuoteData from column 20
+    let repairQuoteData = null;
+    try {
+      const rqStr = data[i][20];
+      if (rqStr && typeof rqStr === 'string' && rqStr.trim() !== '') {
+        repairQuoteData = JSON.parse(rqStr);
+      }
+    } catch (e) { repairQuoteData = null; }
+
     deliveries.push({
       id: data[i][0], date: data[i][1], blNumber: data[i][2],
       client: data[i][3], clientAddress: data[i][4],
@@ -2273,7 +2283,8 @@ function getDeliveries(limit) {
       clientOrderNumber: data[i][14] || '',
       invoiceNumber: data[i][15] || '',
       totalComponents: data[i][18] || 0,
-      totalCustom: data[i][19] || 0
+      totalCustom: data[i][19] || 0,
+      repairQuoteData: repairQuoteData
     });
   }
 
