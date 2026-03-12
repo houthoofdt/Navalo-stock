@@ -2328,6 +2328,74 @@ async function updateRecInvInternalNumber() {
     }
 }
 
+// Toggle proforma-specific fields for received invoices
+function toggleRecInvProformaFields() {
+    const isProforma = document.getElementById('recInvIsProforma')?.checked || false;
+    const depositGroup = document.getElementById('recInvDepositPercentGroup');
+    const linkedProformaRow = document.getElementById('recInvLinkedProformaRow');
+
+    if (isProforma) {
+        // Show deposit percent for proforma
+        if (depositGroup) depositGroup.style.display = 'block';
+        // Hide linked proforma (can't link proforma to another proforma)
+        if (linkedProformaRow) linkedProformaRow.style.display = 'none';
+    } else {
+        // Hide deposit percent for regular invoice
+        if (depositGroup) depositGroup.style.display = 'none';
+        // Show linked proforma selector for regular invoice
+        if (linkedProformaRow) linkedProformaRow.style.display = 'flex';
+        // Populate paid proformas
+        populateRecInvPaidProformas();
+    }
+}
+
+// Populate dropdown with paid received proformas for deduction
+function populateRecInvPaidProformas() {
+    const select = document.getElementById('recInvLinkedProforma');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Aucune --</option>';
+
+    const invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
+    const paidProformas = invoices.filter(inv => inv.isProforma && inv.paid);
+
+    paidProformas.forEach(pf => {
+        const depositPercent = pf.depositPercent || 100;
+        const depositAmount = pf.total * (depositPercent / 100);
+        const opt = document.createElement('option');
+        opt.value = pf.id;
+        opt.textContent = `${pf.internalNumber} - ${pf.supplier} - ${formatCurrency(depositAmount)} ${pf.currency}`;
+        opt.dataset.total = depositAmount;
+        opt.dataset.subtotal = pf.subtotal * (depositPercent / 100);
+        opt.dataset.vat = pf.vat * (depositPercent / 100);
+        opt.dataset.currency = pf.currency;
+        opt.dataset.supplier = pf.supplier;
+        select.appendChild(opt);
+    });
+}
+
+// Update proforma deduction amount when selecting a proforma
+function updateRecInvProformaDeduction() {
+    const select = document.getElementById('recInvLinkedProforma');
+    const deductionField = document.getElementById('recInvProformaDeduction');
+    const remainingField = document.getElementById('recInvRemainingAmount');
+    const totalField = document.getElementById('recInvTotal');
+
+    if (!select || !deductionField || !remainingField) return;
+
+    const selectedOption = select.selectedOptions[0];
+    const total = parseFloat(totalField?.value) || 0;
+
+    if (selectedOption && selectedOption.value) {
+        const deduction = parseFloat(selectedOption.dataset.total) || 0;
+        deductionField.value = deduction.toFixed(2);
+        remainingField.value = (total - deduction).toFixed(2);
+    } else {
+        deductionField.value = '';
+        remainingField.value = total.toFixed(2);
+    }
+}
+
 async function getNextReceiptNumber(consume = false) {
     const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
     const year = new Date().getFullYear();
@@ -2390,6 +2458,16 @@ async function openReceivedInvoiceModal() {
     const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 14);
     document.getElementById('recInvDueDate').value = dueDate.toISOString().split('T')[0];
     document.getElementById('recInvVatRate').value = CONFIG?.DEFAULT_VAT_RATE || 21;
+
+    // Initialize proforma fields
+    document.getElementById('recInvDepositPercent').value = 100;
+    document.getElementById('recInvDepositPercentGroup').style.display = 'none';
+    document.getElementById('recInvLinkedProformaRow').style.display = 'flex';
+    populateRecInvPaidProformas();
+    document.getElementById('recInvLinkedProforma').value = '';
+    document.getElementById('recInvProformaDeduction').value = '';
+    document.getElementById('recInvRemainingAmount').value = '';
+
     // Initialize with placeholder (no supplier selected yet)
     populateRecInvPOSelect(null);
     populateRecInvReceiptSelect(null);
@@ -2422,14 +2500,29 @@ function editReceivedInvoice(id) {
     const proformaCheckbox = document.getElementById('recInvIsProforma');
     if (proformaCheckbox) proformaCheckbox.checked = inv.isProforma || false;
 
+    // Handle proforma-specific fields
+    if (inv.isProforma) {
+        document.getElementById('recInvDepositPercent').value = inv.depositPercent || 100;
+        document.getElementById('recInvDepositPercentGroup').style.display = 'block';
+        document.getElementById('recInvLinkedProformaRow').style.display = 'none';
+    } else {
+        document.getElementById('recInvDepositPercentGroup').style.display = 'none';
+        document.getElementById('recInvLinkedProformaRow').style.display = 'flex';
+        populateRecInvPaidProformas();
+        if (inv.linkedProformaId) {
+            document.getElementById('recInvLinkedProforma').value = inv.linkedProformaId;
+            updateRecInvProformaDeduction();
+        }
+    }
+
     // Populate selects filtered by supplier
     populateRecInvPOSelect(inv.supplier || null);
     populateRecInvReceiptSelect(inv.supplier || null);
-    
+
     // Set values after populating
     document.getElementById('recInvLinkedPO').value = inv.linkedPO || '';
     document.getElementById('recInvLinkedReceipt').value = inv.linkedReceipt || '';
-    
+
     document.getElementById('receivedInvoiceModal').classList.add('active');
 }
 
@@ -2583,6 +2676,9 @@ function calculateRecInvVat() {
 
     document.getElementById('recInvVat').value = vat.toFixed(2);
     document.getElementById('recInvTotal').value = total.toFixed(2);
+
+    // Update remaining amount if there's a linked proforma
+    updateRecInvProformaDeduction();
 }
 
 async function saveReceivedInvoice() {
@@ -2619,10 +2715,31 @@ async function saveReceivedInvoice() {
         internalNumber = isProforma ? await getNextReceivedProformaNumber(true) : await getNextReceivedInvoiceNumber(true);
     }
 
+    // Get linked proforma info for regular invoices
+    let linkedProformaData = null;
+    if (!isProforma) {
+        const linkedProformaId = document.getElementById('recInvLinkedProforma')?.value;
+        if (linkedProformaId) {
+            const allInvoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
+            const linkedProforma = allInvoices.find(i => i.id === linkedProformaId);
+            if (linkedProforma) {
+                const depositPercent = linkedProforma.depositPercent || 100;
+                linkedProformaData = {
+                    id: linkedProforma.id,
+                    internalNumber: linkedProforma.internalNumber,
+                    subtotal: linkedProforma.subtotal * (depositPercent / 100),
+                    vat: linkedProforma.vat * (depositPercent / 100),
+                    total: linkedProforma.total * (depositPercent / 100)
+                };
+            }
+        }
+    }
+
     const invoice = {
         id: editingRecInvId || 'RINV-' + Date.now(),
         internalNumber: internalNumber,
         isProforma: isProforma,
+        depositPercent: isProforma ? (parseFloat(document.getElementById('recInvDepositPercent')?.value) || 100) : null,
         number: document.getElementById('recInvNumber').value,
         varSymbol: document.getElementById('recInvVarSymbol').value,
         supplier: document.getElementById('recInvSupplier').value,
@@ -2639,6 +2756,8 @@ async function saveReceivedInvoice() {
         notes: document.getElementById('recInvNotes').value,
         linkedPO: document.getElementById('recInvLinkedPO').value,
         linkedReceipt: document.getElementById('recInvLinkedReceipt').value,
+        linkedProformaId: linkedProformaData?.id || null,
+        linkedProforma: linkedProformaData,
         paid: false, paidDate: null,
         fileName: fileData ? document.getElementById('recInvFileName').textContent : existingFileName,
         fileData: fileData || existingFileData,
@@ -8267,6 +8386,9 @@ window.markRecInvPaid = markRecInvPaid;
 window.deleteRecInv = deleteRecInv;
 window.editReceivedInvoice = editReceivedInvoice;
 window.viewReceivedInvoicePDF = viewReceivedInvoicePDF;
+window.toggleRecInvProformaFields = toggleRecInvProformaFields;
+window.populateRecInvPaidProformas = populateRecInvPaidProformas;
+window.updateRecInvProformaDeduction = updateRecInvProformaDeduction;
 
 // Function to clear local data and resync from Google Sheets
 async function clearLocalAndResync() {

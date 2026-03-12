@@ -1019,9 +1019,29 @@
                     <div class="form-group">
                         <label data-i18n="proforma">Proforma</label>
                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                            <input type="checkbox" id="recInvIsProforma" onchange="updateRecInvInternalNumber()">
+                            <input type="checkbox" id="recInvIsProforma" onchange="updateRecInvInternalNumber(); toggleRecInvProformaFields()">
                             <span data-i18n="proformaInvoice">Facture proforma</span>
                         </label>
+                    </div>
+                    <div class="form-group" id="recInvDepositPercentGroup" style="display: none;">
+                        <label>Acompte %</label>
+                        <input type="number" id="recInvDepositPercent" value="100" min="1" max="100" onchange="calculateRecInvVat()">
+                    </div>
+                </div>
+                <div class="form-row" id="recInvLinkedProformaRow" style="display: none;">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Déduire proforma payée</label>
+                        <select id="recInvLinkedProforma" onchange="updateRecInvProformaDeduction()">
+                            <option value="">-- Aucune --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Montant déduit</label>
+                        <input type="number" id="recInvProformaDeduction" step="0.01" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label>Reste à payer</label>
+                        <input type="number" id="recInvRemainingAmount" step="0.01" readonly class="input-readonly" style="font-weight: bold; color: #dc2626;">
                     </div>
                 </div>
                 <div class="form-row">
