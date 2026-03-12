@@ -9651,6 +9651,23 @@ async function convertRepairQuoteToInvoice(quoteId) {
 
         console.log('Converting repair quote to invoice:', quote);
 
+        // Get client info
+        let clientName = quote.client || '';
+        let clientAddress = quote.address || '';
+        let clientIco = '';
+        let clientDic = '';
+
+        if (quote.clientId) {
+            const contacts = await storage.getContacts();
+            const contact = contacts.find(c => c.id === quote.clientId);
+            if (contact) {
+                clientName = contact.name || clientName;
+                clientAddress = contact.address || clientAddress;
+                clientIco = contact.ico || '';
+                clientDic = contact.dic || '';
+            }
+        }
+
         // Extract components for stock deduction
         const componentsForDeduction = [];
         if (quote.pacs && Array.isArray(quote.pacs)) {
@@ -9673,10 +9690,10 @@ async function convertRepairQuoteToInvoice(quoteId) {
         window.currentRepairQuoteForStockDeduction = {
             quoteId: quote.id,
             quoteNumber: quote.quoteNumber,
-            client: quote.clientName || quote.clientId || 'Client',
+            client: clientName || quote.clientId || 'Client',
             components: componentsForDeduction
         };
-        console.log('🔧 Stored repair quote components for stock deduction:', window.currentRepairQuoteForStockDeduction);
+        console.log('Stored repair quote components for stock deduction:', window.currentRepairQuoteForStockDeduction);
 
         // Close preview modal
         closeRepairQuotePreviewModal();
@@ -9684,13 +9701,38 @@ async function convertRepairQuoteToInvoice(quoteId) {
         // Open invoice modal
         await openFreeInvoiceModal();
 
-        // Populate client
+        // Set variable symbol to client order number if available
+        const varSymbolField = document.getElementById('invVarSymbol');
+        if (varSymbolField && quote.clientOrderNumber) {
+            varSymbolField.value = quote.clientOrderNumber;
+        }
+
+        // Populate client - invoice select uses client ID as value
         const clientSelect = document.getElementById('invClient');
         if (clientSelect && quote.clientId) {
-            clientSelect.value = quote.clientId;
+            // Find option by client ID
+            const options = Array.from(clientSelect.options);
+            const matchingOption = options.find(opt => opt.value === quote.clientId);
+            if (matchingOption) {
+                clientSelect.value = quote.clientId;
+                console.log('Client set via ID:', quote.clientId);
+            } else {
+                console.warn('Client ID not found in options:', quote.clientId);
+            }
             // Trigger change event to load address
             const event = new Event('change', { bubbles: true });
             clientSelect.dispatchEvent(event);
+        }
+
+        // Also set client info fields directly as fallback
+        if (clientAddress) {
+            document.getElementById('invClientAddress').value = clientAddress;
+        }
+        if (clientIco) {
+            document.getElementById('invClientIco').value = clientIco;
+        }
+        if (clientDic) {
+            document.getElementById('invClientDic').value = clientDic;
         }
 
         // Clear default items
@@ -9699,18 +9741,25 @@ async function convertRepairQuoteToInvoice(quoteId) {
         // Build PAC info for notes
         const pacInfoLines = [];
 
+        console.log('Quote PACs for invoice:', quote.pacs);
+
         // Add items from repair quote
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach((pac, index) => {
+                console.log(`PAC ${index + 1}:`, pac);
+
                 // Store PAC info for notes (NOT as an invoice line item)
                 const pacInfo = `PAC ${index + 1}: ${pac.model} - S/N ${pac.serial || 'N/A'}${pac.serialAlliance ? ` (Alliance: ${pac.serialAlliance})` : ''}`;
                 pacInfoLines.push(pacInfo);
 
-                // Add components (without bullet points since they're the only items now)
+                // Add components - use total if priceUnit is not set
                 if (pac.components && Array.isArray(pac.components)) {
                     pac.components.forEach(comp => {
-                        if (comp.qty > 0 && comp.priceUnit > 0) {
-                            addInvoiceItemRow(comp.name || comp.ref, comp.qty, comp.priceUnit);
+                        console.log('Component:', comp);
+                        const qty = parseFloat(comp.qty) || 0;
+                        const price = parseFloat(comp.priceUnit) || parseFloat(comp.price) || (comp.total ? comp.total / qty : 0);
+                        if (qty > 0) {
+                            addInvoiceItemRow(comp.name || comp.ref, qty, price);
                         }
                     });
                 }
@@ -9718,6 +9767,7 @@ async function convertRepairQuoteToInvoice(quoteId) {
                 // Add services
                 const serviceRates = getServiceRates();
                 if (pac.services) {
+                    console.log('Services:', pac.services);
                     if (pac.services.labor > 0) {
                         addInvoiceItemRow(`Main d'œuvre`, pac.services.labor, serviceRates.labor.price);
                     }
@@ -9729,6 +9779,14 @@ async function convertRepairQuoteToInvoice(quoteId) {
                     }
                 }
             });
+        } else {
+            console.warn('No PACs found in quote or pacs is not an array');
+        }
+
+        // If no items were added, add at least one empty row
+        if (document.getElementById('invItems').children.length === 0) {
+            console.warn('No invoice items were added, adding default empty row');
+            addInvoiceItemRow();
         }
 
         // Set currency to EUR (repair quotes are in EUR)
