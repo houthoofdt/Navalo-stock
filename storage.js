@@ -272,10 +272,23 @@ class StorageAdapter {
     // API HELPERS
     // ========================================
 
-    async apiGet(action, params = {}) {
+    async apiGet(action, params = {}, forceRefresh = false) {
         // Mode local : lire localement uniquement
         if (this.mode === 'local') {
             return this.localGet(action, params);
+        }
+
+        // Force refresh: bypass local cache and fetch from Google Sheets
+        if (forceRefresh && this.mode === 'googlesheets') {
+            console.log('🔄 Force refresh from Google Sheets:', action);
+            try {
+                const remoteData = await this.fetchFromGoogleSheets(action, params);
+                this.cacheDataLocally(action, remoteData);
+                return remoteData;
+            } catch (error) {
+                console.error('Force refresh failed:', error);
+                return this.localGet(action, params);
+            }
         }
 
         // Mode hybride : lire localement (rapide) + fetch Google Sheets si vide
@@ -314,6 +327,15 @@ class StorageAdapter {
 
         // Mode Google Sheets pur : appel API direct (lent)
         return await this.fetchFromGoogleSheets(action, params);
+    }
+
+    // Force refresh stock from Google Sheets
+    async forceRefreshStock() {
+        console.log('🔄 Forcing stock refresh from Google Sheets...');
+        localStorage.removeItem('navalo_stock');
+        const stockData = await this.apiGet('getStockWithValue', {}, true);
+        console.log('✅ Stock refreshed:', Object.keys(stockData.components || {}).length, 'components');
+        return stockData;
     }
 
     async fetchFromGoogleSheets(action, params = {}) {

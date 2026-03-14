@@ -8549,6 +8549,32 @@ async function clearLocalAndResync() {
 
 window.clearLocalAndResync = clearLocalAndResync;
 
+// Force refresh stock from Google Sheets (bypasses local cache)
+async function forceRefreshStock() {
+    console.log('🔄 Force refreshing stock from Google Sheets...');
+    showToast('Rafraîchissement du stock...', 'info');
+
+    try {
+        const stockData = await storage.forceRefreshStock();
+        if (stockData && stockData.components) {
+            currentStock = stockData.components;
+            updateStockDisplay();
+
+            const totalValue = stockData.totalValue || 0;
+            document.getElementById('totalStockValue').textContent = `${t('stockValue')}: ${formatCurrency(totalValue)} CZK`;
+            document.getElementById('stockValueDisplay').textContent = formatCurrency(totalValue);
+
+            showToast('Stock mis à jour depuis Google Sheets', 'success');
+            console.log('✅ Stock refreshed:', Object.keys(currentStock).length, 'components');
+        }
+    } catch (e) {
+        console.error('Force refresh failed:', e);
+        showToast('Erreur: ' + e.message, 'error');
+    }
+}
+
+window.forceRefreshStock = forceRefreshStock;
+
 // ========================================
 // STOCK ADJUSTMENTS
 // ========================================
