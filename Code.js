@@ -813,26 +813,30 @@ function getStockLots(ref) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
   const data = lotsSheet.getDataRange().getValues();
-  
+
+  const refStr = String(ref).trim();
   const lots = [];
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === ref && data[i][5] > 0) {
+    const lotRef = String(data[i][1] || '').trim();
+    const qtyRemaining = Number(data[i][5]) || 0;
+
+    if (lotRef === refStr && qtyRemaining > 0) {
       lots.push({
         id: data[i][0],
-        ref: data[i][1],
+        ref: lotRef,
         date: data[i][2],
         bonNum: data[i][3],
-        qtyInit: data[i][4],
-        qtyRemaining: data[i][5],
-        priceUnit: data[i][6],
+        qtyInit: Number(data[i][4]) || 0,
+        qtyRemaining: qtyRemaining,
+        priceUnit: Number(data[i][6]) || 0,
         currency: data[i][7],
-        priceCZK: data[i][8],
+        priceCZK: Number(data[i][8]) || 0,
         supplier: data[i][9],
         rowIndex: i + 1
       });
     }
   }
-  
+
   lots.sort((a, b) => new Date(a.date) - new Date(b.date));
   return lots;
 }
@@ -999,17 +1003,27 @@ function processReceipt(data) {
     
     let found = false;
     for (let i = 1; i < stockData.length; i++) {
-      if (stockData[i][0] === item.ref) {
-        const newQty = stockData[i][4] + item.qty;
+      // Compare refs as strings (trim whitespace)
+      const stockRef = String(stockData[i][0] || '').trim();
+      const itemRef = String(item.ref || '').trim();
+
+      if (stockRef === itemRef) {
+        // Force numeric conversion to avoid string concatenation
+        const currentQty = Number(stockData[i][4]) || 0;
+        const addQty = Number(item.qty) || 0;
+        const newQty = currentQty + addQty;
+
+        Logger.log('processReceipt: Updating stock for ' + itemRef + ': ' + currentQty + ' + ' + addQty + ' = ' + newQty);
+
         stockSheet.getRange(i + 1, 5).setValue(newQty);
         stockSheet.getRange(i + 1, 8).setValue(new Date());
-        
+
         historySheet.appendRow([
           receiptDate, 'ENTRÉE', receiptNumber, item.ref, stockData[i][1],
           item.qty, priceCZK, item.qty * priceCZK, supplier
         ]);
-        
-        results.push({ ref: item.ref, newQty, lotId });
+
+        results.push({ ref: item.ref, oldQty: currentQty, newQty, lotId });
         found = true;
         break;
       }
@@ -1120,11 +1134,12 @@ function processDelivery(data) {
   
   const errors = [];
   for (let i = 1; i < stockData.length; i++) {
-    const ref = stockData[i][0];
+    const ref = String(stockData[i][0] || '').trim();
     if (required[ref]) {
-      required[ref].available = stockData[i][4];
+      // Force numeric conversion
+      required[ref].available = Number(stockData[i][4]) || 0;
       required[ref].rowIndex = i + 1;
-      
+
       if (required[ref].available < required[ref].qty) {
         errors.push({
           ref, name: required[ref].name,
@@ -1171,41 +1186,48 @@ function processDelivery(data) {
     const { ref, name, qty } = item;
     if (!ref || qty <= 0) return;
 
+    const itemRef = String(ref).trim();
+    const itemQty = Number(qty) || 0;
+
     // Find component in stock
     let componentRowIndex = -1;
     let currentQty = 0;
     for (let i = 1; i < stockData.length; i++) {
-      if (stockData[i][0] === ref) {
+      const stockRef = String(stockData[i][0] || '').trim();
+      if (stockRef === itemRef) {
         componentRowIndex = i + 1;
-        currentQty = stockData[i][4];
+        currentQty = Number(stockData[i][4]) || 0;
         break;
       }
     }
 
-    if (componentRowIndex === -1 || currentQty < qty) {
+    if (componentRowIndex === -1 || currentQty < itemQty) {
+      Logger.log('processDelivery: Skipping component ' + itemRef + ' - not found or insufficient stock (current: ' + currentQty + ', needed: ' + itemQty + ')');
       return; // Skip if not found or insufficient stock
     }
 
     // Deduct from stock using FIFO
-    let qtyToDeduct = qty;
-    const lots = getStockLots(ref);
+    let qtyToDeduct = itemQty;
+    const lots = getStockLots(itemRef);
     let deductedValue = 0;
 
     for (const lot of lots) {
       if (qtyToDeduct <= 0) break;
 
-      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
-      const newRemaining = lot.qtyRemaining - deductFromLot;
+      const lotRemaining = Number(lot.qtyRemaining) || 0;
+      const deductFromLot = Math.min(qtyToDeduct, lotRemaining);
+      const newRemaining = lotRemaining - deductFromLot;
 
       lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
-      deductedValue += deductFromLot * lot.priceCZK;
+      deductedValue += deductFromLot * (Number(lot.priceCZK) || 0);
       qtyToDeduct -= deductFromLot;
     }
 
     totalValue += deductedValue;
 
     // Update stock quantity
-    const newQty = currentQty - qty;
+    const newQty = currentQty - itemQty;
+    Logger.log('processDelivery: Component ' + itemRef + ': ' + currentQty + ' - ' + itemQty + ' = ' + newQty);
     stockSheet.getRange(componentRowIndex, 5).setValue(newQty);
     stockSheet.getRange(componentRowIndex, 8).setValue(new Date());
 
@@ -1226,13 +1248,14 @@ function processDelivery(data) {
     deliveryId, date || new Date(), blNumber, client, clientAddress,
     quantities['TX9'] || 0, quantities['TX12-3PH'] || 0,
     quantities['TX12-1PH'] || 0, quantities['TH11'] || 0,
+    quantities['TIZ_TH11'] || 0, // TIZ_TH11 was missing!
     totalPac, Math.round(totalValue * 100) / 100, 'Créé', notes || '',
-    linkedOrderId || '', clientOrderNumber || '', '', // invoiceNumber
-    JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems col 16
-    JSON.stringify(customItems.length > 0 ? customItems : []), // customItems col 17
-    totalComponents, // col 18
-    totalCustom, // col 19
-    repairQuoteData ? JSON.stringify(repairQuoteData) : '' // repairQuoteData col 20
+    linkedOrderId || '', clientOrderNumber || '',
+    JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems
+    JSON.stringify(customItems.length > 0 ? customItems : []), // customItems
+    totalComponents,
+    totalCustom,
+    repairQuoteData ? JSON.stringify(repairQuoteData) : '' // repairQuoteData
   ]);
   
   getStockValuation();
@@ -1273,34 +1296,39 @@ function deductStockForComponents(components, docNumber, client, date) {
     const { ref, name, qty } = item;
     if (!ref || qty <= 0) return;
 
+    const refStr = String(ref).trim();
+    const itemQty = Number(qty) || 0;
+
     // Find component in stock
     let componentRowIndex = -1;
     let currentQty = 0;
     for (let i = 1; i < stockData.length; i++) {
-      if (stockData[i][0] === ref) {
+      const stockRef = String(stockData[i][0] || '').trim();
+      if (stockRef === refStr) {
         componentRowIndex = i + 1;
-        currentQty = stockData[i][4];
+        currentQty = Number(stockData[i][4]) || 0;
         break;
       }
     }
 
     if (componentRowIndex === -1) {
-      errors.push({ ref, name: name || ref, error: 'Composant non trouvé en stock' });
+      Logger.log('deductStockForComponents: Component not found - ref: "' + refStr + '"');
+      errors.push({ ref: refStr, name: name || refStr, error: 'Composant non trouvé en stock' });
       return;
     }
 
-    if (currentQty < qty) {
+    if (currentQty < itemQty) {
       errors.push({
-        ref,
-        name: name || ref,
-        error: `Stock insuffisant (disponible: ${currentQty}, requis: ${qty})`
+        ref: refStr,
+        name: name || refStr,
+        error: `Stock insuffisant (disponible: ${currentQty}, requis: ${itemQty})`
       });
       return;
     }
 
     // Deduct from stock using FIFO
-    let qtyToDeduct = qty;
-    const lots = getStockLots(ref);
+    let qtyToDeduct = itemQty;
+    const lots = getStockLots(refStr);
     let deductedValue = 0;
 
     for (const lot of lots) {
@@ -1837,8 +1865,8 @@ function createReceivedInvoice(data) {
     return { success: false, error: 'Sheet Factures_Recues not found. Run initializeSpreadsheet() first.' };
   }
   
-  const { id, internalNumber, number, supplier, subtotal, vat, total, currency, date, dueDate, taxDate, linkedReceipt, notes } = data;
-  
+  const { id, internalNumber, number, supplier, subtotal, vat, total, currency, date, dueDate, taxDate, linkedReceipt, notes, isProforma, depositPercent, linkedProformaId, linkedProformaData } = data;
+
   // Check if invoice with this ID already exists
   const existingData = recInvSheet.getDataRange().getValues();
   for (let i = 1; i < existingData.length; i++) {
@@ -1855,29 +1883,36 @@ function createReceivedInvoice(data) {
       recInvSheet.getRange(i + 1, 11).setValue(currency || 'CZK');
       recInvSheet.getRange(i + 1, 14).setValue(linkedReceipt || '');
       recInvSheet.getRange(i + 1, 15).setValue(notes || '');
-      
+      // Update proforma fields (columns 18-21)
+      recInvSheet.getRange(i + 1, 18).setValue(isProforma || false);
+      recInvSheet.getRange(i + 1, 19).setValue(depositPercent || 100);
+      recInvSheet.getRange(i + 1, 20).setValue(linkedProformaId || '');
+      recInvSheet.getRange(i + 1, 21).setValue(linkedProformaData ? JSON.stringify(linkedProformaData) : '');
+
       Logger.log('Updated existing received invoice: ' + id + ' / ' + internalNumber);
       return { success: true, invId: existingData[i][0], internalNumber: existingData[i][1], updated: true };
     }
   }
-  
+
   // Use provided ID and internalNumber - DO NOT generate new ones
   const invId = id;
   const invNumber = internalNumber;
-  
+
   if (!invId || !invNumber) {
     return { success: false, error: 'ID and internalNumber are required' };
   }
-  
+
   recInvSheet.appendRow([
     invId, invNumber, number || '', date || new Date(),
     dueDate || '', taxDate || '', supplier || '',
     subtotal || 0, vat || 0, total || 0,
-    currency || 'CZK', false, '', linkedReceipt || '', notes || ''
+    currency || 'CZK', false, '', linkedReceipt || '', notes || '',
+    '', '',  // columns 16-17: driveFileId, driveFileUrl
+    isProforma || false, depositPercent || 100, linkedProformaId || '', linkedProformaData ? JSON.stringify(linkedProformaData) : ''  // columns 18-21
   ]);
-  
+
   Logger.log('Created received invoice: ' + invId + ' / ' + invNumber);
-  
+
   return { success: true, invId, internalNumber: invNumber, created: true };
 }
 
@@ -1885,19 +1920,28 @@ function getReceivedInvoices(limit) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_INVOICES);
   const data = sheet.getDataRange().getValues();
-  
+
   const invoices = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
- invoices.push({                                                                                                                                                               
-        id: data[i][0], internalNumber: data[i][1], number: data[i][2],                                                                                                             
-        date: data[i][3], dueDate: data[i][4], taxDate: data[i][5],                                                                                                                 
-        supplier: data[i][6], subtotal: data[i][7], vat: data[i][8],                                                                                                                
-        total: data[i][9], currency: data[i][10], paid: data[i][11],                                                                                                                
-        paidDate: data[i][12], linkedReceipt: data[i][13], notes: data[i][14],                                                                                                      
-        driveFileId: data[i][15] || '', driveFileUrl: data[i][16] || ''                                                                                                             
-      });  
+    let linkedProformaData = null;
+    try {
+      if (data[i][20]) linkedProformaData = JSON.parse(data[i][20]);
+    } catch (e) {}
+
+    invoices.push({
+      id: data[i][0], internalNumber: data[i][1], number: data[i][2],
+      date: data[i][3], dueDate: data[i][4], taxDate: data[i][5],
+      supplier: data[i][6], subtotal: data[i][7], vat: data[i][8],
+      total: data[i][9], currency: data[i][10], paid: data[i][11],
+      paidDate: data[i][12], linkedReceipt: data[i][13], notes: data[i][14],
+      driveFileId: data[i][15] || '', driveFileUrl: data[i][16] || '',
+      isProforma: data[i][17] === true || data[i][17] === 'true' || data[i][17] === 'TRUE',
+      depositPercent: data[i][18] || 100,
+      linkedProformaId: data[i][19] || '',
+      linkedProformaData: linkedProformaData
+    });
   }
-  
+
   return invoices.reverse();
 }
 
@@ -3201,21 +3245,25 @@ function processAdjustment(data) {
   let currentQty = 0;
   let componentName = '';
 
+  const refStr = String(ref).trim();
+
   // Find component in stock
   for (let i = 1; i < stockData.length; i++) {
-    if (stockData[i][0] === ref) {
+    const stockRef = String(stockData[i][0] || '').trim();
+    if (stockRef === refStr) {
       stockRowIndex = i + 1;
-      currentQty = stockData[i][4];
+      currentQty = Number(stockData[i][4]) || 0;
       componentName = stockData[i][1];
       break;
     }
   }
 
   if (stockRowIndex === -1) {
-    return { success: false, error: 'Composant non trouvé dans le stock' };
+    Logger.log('processAdjustment: Component not found - ref: "' + refStr + '"');
+    return { success: false, error: 'Composant non trouvé dans le stock: ' + refStr };
   }
 
-  const qtyChange = newQty - currentQty;
+  const qtyChange = Number(newQty) - currentQty;
 
   if (qtyChange === 0) {
     return { success: false, error: 'Aucun changement de quantité' };

@@ -1653,7 +1653,7 @@ async function processDelivery() {
 // DELIVERY - FLEXIBLE ITEMS (Components + Custom)
 // ========================================
 
-function addDeliveryComponentRow(ref = '', qty = '') {
+function addDeliveryComponentRow(ref = '', qty = '', componentName = '') {
     const container = document.getElementById('deliveryComponentsContainer');
     const row = document.createElement('div');
     row.className = 'item-row';
@@ -1665,6 +1665,9 @@ function addDeliveryComponentRow(ref = '', qty = '') {
     select.style.flex = '2';
     select.innerHTML = `<option value="">Sélectionner un composant...</option>`;
 
+    // Check if ref exists in current stock
+    let refFoundInStock = false;
+
     // Populate with current stock
     Object.entries(currentStock || {}).forEach(([compRef, data]) => {
         const opt = document.createElement('option');
@@ -1672,7 +1675,20 @@ function addDeliveryComponentRow(ref = '', qty = '') {
         opt.textContent = `${data.name || compRef} (Stock: ${data.qty || 0})`;
         opt.dataset.available = data.qty || 0;
         select.appendChild(opt);
+        if (compRef === ref) {
+            refFoundInStock = true;
+        }
     });
+
+    // If ref is provided but not found in stock, add it as an option anyway
+    if (ref && !refFoundInStock) {
+        const opt = document.createElement('option');
+        opt.value = ref;
+        opt.textContent = `${componentName || ref} (non trouvé en stock)`;
+        opt.dataset.available = 0;
+        select.appendChild(opt);
+        console.warn(`Component ${ref} not found in currentStock, added manually`);
+    }
 
     if (ref) select.value = ref;
 
@@ -2350,18 +2366,74 @@ function toggleRecInvProformaFields() {
 }
 
 // Populate dropdown with received proformas for deduction
-function populateRecInvPaidProformas() {
+async function populateRecInvPaidProformas() {
+    console.log('🔍 populateRecInvPaidProformas() called');
     const select = document.getElementById('recInvLinkedProforma');
-    if (!select) return;
+    if (!select) {
+        console.log('❌ recInvLinkedProforma select not found!');
+        return;
+    }
+    console.log('✓ Select element found');
+
+    select.innerHTML = '<option value="">Chargement...</option>';
+
+    // Get invoices from both localStorage and Google Sheets
+    let invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
+
+    // Also try to get from storage (Google Sheets if connected)
+    try {
+        const remoteInvoices = await storage.getReceivedInvoices(200);
+        console.log('DEBUG - Remote invoices from Google Sheets:', remoteInvoices?.length || 0);
+        if (Array.isArray(remoteInvoices) && remoteInvoices.length > 0) {
+            // Merge: combine local and remote, prioritizing local for proforma fields
+            const localMap = new Map(invoices.map(i => [i.id, i]));
+            const merged = remoteInvoices.map(remote => {
+                const local = localMap.get(remote.id);
+                if (local) {
+                    // If local has isProforma but remote doesn't, keep local value
+                    return {
+                        ...remote,
+                        isProforma: local.isProforma !== undefined ? local.isProforma : remote.isProforma,
+                        depositPercent: local.depositPercent !== undefined ? local.depositPercent : remote.depositPercent
+                    };
+                }
+                return remote;
+            });
+            // Add local-only invoices
+            const remoteIds = new Set(remoteInvoices.map(i => i.id));
+            const localOnly = invoices.filter(i => !remoteIds.has(i.id));
+            invoices = [...merged, ...localOnly];
+        }
+    } catch (e) {
+        console.warn('Could not fetch remote invoices:', e);
+    }
+
+    console.log('All received invoices for proforma selector:', invoices.length);
+    console.log('DEBUG - All invoices isProforma values:', invoices.map(inv => ({
+        id: inv.id,
+        num: inv.internalNumber,
+        isProforma: inv.isProforma,
+        typeOfIsProforma: typeof inv.isProforma
+    })));
 
     select.innerHTML = '<option value="">-- Aucune --</option>';
 
-    const invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
-    console.log('All received invoices:', invoices);
-
     // Show all proformas, with paid ones first
-    const proformas = invoices.filter(inv => inv.isProforma);
-    console.log('Proformas found:', proformas);
+    const proformas = invoices.filter(inv => {
+        const isP = inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE';
+        console.log(`Checking ${inv.internalNumber}: isProforma=${inv.isProforma} (${typeof inv.isProforma}) => ${isP}`);
+        return isP;
+    });
+    console.log('Proformas found:', proformas.length, proformas.map(p => ({num: p.internalNumber, isProforma: p.isProforma, paid: p.paid})));
+
+    if (proformas.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '-- Aucune proforma trouvée --';
+        opt.disabled = true;
+        select.appendChild(opt);
+        return;
+    }
 
     // Sort: paid first, then by date
     proformas.sort((a, b) => {
@@ -2372,15 +2444,15 @@ function populateRecInvPaidProformas() {
 
     proformas.forEach(pf => {
         const depositPercent = pf.depositPercent || 100;
-        const depositAmount = pf.total * (depositPercent / 100);
+        const depositAmount = (pf.total || 0) * (depositPercent / 100);
         const opt = document.createElement('option');
         opt.value = pf.id;
         const paidStatus = pf.paid ? '✓ PAYÉ' : '⏳ Non payé';
-        opt.textContent = `${pf.internalNumber} - ${pf.supplier} - ${formatCurrency(depositAmount)} ${pf.currency} [${paidStatus}]`;
+        opt.textContent = `${pf.internalNumber || pf.number} - ${pf.supplier} - ${formatCurrency(depositAmount)} ${pf.currency || 'CZK'} [${paidStatus}]`;
         opt.dataset.total = depositAmount;
-        opt.dataset.subtotal = pf.subtotal * (depositPercent / 100);
-        opt.dataset.vat = pf.vat * (depositPercent / 100);
-        opt.dataset.currency = pf.currency;
+        opt.dataset.subtotal = (pf.subtotal || 0) * (depositPercent / 100);
+        opt.dataset.vat = (pf.vat || 0) * (depositPercent / 100);
+        opt.dataset.currency = pf.currency || 'CZK';
         opt.dataset.supplier = pf.supplier;
         opt.dataset.paid = pf.paid ? 'true' : 'false';
         // Disable non-paid proformas (can't deduct what wasn't paid)
@@ -2463,6 +2535,7 @@ async function getNextReceiptNumber(consume = false) {
 }
 
 async function openReceivedInvoiceModal() {
+    console.log('📋 openReceivedInvoiceModal() called');
     editingRecInvId = null;
     document.getElementById('recInvModalTitle').textContent = t('newReceivedInv');
     document.getElementById('receivedInvoiceForm').reset();
@@ -2481,7 +2554,11 @@ async function openReceivedInvoiceModal() {
     document.getElementById('recInvDepositPercent').value = 100;
     document.getElementById('recInvDepositPercentGroup').style.display = 'none';
     document.getElementById('recInvLinkedProformaRow').style.display = 'flex';
-    populateRecInvPaidProformas();
+    try {
+        await populateRecInvPaidProformas();
+    } catch (e) {
+        console.error('❌ Error populating proformas:', e);
+    }
     document.getElementById('recInvLinkedProforma').value = '';
     document.getElementById('recInvProformaDeduction').value = '';
     document.getElementById('recInvRemainingAmount').value = '';
@@ -2783,7 +2860,9 @@ async function saveReceivedInvoice() {
         createdAt: new Date().toISOString(),
         ...existingDriveInfo
     };
-    
+
+    console.log('DEBUG - Saving invoice with isProforma:', invoice.isProforma, 'depositPercent:', invoice.depositPercent);
+
     if (editingRecInvId) {
         const index = invoices.findIndex(i => i.id === editingRecInvId);
         if (index >= 0) {
@@ -2815,7 +2894,11 @@ async function saveReceivedInvoice() {
                 total: invoice.total,
                 currency: invoice.currency,
                 linkedReceipt: invoice.linkedReceipt,
-                notes: invoice.notes
+                notes: invoice.notes,
+                isProforma: invoice.isProforma,
+                depositPercent: invoice.depositPercent,
+                linkedProformaId: invoice.linkedProformaId,
+                linkedProformaData: invoice.linkedProforma
             });
             console.log('✅ Google Sheets sync result:', result);
             
@@ -4261,14 +4344,35 @@ async function cancelPO(poId) {
 async function markPOReceived(poId) {
     const pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
     const po = pos.find(p => p.id === poId);
-    if (!po) return;
-    
-    if (confirm(`${po.poNumber} - ${t('markReceived')}?`)) {
+    if (!po) {
+        console.error('PO not found:', poId);
+        return;
+    }
+
+    console.log('📦 markPOReceived - PO:', po.poNumber);
+    console.log('📦 PO items:', po.items);
+
+    if (!po.items || po.items.length === 0) {
+        showToast('Erreur: La commande n\'a pas d\'articles', 'error');
+        return;
+    }
+
+    if (confirm(`${po.poNumber} - ${t('markReceived')}?\n\nCela va ajouter ${po.items.length} article(s) au stock.`)) {
         try {
+            console.log('📦 Calling processReceipt with:', {
+                bonNum: po.poNumber,
+                items: po.items,
+                supplier: po.supplier,
+                currency: po.currency
+            });
+
             const result = await storage.processReceipt({
                 bonNum: po.poNumber, items: po.items, supplier: po.supplier,
                 date: new Date().toISOString(), currency: po.currency, linkedPO: poId
             });
+
+            console.log('📦 processReceipt result:', result);
+
             if (result.success) {
                 // Update localStorage
                 const index = pos.findIndex(p => p.id === poId);
@@ -4276,15 +4380,23 @@ async function markPOReceived(poId) {
                     pos[index].status = 'Reçu';
                     localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
                 }
-                
+
                 // Sync to Google Sheets
                 if (storage.getMode() === 'googlesheets') {
                     await storage.updatePurchaseOrder({ poId, status: 'Reçu' });
                 }
-                showToast(`${po.poNumber} ${t('saved')}`, 'success');
+
+                const totalQty = po.items.reduce((sum, item) => sum + (item.qty || 0), 0);
+                showToast(`${po.poNumber} reçu - ${totalQty} articles ajoutés au stock`, 'success');
                 await refreshAllData();
+            } else {
+                console.error('processReceipt failed:', result);
+                showToast('Erreur: ' + (result.error || 'Échec de la réception'), 'error');
             }
-        } catch (e) { showToast(t('error'), 'error'); }
+        } catch (e) {
+            console.error('markPOReceived error:', e);
+            showToast(t('error') + ': ' + e.message, 'error');
+        }
     }
 }
 
@@ -10340,6 +10452,23 @@ async function sendRepairQuoteByEmail() {
     }
 }
 
+// Helper function to find refrigerant component reference in stock
+function findRefrigerantRef() {
+    if (!currentStock) return null;
+    // Common refrigerant references
+    const refrigerantKeywords = ['r134a', 'r410a', 'r32', 'refrigerant', 'frigorigene', 'fluide'];
+    for (const [ref, data] of Object.entries(currentStock)) {
+        const refLower = ref.toLowerCase();
+        const nameLower = (data.name || '').toLowerCase();
+        for (const keyword of refrigerantKeywords) {
+            if (refLower.includes(keyword) || nameLower.includes(keyword)) {
+                return ref;
+            }
+        }
+    }
+    return null;
+}
+
 // Create delivery note from repair quote
 async function createDeliveryFromRepairQuote(quoteId) {
     try {
@@ -10436,35 +10565,62 @@ async function createDeliveryFromRepairQuote(quoteId) {
             deliveryForm.dataset.repairQuoteData = JSON.stringify(repairQuoteData);
         }
 
-        // Also add items to custom items container for the total count
-        const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
-        if (customItemsContainer) {
-            customItemsContainer.innerHTML = ''; // Clear existing items
-
-            let itemsAdded = 0;
-            if (quote.pacs && Array.isArray(quote.pacs)) {
-                quote.pacs.forEach((pac, pacIndex) => {
-                    // Add components
-                    if (pac.components && Array.isArray(pac.components)) {
-                        pac.components.forEach(comp => {
-                            if (comp.qty > 0 && comp.ref) {
-                                const itemName = `${comp.ref} - ${comp.name || comp.ref}`;
-                                addDeliveryCustomItemRow(itemName, comp.qty);
-                                itemsAdded++;
-                            }
-                        });
-                    }
-
-                    // Add refrigerant only (not labor or disposal)
-                    if (pac.services && pac.services.refrigerant > 0) {
-                        const refQty = Math.round(pac.services.refrigerant);
-                        addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
-                        itemsAdded++;
-                    }
-                });
+        // Ensure stock is loaded before adding components
+        if (!currentStock || Object.keys(currentStock).length === 0) {
+            console.log('Loading stock data before adding components...');
+            try {
+                const stockData = await storage.getStockWithValue();
+                if (stockData && stockData.components) {
+                    currentStock = stockData.components;
+                }
+            } catch (e) {
+                console.warn('Could not load stock:', e);
             }
-            console.log(`Total items added: ${itemsAdded}`);
         }
+
+        // Add components to the components container (for stock deduction)
+        const componentsContainer = document.getElementById('deliveryComponentsContainer');
+        const customItemsContainer = document.getElementById('deliveryCustomItemsContainer');
+
+        if (componentsContainer) {
+            componentsContainer.innerHTML = ''; // Clear existing component items
+        }
+        if (customItemsContainer) {
+            customItemsContainer.innerHTML = ''; // Clear existing custom items
+        }
+
+        let componentsAdded = 0;
+        let customItemsAdded = 0;
+
+        if (quote.pacs && Array.isArray(quote.pacs)) {
+            quote.pacs.forEach((pac, pacIndex) => {
+                // Add components to COMPONENTS container (will be deducted from stock)
+                if (pac.components && Array.isArray(pac.components)) {
+                    pac.components.forEach(comp => {
+                        if (comp.qty > 0 && comp.ref) {
+                            // Use addDeliveryComponentRow for stock deduction (pass name as 3rd param)
+                            addDeliveryComponentRow(comp.ref, comp.qty, comp.name || comp.ref);
+                            componentsAdded++;
+                        }
+                    });
+                }
+
+                // Add refrigerant as component if it has a ref, otherwise as custom item
+                if (pac.services && pac.services.refrigerant > 0) {
+                    const refQty = Math.round(pac.services.refrigerant);
+                    // Try to find refrigerant component ref (R134a or similar)
+                    const refrigerantRef = findRefrigerantRef();
+                    if (refrigerantRef) {
+                        addDeliveryComponentRow(refrigerantRef, refQty);
+                        componentsAdded++;
+                    } else {
+                        addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
+                        customItemsAdded++;
+                    }
+                }
+            });
+        }
+        console.log(`Components added for stock deduction: ${componentsAdded}, Custom items: ${customItemsAdded}`);
 
         // Set notes with PAC info
         const notesField = document.getElementById('deliveryNotes');
