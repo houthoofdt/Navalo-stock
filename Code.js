@@ -3294,11 +3294,12 @@ function processAdjustment(data) {
       avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
     }
 
-    // Create new lot
+    // Create new lot with correct column order:
+    // lotId, ref, date, docNumber, qtyInit, qtyRemaining, priceUnit, currency, priceCZK, supplier
     const lotId = 'LOT-' + Date.now();
     lotsSheet.appendRow([
-      lotId, ref, adjustmentDate, qtyChange, avgPrice, qtyChange,
-      'CZK', avgPrice, 'ADJUSTMENT', adjNumber, '', ''
+      lotId, ref, adjustmentDate, adjNumber, qtyChange, qtyChange,
+      avgPrice, 'CZK', avgPrice, 'ADJUSTMENT ' + reason
     ]);
 
     lotsAffected.push(lotId);
