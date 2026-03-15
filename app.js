@@ -5846,7 +5846,7 @@ async function generateTaxDocument(invNumber) {
                     <strong>IČO:</strong> ${company.ico || ''}<br>
                     <strong>DIČ:</strong> ${company.dic || ''}<br>
                     Plátce DPH<br><br>
-                    <strong>TELEFON:</strong> ${company.phone || ''}<br>
+                    <strong>TELEFON:</strong> 731 501 291<br>
                     <strong>ÚČET:</strong> ${bankInfo?.account || ''}<br>
                     <strong>BANKA:</strong> ${bankInfo?.name || ''}<br>
                     <strong>IBAN:</strong> ${bankInfo?.iban || ''}<br>
@@ -5927,7 +5927,7 @@ async function generateTaxDocument(invNumber) {
 
             <div style="display: flex; justify-content: space-between; margin-top: 50px; border-top: 1px solid #000; padding-top: 10px;">
                 <div style="width: 30%;">
-                    <small>Vyhotovil: ${company.name || ''}</small>
+                    <small>Vyhotovil: Taňa Milatová</small>
                 </div>
                 <div style="width: 30%; text-align: center;">
                     <small>Převzal:</small>
@@ -6112,7 +6112,7 @@ async function generateTaxDocumentWithRate(invNumber, paymentDate, rate) {
                     <strong>IČO:</strong> ${company.ico || ''}<br>
                     <strong>DIČ:</strong> ${company.dic || ''}<br>
                     Plátce DPH<br><br>
-                    <strong>TELEFON:</strong> ${company.phone || ''}<br>
+                    <strong>TELEFON:</strong> 731 501 291<br>
                     <strong>ÚČET:</strong> ${bankInfo?.account || ''}<br>
                     <strong>BANKA:</strong> ${bankInfo?.name || ''}<br>
                     <strong>IBAN:</strong> ${bankInfo?.iban || ''}<br>
@@ -6193,7 +6193,7 @@ async function generateTaxDocumentWithRate(invNumber, paymentDate, rate) {
 
             <div style="display: flex; justify-content: space-between; margin-top: 50px; border-top: 1px solid #000; padding-top: 10px;">
                 <div style="width: 30%;">
-                    <small>Vyhotovil: ${company.name || ''}</small>
+                    <small>Vyhotovil: Taňa Milatová</small>
                 </div>
                 <div style="width: 30%; text-align: center;">
                     <small>Převzal:</small>
