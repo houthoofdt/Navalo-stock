@@ -3313,34 +3313,45 @@ function processAdjustment(data) {
     for (const lot of lots) {
       if (qtyToDeduct <= 0) break;
 
-      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
-      const newRemaining = lot.qtyRemaining - deductFromLot;
+      const deductFromLot = Math.min(qtyToDeduct, Number(lot.qtyRemaining) || 0);
+      const newRemaining = (Number(lot.qtyRemaining) || 0) - deductFromLot;
+      const lotPrice = Number(lot.priceCZK) || 0;
 
       lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
-      valueImpact -= deductFromLot * lot.priceCZK;
+      valueImpact -= deductFromLot * lotPrice;
       qtyToDeduct -= deductFromLot;
 
       lotsAffected.push(lot.id);
     }
   }
 
+  // Ensure valueImpact is a valid number
+  if (isNaN(valueImpact)) {
+    valueImpact = 0;
+    Logger.log('processAdjustment: valueImpact was NaN, set to 0 for ref: ' + ref);
+  }
+
   // Update stock quantity
   stockSheet.getRange(stockRowIndex, 5).setValue(newQty);
   stockSheet.getRange(stockRowIndex, 8).setValue(new Date());
 
+  // Calculate unit price safely
+  const unitPrice = (qtyChange !== 0 && !isNaN(valueImpact)) ? valueImpact / qtyChange : 0;
+
   // Add to history
   historySheet.appendRow([
     adjustmentDate, 'AJUSTEMENT', adjNumber, ref, componentName,
-    qtyChange, valueImpact / (qtyChange || 1), valueImpact,
+    qtyChange, unitPrice, valueImpact,
     'Ajustement de stock'
   ]);
 
-  // Save adjustment record
+  // Save adjustment record (ensure valueImpact is valid)
+  const safeValueImpact = isNaN(valueImpact) ? 0 : Math.round(valueImpact * 100) / 100;
   adjSheet.appendRow([
     adjId, adjustmentDate, adjNumber, ref, componentName,
     currentQty, newQty, qtyChange, reason, reasonText,
     userName || 'Unknown', JSON.stringify(lotsAffected),
-    Math.round(valueImpact * 100) / 100, new Date()
+    safeValueImpact, new Date()
   ]);
 
   getStockValuation();
