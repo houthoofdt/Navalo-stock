@@ -1613,7 +1613,7 @@ function getReceivedOrders(limit) {
 
     orders.push({
       id: row[0],
-      date: row[1],
+      date: normalizeDate(row[1]),
       orderNumber: row[2],
       clientOrderNumber: row[3],
       client: row[4],
@@ -1632,7 +1632,7 @@ function getReceivedOrders(limit) {
       },
       total: row[14] || 0,
       currency: row[15] || 'EUR',
-      deliveryDate: row[16],
+      deliveryDate: normalizeDate(row[16]),
       status: row[17] || 'new',
       delivered: row[18] || 0,
       invoiced: row[19] || 0,
@@ -3233,7 +3233,7 @@ function getAdjustments(limit) {
 
     adjustments.push({
       id: row[0],
-      date: row[1],
+      date: normalizeDate(row[1]),
       docNum: row[2],
       ref: row[3],
       name: row[4],
@@ -3485,7 +3485,7 @@ function getRepairQuotes(limit = 100) {
 
     quotes.push({
       id: row[0],
-      date: row[1],
+      date: normalizeDate(row[1]),
       quoteNumber: row[2],
       clientId: row[3],
       client: row[4],
@@ -3782,11 +3782,11 @@ function getSubcontractingOrders(limit) {
     orders.push({
       id: row[0],
       number: row[1],
-      date: row[2],
+      date: normalizeDate(row[2]),
       subcontractor: row[3],
       kitType: row[4],
       quantity: row[5],
-      deliveryDate: row[6],
+      deliveryDate: normalizeDate(row[6]),
       status: row[7] || 'pending',
       transferred: row[8] ? JSON.parse(row[8]) : {},
       received: row[9] || 0,
