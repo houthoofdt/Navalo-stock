@@ -11570,6 +11570,9 @@ function previewInvoiceBeforeSave() {
     // Generate preview HTML
     const previewHtml = generateInvoicePreviewHTML(invoiceData);
 
+    // Set currentInvoice for email sending
+    currentInvoice = invoiceData;
+
     // Show in invoice preview modal
     document.getElementById('invoicePreview').innerHTML = previewHtml;
     const modal = document.getElementById('invoicePreviewModal');
