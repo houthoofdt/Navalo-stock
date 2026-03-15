@@ -5756,6 +5756,9 @@ async function generateTaxDocument(invNumber) {
         return;
     }
 
+    // Set currentInvoice for email sending
+    currentInvoice = inv;
+
     // Use stored payment date if available, otherwise ask
     let paymentDate = inv.paidDate;
     if (!paymentDate) {
@@ -5956,6 +5959,9 @@ async function markProformaPaidAndGenerateTaxDoc(invNumber) {
     if (idx < 0) return;
 
     const inv = invoices[idx];
+
+    // Set currentInvoice for email sending
+    currentInvoice = inv;
 
     // Get CNB exchange rate for payment date
     let paidExchangeRate = null;
