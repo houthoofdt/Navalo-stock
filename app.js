@@ -3084,7 +3084,7 @@ async function updateReceivedInvoicesDisplay() {
                 ${driveButtons}
                 <button class="btn-icon" onclick="editReceivedInvoice('${inv.id}')" title="${t('edit')}">✏️</button>
                 ${inv.isProforma ? `<button class="btn-icon" onclick="convertReceivedProformaToInvoice('${inv.id}')" title="Convertir en facture">🔄</button>` : ''}
-                ${!inv.paid && !inv.isProforma ? `<button class="btn-icon" onclick="markRecInvPaid('${inv.id}')" title="${t('markPaid')}">💰</button>` : ''}
+                ${!inv.paid ? `<button class="btn-icon" onclick="markRecInvPaid('${inv.id}')" title="${t('markPaid')}">💰</button>` : ''}
                 <button class="btn-icon" onclick="deleteRecInv('${inv.id}')" title="${t('delete')}">🗑️</button>
             </td>
         </tr>`;
