@@ -47,6 +47,49 @@ const PAC_MODELS = ['TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'TIZ_TH11'];
 const CNB_URL = 'https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt';
 
 // ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Convert a date value to YYYY-MM-DD string format to avoid timezone issues
+ * Handles Date objects, strings, and timestamps
+ */
+function normalizeDate(dateValue) {
+  if (!dateValue) return '';
+
+  // If it's already a YYYY-MM-DD string, return as-is
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return dateValue;
+  }
+
+  // If it's an ISO string with time, extract just the date part
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(dateValue)) {
+    return dateValue.substring(0, 10);
+  }
+
+  // If it's a Date object (from Google Sheets), format it properly
+  if (dateValue instanceof Date) {
+    const year = dateValue.getFullYear();
+    const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+    const day = String(dateValue.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Try to parse as Date
+  try {
+    const d = new Date(dateValue);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {}
+
+  return String(dateValue);
+}
+
+// ========================================
 // WEB APP ENDPOINTS
 // ========================================
 
@@ -824,7 +867,7 @@ function getStockLots(ref) {
       lots.push({
         id: data[i][0],
         ref: lotRef,
-        date: data[i][2],
+        date: normalizeDate(data[i][2]),
         bonNum: data[i][3],
         qtyInit: Number(data[i][4]) || 0,
         qtyRemaining: qtyRemaining,
@@ -1074,7 +1117,7 @@ function getReceipts(limit) {
     
     receipts.push({
       id: data[i][0],
-      date: data[i][1],
+      date: normalizeDate(data[i][1]),
       receiptNumber: data[i][2],
       supplier: data[i][3],
       itemCount: data[i][4],
@@ -1437,10 +1480,10 @@ function getPurchaseOrders(limit) {
     try { items = JSON.parse(data[i][10] || '[]'); } catch(e) {}
     
     orders.push({
-      id: data[i][0], date: data[i][1], poNumber: data[i][2],
+      id: data[i][0], date: normalizeDate(data[i][1]), poNumber: data[i][2],
       supplier: data[i][3], status: data[i][4], itemCount: data[i][5],
       totalValue: data[i][6], currency: data[i][7], notes: data[i][8],
-      expectedDate: data[i][9], items: items
+      expectedDate: normalizeDate(data[i][9]), items: items
     });
   }
   
@@ -1814,15 +1857,15 @@ function getInvoices(limit) {
     invoices.push({
       id: data[i][0],
       number: data[i][1],
-      date: data[i][2],
-      dueDate: data[i][3],
+      date: normalizeDate(data[i][2]),
+      dueDate: normalizeDate(data[i][3]),
       client: data[i][4],
       subtotal: data[i][5],
       vat: data[i][6],
       total: data[i][7],
       currency: data[i][8],
       paid: data[i][9],
-      paidDate: data[i][10],
+      paidDate: normalizeDate(data[i][10]),
       linkedBL: data[i][11],
       notes: data[i][12],
       items: items,
@@ -1834,7 +1877,7 @@ function getInvoices(limit) {
       clientIco: data[i][18] || '', // S: clientIco (décalé)
       clientDic: data[i][19] || '', // T: clientDic (décalé)
       varSymbol: data[i][20] || '', // U: varSymbol (décalé)
-      taxDate: data[i][21] || '', // V: taxDate (décalé)
+      taxDate: normalizeDate(data[i][21]), // V: taxDate (décalé)
       exchangeRate: data[i][22] || null, // W: exchangeRate (décalé)
       linkedOrder: data[i][23] || '', // X: linkedOrder (décalé)
       linkedProforma: linkedProforma, // Y: linkedProforma (décalé)
@@ -1930,10 +1973,10 @@ function getReceivedInvoices(limit) {
 
     invoices.push({
       id: data[i][0], internalNumber: data[i][1], number: data[i][2],
-      date: data[i][3], dueDate: data[i][4], taxDate: data[i][5],
+      date: normalizeDate(data[i][3]), dueDate: normalizeDate(data[i][4]), taxDate: normalizeDate(data[i][5]),
       supplier: data[i][6], subtotal: data[i][7], vat: data[i][8],
       total: data[i][9], currency: data[i][10], paid: data[i][11],
-      paidDate: data[i][12], linkedReceipt: data[i][13], notes: data[i][14],
+      paidDate: normalizeDate(data[i][12]), linkedReceipt: data[i][13], notes: data[i][14],
       driveFileId: data[i][15] || '', driveFileUrl: data[i][16] || '',
       isProforma: data[i][17] === true || data[i][17] === 'true' || data[i][17] === 'TRUE',
       depositPercent: data[i][18] || 100,
@@ -2264,7 +2307,7 @@ function getHistory(limit) {
   const history = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
     history.push({
-      date: data[i][0], type: data[i][1], docNum: data[i][2],
+      date: normalizeDate(data[i][0]), type: data[i][1], docNum: data[i][2],
       ref: data[i][3], name: data[i][4], qty: data[i][5],
       priceUnit: data[i][6], value: data[i][7], partner: data[i][8]
     });
@@ -2312,7 +2355,7 @@ function getDeliveries(limit) {
     } catch (e) { repairQuoteData = null; }
 
     deliveries.push({
-      id: data[i][0], date: data[i][1], blNumber: data[i][2],
+      id: data[i][0], date: normalizeDate(data[i][1]), blNumber: data[i][2],
       client: data[i][3], clientAddress: data[i][4],
       quantities: quantities,
       // Also provide items format for showDeliveryNote compatibility
@@ -3035,8 +3078,8 @@ function createProformaInvoice(data) {
       quotes.push({
         id: data[i][0],
         number: data[i][1],
-        date: data[i][2],
-        validityDate: data[i][3],
+        date: normalizeDate(data[i][2]),
+        validityDate: normalizeDate(data[i][3]),
         client: data[i][4],
         address: data[i][5],
         subtotal: data[i][6],

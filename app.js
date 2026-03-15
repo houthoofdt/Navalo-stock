@@ -3418,24 +3418,29 @@ function showToast(msg, type = 'info') {
 
 function formatDate(d) {
     if (!d) return '-';
-    // Handle YYYY-MM-DD format to avoid timezone issues
+    // Handle YYYY-MM-DD or ISO format string to avoid timezone issues
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) {
         const [year, month, day] = d.split(/[-T]/);
         return `${parseInt(day)}. ${parseInt(month)}. ${year}`;
     }
-    return new Date(d).toLocaleDateString('cs-CZ');
+    // Handle Date object or timestamp - use UTC to avoid timezone shift
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return '-';
+    // Use UTC methods to avoid local timezone conversion
+    return `${date.getUTCDate()}. ${date.getUTCMonth() + 1}. ${date.getUTCFullYear()}`;
 }
 function formatDateForInput(dateStr) {
     if (!dateStr) return '';
-    // If already in YYYY-MM-DD format, return as is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    // Try to parse and convert to YYYY-MM-DD
+    // If already in YYYY-MM-DD format (exact or with time suffix), extract date part
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        return dateStr.substring(0, 10);
+    }
+    // Try to parse and convert to YYYY-MM-DD using UTC to avoid timezone shift
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return '';
-    // Use local date parts instead of ISO string to avoid timezone issues
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 function formatCurrency(n) { return new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n || 0); }
