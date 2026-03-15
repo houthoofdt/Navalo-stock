@@ -2418,9 +2418,9 @@ async function populateRecInvPaidProformas() {
 
     select.innerHTML = '<option value="">-- Aucune --</option>';
 
-    // Show all proformas, with paid ones first
+    // Show all proformas, with paid ones first (check boolean, string, and FPP prefix)
     const proformas = invoices.filter(inv => {
-        const isP = inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE';
+        const isP = inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE' || (inv.internalNumber && inv.internalNumber.startsWith('FPP'));
         console.log(`Checking ${inv.internalNumber}: isProforma=${inv.isProforma} (${typeof inv.isProforma}) => ${isP}`);
         return isP;
     });
@@ -3008,9 +3008,12 @@ async function updateReceivedInvoicesDisplay() {
     const monthFilter = document.getElementById('recInvMonthFilter')?.value || '';
     const sortOrder = document.getElementById('recInvSortOrder')?.value || 'date-desc';
 
+    // Helper to check proforma status (handles boolean, string values, and FPP prefix for legacy data)
+    const isProformaInv = (inv) => inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE' || (inv.internalNumber && inv.internalNumber.startsWith('FPP'));
+
     let filtered = invoices;
-    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !inv.isProforma);
-    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => inv.isProforma);
+    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !isProformaInv(inv));
+    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => isProformaInv(inv));
     if (statusFilter === 'paid') filtered = filtered.filter(inv => inv.paid);
     else if (statusFilter === 'unpaid') filtered = filtered.filter(inv => !inv.paid);
     if (supplierFilter) filtered = filtered.filter(inv => inv.supplier === supplierFilter);
@@ -3244,9 +3247,12 @@ function updateReceivedInvoicesDisplayLocal() {
     const monthFilter = document.getElementById('recInvMonthFilter')?.value || '';
     const sortOrder = document.getElementById('recInvSortOrder')?.value || 'date-desc';
 
+    // Helper to check proforma status (handles boolean, string values, and FPP prefix for legacy data)
+    const isProformaInv = (inv) => inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE' || (inv.internalNumber && inv.internalNumber.startsWith('FPP'));
+
     let filtered = invoices;
-    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !inv.isProforma);
-    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => inv.isProforma);
+    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !isProformaInv(inv));
+    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => isProformaInv(inv));
     if (statusFilter === 'paid') filtered = filtered.filter(inv => inv.paid);
     else if (statusFilter === 'unpaid') filtered = filtered.filter(inv => !inv.paid);
     if (supplierFilter) filtered = filtered.filter(inv => inv.supplier === supplierFilter);
@@ -4648,9 +4654,12 @@ async function updateInvoicesDisplay() {
     const statusFilter = document.getElementById('invoiceStatusFilter')?.value || 'all';
     const monthFilter = document.getElementById('invoiceMonthFilter')?.value || '';
 
+    // Helper to check proforma status (handles boolean, string values, and ZL prefix for legacy data)
+    const isProformaInv = (inv) => inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE' || (inv.number && inv.number.startsWith('ZL'));
+
     let filtered = invoices;
-    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !inv.isProforma);
-    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => inv.isProforma);
+    if (typeFilter === 'invoice') filtered = filtered.filter(inv => !isProformaInv(inv));
+    else if (typeFilter === 'proforma') filtered = filtered.filter(inv => isProformaInv(inv));
     if (statusFilter === 'paid') filtered = filtered.filter(inv => inv.paid);
     else if (statusFilter === 'unpaid') filtered = filtered.filter(inv => !inv.paid);
     if (monthFilter) filtered = filtered.filter(inv => inv.date?.substring(0, 7) === monthFilter);
