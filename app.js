@@ -5013,6 +5013,9 @@ function viewInvoice(invNumber) {
                 IBAN: ${bankInfo?.iban || ''}<br>
                 BIC: ${bankInfo?.bic || ''}
             </div>
+            <div style="margin-top: 15px; font-size: 9px;">
+                <strong>Vyhotovil:</strong> Taňa Milatová
+            </div>
         </div>
     `;
     const modal = document.getElementById('invoicePreviewModal');
@@ -11735,6 +11738,9 @@ function generateInvoicePreviewHTML(inv) {
                 Účet: ${bankInfo?.account || ''}<br>
                 IBAN: ${bankInfo?.iban || ''}<br>
                 BIC: ${bankInfo?.bic || ''}
+            </div>
+            <div style="margin-top: 15px; font-size: 9px;">
+                <strong>Vyhotovil:</strong> Taňa Milatová
             </div>
             ${inv.notes ? `<div style="margin-top: 10px; padding: 8px; border-left: 4px solid #2563eb; background: #f1f5f9; font-size: 9px;"><strong>Notes:</strong><br>${inv.notes}</div>` : ''}
         </div>
