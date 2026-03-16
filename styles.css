@@ -1900,7 +1900,7 @@ body {
 
     /* === ORDER CONFIRMATION PRINT STYLES === */
     .order-confirm-doc {
-        padding: 0 !important;
+        padding: 10mm !important;
         font-size: 10pt !important;
     }
 
