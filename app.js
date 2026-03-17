@@ -6850,56 +6850,33 @@ function populateQuoteItemSelect() {
 
     select.innerHTML = '<option value="">-- Vyberte položku --</option>';
 
-    if (typeof REPAIR_PRICE_LIST !== 'undefined') {
-        // Services
-        if (REPAIR_PRICE_LIST.services) {
-            const servicesGroup = document.createElement('optgroup');
-            servicesGroup.label = 'Služby';
-            Object.entries(REPAIR_PRICE_LIST.services).forEach(([key, service]) => {
-                const opt = document.createElement('option');
-                opt.value = `service_${key}`;
-                opt.textContent = `${service.label} - ${formatCurrency(service.price)} ${service.unit}`;
-                opt.dataset.price = service.price;
-                opt.dataset.name = service.label;
-                opt.dataset.unit = service.unit;
-                servicesGroup.appendChild(opt);
-            });
-            select.appendChild(servicesGroup);
-        }
+    // Get stock items from localStorage
+    const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
 
-        // Composants T9/T11
-        if (REPAIR_PRICE_LIST.componentsT9T11 && REPAIR_PRICE_LIST.componentsT9T11.length > 0) {
-            const t9t11Group = document.createElement('optgroup');
-            t9t11Group.label = 'Komponenty T9/T11';
-            REPAIR_PRICE_LIST.componentsT9T11.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = `t9t11_${item.ref}`;
-                opt.textContent = `${item.name} - ${formatCurrency(item.price)} ${item.currency}`;
-                opt.dataset.price = item.price;
-                opt.dataset.name = item.name;
-                opt.dataset.unit = 'ks';
-                opt.dataset.ref = item.ref;
-                t9t11Group.appendChild(opt);
-            });
-            select.appendChild(t9t11Group);
-        }
+    if (Object.keys(stock).length > 0) {
+        const stockGroup = document.createElement('optgroup');
+        stockGroup.label = 'Skladové položky';
 
-        // Composants TX9
-        if (REPAIR_PRICE_LIST.componentsTX9 && REPAIR_PRICE_LIST.componentsTX9.length > 0) {
-            const tx9Group = document.createElement('optgroup');
-            tx9Group.label = 'Komponenty TX9';
-            REPAIR_PRICE_LIST.componentsTX9.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = `tx9_${item.ref}`;
-                opt.textContent = `${item.name} - ${formatCurrency(item.price)} ${item.currency}`;
-                opt.dataset.price = item.price;
-                opt.dataset.name = item.name;
-                opt.dataset.unit = 'ks';
-                opt.dataset.ref = item.ref;
-                tx9Group.appendChild(opt);
-            });
-            select.appendChild(tx9Group);
-        }
+        // Sort by name
+        const sortedItems = Object.entries(stock).sort((a, b) => {
+            const nameA = (a[1].name || a[0]).toLowerCase();
+            const nameB = (b[1].name || b[0]).toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+
+        sortedItems.forEach(([ref, item]) => {
+            const opt = document.createElement('option');
+            opt.value = `stock_${ref}`;
+            const price = item.lastPrice || item.price || 0;
+            const qty = item.qty || item.quantity || 0;
+            opt.textContent = `${item.name || ref} - ${formatCurrency(price)} CZK (sklad: ${qty})`;
+            opt.dataset.price = price;
+            opt.dataset.name = item.name || ref;
+            opt.dataset.unit = 'ks';
+            opt.dataset.ref = ref;
+            stockGroup.appendChild(opt);
+        });
+        select.appendChild(stockGroup);
     }
 }
 
