@@ -6826,13 +6826,31 @@ function openQuoteModal() {
     document.getElementById('quoteVatRate').value = CONFIG?.DEFAULT_VAT_RATE || 21;
     document.getElementById('quoteCurrency').value = 'CZK';
 
-    populateClientSelect('quoteClient');
+    populateQuoteClientDatalist();
     populateQuoteItemSelect();
 
     document.getElementById('quoteItems').innerHTML = '';
     addQuoteItemRow();
 
     document.getElementById('quoteModal').classList.add('active');
+}
+
+function populateQuoteClientDatalist() {
+    const datalist = document.getElementById('quoteClientList');
+    if (!datalist) return;
+
+    datalist.innerHTML = '';
+    const contacts = getContacts();
+
+    contacts.forEach(contact => {
+        const option = document.createElement('option');
+        option.value = contact.name;
+        option.dataset.id = contact.id;
+        option.dataset.address = contact.address || '';
+        option.dataset.ico = contact.ico || '';
+        option.dataset.dic = contact.dic || '';
+        datalist.appendChild(option);
+    });
 }
 
 function closeQuoteModal() {
@@ -6842,6 +6860,45 @@ function closeQuoteModal() {
 
 function closeQuotePreviewModal() {
     document.getElementById('quotePreviewModal').classList.remove('active');
+}
+
+function previewQuoteBeforeSave() {
+    // Build quote object from form
+    const items = [];
+    document.querySelectorAll('#quoteItems .item-row').forEach(row => {
+        const name = row.querySelector('.quote-item-name')?.value;
+        const qty = parseFloat(row.querySelector('.quote-item-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.quote-item-price')?.value) || 0;
+        if (name && qty > 0) {
+            items.push({ name, qty, price, total: qty * price });
+        }
+    });
+
+    if (items.length === 0) {
+        showToast('Přidejte alespoň jednu položku', 'error');
+        return;
+    }
+
+    const quote = {
+        number: document.getElementById('quoteNumber').value,
+        client: document.getElementById('quoteClientName').value || '',
+        clientAddress: document.getElementById('quoteClientAddress').value,
+        clientIco: document.getElementById('quoteClientIco').value,
+        clientDic: document.getElementById('quoteClientDic').value,
+        date: document.getElementById('quoteDate').value,
+        validUntil: document.getElementById('quoteValidUntil').value,
+        items: items,
+        subtotal: parseFloat(document.getElementById('quoteSubtotal').value) || 0,
+        vatRate: parseFloat(document.getElementById('quoteVatRate').value) || 21,
+        vat: parseFloat(document.getElementById('quoteVat').value) || 0,
+        total: parseFloat(document.getElementById('quoteTotal').value) || 0,
+        currency: document.getElementById('quoteCurrency').value,
+        notes: document.getElementById('quoteNotes').value
+    };
+
+    const preview = document.getElementById('quotePreview');
+    preview.innerHTML = generateQuoteHTML(quote);
+    document.getElementById('quotePreviewModal').classList.add('active');
 }
 
 function populateQuoteItemSelect() {
@@ -6928,13 +6985,13 @@ function calculateQuoteTotal() {
     document.getElementById('quoteTotal').value = total.toFixed(2);
 }
 
-function onQuoteClientChange() {
-    const select = document.getElementById('quoteClient');
-    const clientId = select.value;
-    if (!clientId) return;
+function onQuoteClientInput() {
+    const input = document.getElementById('quoteClientName');
+    const clientName = input.value;
+    if (!clientName) return;
 
     const contacts = getContacts();
-    const client = contacts.find(c => c.id === clientId);
+    const client = contacts.find(c => c.name.toLowerCase() === clientName.toLowerCase());
 
     if (client) {
         document.getElementById('quoteClientAddress').value = client.address || '';
@@ -6967,7 +7024,7 @@ function saveQuote() {
     const quote = {
         id: editingQuoteId || 'DEV-' + Date.now(),
         number: quoteNumber,
-        client: document.getElementById('quoteClient').options[document.getElementById('quoteClient').selectedIndex]?.text || '',
+        client: document.getElementById('quoteClientName').value || '',
         clientAddress: document.getElementById('quoteClientAddress').value,
         clientIco: document.getElementById('quoteClientIco').value,
         clientDic: document.getElementById('quoteClientDic').value,
@@ -7014,6 +7071,7 @@ function editQuote(id) {
     document.getElementById('quoteNumber').value = quote.number;
     document.getElementById('quoteDate').value = formatDateForInput(quote.date);
     document.getElementById('quoteValidUntil').value = formatDateForInput(quote.validUntil);
+    document.getElementById('quoteClientName').value = quote.client || '';
     document.getElementById('quoteClientAddress').value = quote.clientAddress || '';
     document.getElementById('quoteClientIco').value = quote.clientIco || '';
     document.getElementById('quoteClientDic').value = quote.clientDic || '';
@@ -7021,7 +7079,7 @@ function editQuote(id) {
     document.getElementById('quoteCurrency').value = quote.currency || 'CZK';
     document.getElementById('quoteNotes').value = quote.notes || '';
 
-    populateClientSelect('quoteClient');
+    populateQuoteClientDatalist();
     populateQuoteItemSelect();
 
     // Load items
@@ -7277,6 +7335,8 @@ function exportQuotes() {
 window.openQuoteModal = openQuoteModal;
 window.closeQuoteModal = closeQuoteModal;
 window.closeQuotePreviewModal = closeQuotePreviewModal;
+window.previewQuoteBeforeSave = previewQuoteBeforeSave;
+window.onQuoteClientInput = onQuoteClientInput;
 window.saveQuote = saveQuote;
 window.editQuote = editQuote;
 window.deleteQuote = deleteQuote;
