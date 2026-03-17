@@ -7262,6 +7262,25 @@ function exportQuotes() {
     showToast('Export terminé', 'success');
 }
 
+// Export quote functions to window
+window.openQuoteModal = openQuoteModal;
+window.closeQuoteModal = closeQuoteModal;
+window.closeQuotePreviewModal = closeQuotePreviewModal;
+window.saveQuote = saveQuote;
+window.editQuote = editQuote;
+window.deleteQuote = deleteQuote;
+window.previewQuote = previewQuote;
+window.printQuote = printQuote;
+window.convertQuoteToInvoice = convertQuoteToInvoice;
+window.convertQuoteToInvoiceById = convertQuoteToInvoiceById;
+window.updateQuoteStatus = updateQuoteStatus;
+window.addQuoteItemRow = addQuoteItemRow;
+window.addQuoteItemFromList = addQuoteItemFromList;
+window.calculateQuoteTotal = calculateQuoteTotal;
+window.onQuoteClientChange = onQuoteClientChange;
+window.exportQuotes = exportQuotes;
+window.updateQuotesDisplay = updateQuotesDisplay;
+
 // ========================================
 // RECEIVED ORDERS - OP2026XXX
 // ========================================
