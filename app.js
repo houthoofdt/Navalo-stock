@@ -6907,10 +6907,10 @@ function populateQuoteItemSelect() {
 
     select.innerHTML = '<option value="">-- Vyberte položku --</option>';
 
-    // Get stock items from localStorage
-    const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
+    // Use currentStock (loaded from server) or fallback to localStorage
+    const stock = currentStock || JSON.parse(localStorage.getItem('navalo_stock') || '{}');
 
-    if (Object.keys(stock).length > 0) {
+    if (stock && Object.keys(stock).length > 0) {
         const stockGroup = document.createElement('optgroup');
         stockGroup.label = 'Skladové položky';
 
