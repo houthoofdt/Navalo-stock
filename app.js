@@ -6848,24 +6848,58 @@ function populateQuoteItemSelect() {
     const select = document.getElementById('quoteItemSelect');
     if (!select) return;
 
-    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+    select.innerHTML = '<option value="">-- Vyberte položku --</option>';
 
     if (typeof REPAIR_PRICE_LIST !== 'undefined') {
-        REPAIR_PRICE_LIST.categories.forEach(cat => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = cat;
-            const items = REPAIR_PRICE_LIST.items.filter(i => i.category === cat);
-            items.forEach(item => {
+        // Services
+        if (REPAIR_PRICE_LIST.services) {
+            const servicesGroup = document.createElement('optgroup');
+            servicesGroup.label = 'Služby';
+            Object.entries(REPAIR_PRICE_LIST.services).forEach(([key, service]) => {
                 const opt = document.createElement('option');
-                opt.value = item.id;
-                opt.textContent = `${item.name} - ${formatCurrency(item.price)} CZK/${item.unit}`;
+                opt.value = `service_${key}`;
+                opt.textContent = `${service.label} - ${formatCurrency(service.price)} ${service.unit}`;
+                opt.dataset.price = service.price;
+                opt.dataset.name = service.label;
+                opt.dataset.unit = service.unit;
+                servicesGroup.appendChild(opt);
+            });
+            select.appendChild(servicesGroup);
+        }
+
+        // Composants T9/T11
+        if (REPAIR_PRICE_LIST.componentsT9T11 && REPAIR_PRICE_LIST.componentsT9T11.length > 0) {
+            const t9t11Group = document.createElement('optgroup');
+            t9t11Group.label = 'Komponenty T9/T11';
+            REPAIR_PRICE_LIST.componentsT9T11.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = `t9t11_${item.ref}`;
+                opt.textContent = `${item.name} - ${formatCurrency(item.price)} ${item.currency}`;
                 opt.dataset.price = item.price;
                 opt.dataset.name = item.name;
-                opt.dataset.unit = item.unit;
-                optgroup.appendChild(opt);
+                opt.dataset.unit = 'ks';
+                opt.dataset.ref = item.ref;
+                t9t11Group.appendChild(opt);
             });
-            select.appendChild(optgroup);
-        });
+            select.appendChild(t9t11Group);
+        }
+
+        // Composants TX9
+        if (REPAIR_PRICE_LIST.componentsTX9 && REPAIR_PRICE_LIST.componentsTX9.length > 0) {
+            const tx9Group = document.createElement('optgroup');
+            tx9Group.label = 'Komponenty TX9';
+            REPAIR_PRICE_LIST.componentsTX9.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = `tx9_${item.ref}`;
+                opt.textContent = `${item.name} - ${formatCurrency(item.price)} ${item.currency}`;
+                opt.dataset.price = item.price;
+                opt.dataset.name = item.name;
+                opt.dataset.unit = 'ks';
+                opt.dataset.ref = item.ref;
+                tx9Group.appendChild(opt);
+            });
+            select.appendChild(tx9Group);
+        }
     }
 }
 
