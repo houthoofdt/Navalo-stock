@@ -1377,32 +1377,32 @@
     <div class="modal" id="quoteModal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3 id="quoteModalTitle" data-i18n="newQuote">Nouveau Devis</h3>
+                <h3 id="quoteModalTitle" data-i18n="newQuote">Nová nabídka</h3>
                 <button class="modal-close" onclick="closeQuoteModal()">✕</button>
             </div>
             <form id="quoteForm" onsubmit="event.preventDefault(); saveQuote();">
                 <div class="form-row">
                     <div class="form-group">
-                        <label data-i18n="quoteNumber">N° Devis (auto)</label>
+                        <label data-i18n="quoteNumber">Číslo nabídky (auto)</label>
                         <input type="text" id="quoteNumber" readonly class="input-readonly">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="date">Date</label>
+                        <label data-i18n="date">Datum</label>
                         <input type="date" id="quoteDate" required>
                     </div>
                     <div class="form-group">
-                        <label data-i18n="validUntil">Valide jusqu'au</label>
+                        <label data-i18n="validUntil">Platnost do</label>
                         <input type="date" id="quoteValidUntil" required>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label data-i18n="client">Client *</label>
+                        <label data-i18n="client">Klient *</label>
                         <input type="text" id="quoteClientName" list="quoteClientList" required placeholder="Zadejte nebo vyberte klienta" oninput="onQuoteClientInput()">
                         <datalist id="quoteClientList"></datalist>
                     </div>
                     <div class="form-group">
-                        <label data-i18n="clientAddress">Adresse</label>
+                        <label data-i18n="clientAddress">Adresa</label>
                         <input type="text" id="quoteClientAddress">
                     </div>
                 </div>
@@ -1416,7 +1416,7 @@
                         <input type="text" id="quoteClientDic">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="currency">Devise</label>
+                        <label data-i18n="currency">Měna</label>
                         <select id="quoteCurrency" onchange="calculateQuoteTotal()">
                             <option value="CZK">CZK</option>
                             <option value="EUR">EUR</option>
@@ -1425,49 +1425,49 @@
                 </div>
 
                 <div class="items-section">
-                    <h4 data-i18n="quoteItems">Lignes du devis</h4>
+                    <h4 data-i18n="quoteItems">Položky nabídky</h4>
                     <div class="form-row" style="margin-bottom: 0.5rem;">
                         <div class="form-group" style="flex: 2;">
-                            <label>Ajouter depuis liste</label>
+                            <label>Přidat ze seznamu</label>
                             <select id="quoteItemSelect" onchange="addQuoteItemFromList()">
-                                <option value="">-- Sélectionner un article --</option>
+                                <option value="">-- Vyberte položku --</option>
                             </select>
                         </div>
                     </div>
                     <div id="quoteItems">
                         <!-- Quote item rows will be added here -->
                     </div>
-                    <button type="button" class="btn btn-secondary btn-small" onclick="addQuoteItemRow()">+ Ajouter ligne</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addQuoteItemRow()">+ Přidat řádek</button>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label data-i18n="vatRate">Taux TVA (%)</label>
+                        <label data-i18n="vatRate">DPH (%)</label>
                         <input type="number" id="quoteVatRate" value="21" onchange="calculateQuoteTotal()">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="subtotalHT">Total HT</label>
+                        <label data-i18n="subtotalHT">Základ</label>
                         <input type="number" id="quoteSubtotal" step="0.01" readonly class="input-readonly">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="vatAmount">TVA</label>
+                        <label data-i18n="vatAmount">DPH</label>
                         <input type="number" id="quoteVat" step="0.01" readonly class="input-readonly">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="totalTTC">Total TTC</label>
+                        <label data-i18n="totalTTC">Celkem</label>
                         <input type="number" id="quoteTotal" step="0.01" readonly class="input-readonly">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label data-i18n="notes">Notes / Conditions</label>
-                    <textarea id="quoteNotes" rows="3" placeholder="Conditions de paiement, délais, etc."></textarea>
+                    <label data-i18n="notes">Poznámky / Podmínky</label>
+                    <textarea id="quoteNotes" rows="3" placeholder="Platební podmínky, termíny, atd."></textarea>
                 </div>
 
                 <div class="form-actions">
-                    <button type="button" class="btn btn-outline" onclick="closeQuoteModal()" data-i18n="cancel">Annuler</button>
+                    <button type="button" class="btn btn-outline" onclick="closeQuoteModal()" data-i18n="cancel">Zrušit</button>
                     <button type="button" class="btn btn-secondary" onclick="previewQuoteBeforeSave()">👁️ Náhled</button>
-                    <button type="submit" class="btn btn-primary" data-i18n="save">Enregistrer</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="save">Uložit</button>
                 </div>
             </form>
         </div>
@@ -1477,14 +1477,14 @@
     <div class="modal" id="quotePreviewModal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3 data-i18n="quote">Devis</h3>
+                <h3 data-i18n="quote">Nabídka</h3>
                 <button class="modal-close" onclick="closeQuotePreviewModal()">✕</button>
             </div>
             <div id="quotePreview" class="delivery-preview"></div>
             <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeQuotePreviewModal()" data-i18n="close">Fermer</button>
-                <button class="btn btn-secondary" onclick="printQuote()">🖨️ Imprimer</button>
-                <button class="btn btn-primary" onclick="convertQuoteToInvoice()">🧾 Convertir en facture</button>
+                <button class="btn btn-outline" onclick="closeQuotePreviewModal()" data-i18n="close">Zavřít</button>
+                <button class="btn btn-secondary" onclick="printQuote()">🖨️ Tisknout</button>
+                <button class="btn btn-primary" onclick="convertQuoteToInvoice()">🧾 Převést na fakturu</button>
             </div>
         </div>
     </div>

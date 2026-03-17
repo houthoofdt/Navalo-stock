@@ -7213,15 +7213,15 @@ function generateQuoteHTML(quote) {
                 <p>IČO: 06301185 | DIČ: CZ06301185</p>
             </div>
             <div class="inv-info">
-                <h1>DEVIS N° ${quote.number}</h1>
-                <p><strong>Date:</strong> ${formatDate(quote.date)}</p>
-                <p><strong>Valide jusqu'au:</strong> ${formatDate(quote.validUntil)}</p>
+                <h1>NABÍDKA č. ${quote.number}</h1>
+                <p><strong>Datum:</strong> ${formatDate(quote.date)}</p>
+                <p><strong>Platnost do:</strong> ${formatDate(quote.validUntil)}</p>
             </div>
         </div>
 
         <div class="inv-parties">
             <div class="inv-party">
-                <h4>Client</h4>
+                <h4>Odběratel</h4>
                 <div class="inv-party-box">
                     <strong>${quote.client}</strong><br>
                     ${quote.clientAddress || ''}<br>
@@ -7234,10 +7234,10 @@ function generateQuoteHTML(quote) {
         <table class="inv-table">
             <thead>
                 <tr>
-                    <th>Description</th>
-                    <th class="text-center">Qté</th>
-                    <th class="text-right">Prix unit.</th>
-                    <th class="text-right">Total</th>
+                    <th>Popis</th>
+                    <th class="text-center">Množství</th>
+                    <th class="text-right">Cena/ks</th>
+                    <th class="text-right">Celkem</th>
                 </tr>
             </thead>
             <tbody>
@@ -7245,25 +7245,25 @@ function generateQuoteHTML(quote) {
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="3" class="text-right">Total HT:</td>
+                    <td colspan="3" class="text-right">Základ:</td>
                     <td class="text-right">${formatCurrency(quote.subtotal)} ${quote.currency}</td>
                 </tr>
                 <tr>
-                    <td colspan="3" class="text-right">TVA (${quote.vatRate}%):</td>
+                    <td colspan="3" class="text-right">DPH (${quote.vatRate}%):</td>
                     <td class="text-right">${formatCurrency(quote.vat)} ${quote.currency}</td>
                 </tr>
                 <tr class="inv-total">
-                    <td colspan="3" class="text-right"><strong>Total TTC:</strong></td>
+                    <td colspan="3" class="text-right"><strong>Celkem s DPH:</strong></td>
                     <td class="text-right"><strong>${formatCurrency(quote.total)} ${quote.currency}</strong></td>
                 </tr>
             </tfoot>
         </table>
 
-        ${quote.notes ? `<div class="oc-notes"><h4>Notes / Conditions</h4><p>${quote.notes}</p></div>` : ''}
+        ${quote.notes ? `<div class="oc-notes"><h4>Poznámky / Podmínky</h4><p>${quote.notes}</p></div>` : ''}
 
         <div class="oc-footer">
-            <p>Ce devis est valable jusqu'au ${formatDate(quote.validUntil)}.</p>
-            <p>Pour toute question, contactez-nous à navalo@navalo.cz</p>
+            <p>Tato nabídka je platná do ${formatDate(quote.validUntil)}.</p>
+            <p>V případě dotazů nás kontaktujte na navalo@navalo.cz</p>
         </div>
     </div>
     `;
@@ -10495,11 +10495,11 @@ async function acceptRepairQuote(quoteId) {
         await updateRepairQuotesDisplay();
         await updateInvoicesDisplay();
 
-        showToast(`✅ Facture ${invoiceNumber} créée à partir du devis ${quote.quoteNumber}`, 'success');
+        showToast(`✅ Faktura ${invoiceNumber} vytvořena z nabídky ${quote.quoteNumber}`, 'success');
 
     } catch (error) {
         console.error('Error accepting repair quote:', error);
-        showToast('Erreur lors de l\'acceptation: ' + error.message, 'error');
+        showToast('Chyba při přijetí: ' + error.message, 'error');
     }
 }
 
@@ -10774,10 +10774,10 @@ async function createDeliveryFromRepairQuote(quoteId) {
             notesField.value = notes;
         }
 
-        showToast('Bon de livraison pré-rempli depuis le devis', 'success');
+        showToast('Dodací list předvyplněn z nabídky', 'success');
     } catch (error) {
         console.error('Error creating delivery from repair quote:', error);
-        showToast('Erreur: ' + error.message, 'error');
+        showToast('Chyba: ' + error.message, 'error');
     }
 }
 
@@ -10824,7 +10824,7 @@ async function fixDuplicateRepairQuoteNumbers() {
         const quotes = await storage.getRepairQuotes(1000);
 
         if (!quotes || quotes.length === 0) {
-            showToast('Aucun devis à corriger', 'info');
+            showToast('Žádné nabídky k opravě', 'info');
             return;
         }
 
@@ -10911,7 +10911,7 @@ async function fixDuplicateRepairQuoteNumbers() {
         console.log(`✅ Fixed ${updates.length} duplicate numbers`);
         console.log(`Next number will be: DV${currentYear}${String(config.next_repair_quote).padStart(3, '0')}`);
 
-        showToast(`${updates.length} devis renumérotés avec succès`, 'success');
+        showToast(`${updates.length} nabídek úspěšně přečíslováno`, 'success');
 
         // Refresh display
         await updateRepairQuotesDisplay();
