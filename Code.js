@@ -1197,30 +1197,34 @@ function processDelivery(data) {
   }
   
   let totalValue = 0;
-  
+
   Object.entries(required).forEach(([ref, data]) => {
     let qtyToDeduct = data.qty;
     const lots = getStockLots(ref);
-    
+    let componentValue = 0; // Track value per component
+
     for (const lot of lots) {
       if (qtyToDeduct <= 0) break;
-      
+
       const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
       const newRemaining = lot.qtyRemaining - deductFromLot;
-      
+      const lotPrice = Number(lot.priceCZK) || 0; // Protect against NaN
+
       lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
-      totalValue += deductFromLot * lot.priceCZK;
+      componentValue += deductFromLot * lotPrice;
       qtyToDeduct -= deductFromLot;
     }
-    
+
+    totalValue += componentValue;
+
     const newQty = data.available - data.qty;
     stockSheet.getRange(data.rowIndex, 5).setValue(newQty);
     stockSheet.getRange(data.rowIndex, 8).setValue(new Date());
-    
-    const avgPrice = data.qty > 0 ? totalValue / data.qty : 0;
+
+    const avgPrice = data.qty > 0 ? componentValue / data.qty : 0;
     historySheet.appendRow([
       date || new Date(), 'SORTIE', blNumber, ref, data.name,
-      -data.qty, avgPrice, -data.qty * avgPrice, client
+      -data.qty, avgPrice, -componentValue, client
     ]);
   });
   
@@ -2303,16 +2307,20 @@ function getHistory(limit) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
   const data = sheet.getDataRange().getValues();
-  
+
   const history = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+    const priceUnit = Number(data[i][6]);
+    const value = Number(data[i][7]);
     history.push({
       date: normalizeDate(data[i][0]), type: data[i][1], docNum: data[i][2],
       ref: data[i][3], name: data[i][4], qty: data[i][5],
-      priceUnit: data[i][6], value: data[i][7], partner: data[i][8]
+      priceUnit: isNaN(priceUnit) ? 0 : priceUnit,
+      value: isNaN(value) ? 0 : value,
+      partner: data[i][8]
     });
   }
-  
+
   return history.reverse();
 }
 
