@@ -1161,10 +1161,56 @@ function processDelivery(data) {
   const blNumber = getNextDocNumber('bl');
   const allBom = getAllBom();
   const stockData = stockSheet.getDataRange().getValues();
-  
-  const required = {};
-  
+
+  // Build stock index for quick lookup
+  const stockIndex = {};
+  for (let i = 1; i < stockData.length; i++) {
+    const ref = String(stockData[i][0] || '').trim();
+    if (ref) {
+      stockIndex[ref] = {
+        rowIndex: i + 1,
+        name: stockData[i][1] || ref,
+        qty: Number(stockData[i][4]) || 0
+      };
+    }
+  }
+
+  // First, check for assembled kits in stock
+  const kitsFromStock = {};  // Kits to deduct as finished products
+  const kitsFromBom = {};    // Kits that need BOM component deduction
+
   Object.entries(quantities).forEach(([model, qty]) => {
+    if (qty <= 0) return;
+
+    // Check if this model exists as assembled kit in stock
+    const kitInStock = stockIndex[model];
+    if (kitInStock && kitInStock.qty > 0) {
+      // Use assembled kits from stock (priority)
+      const useFromStock = Math.min(qty, kitInStock.qty);
+      kitsFromStock[model] = {
+        qty: useFromStock,
+        name: kitInStock.name,
+        rowIndex: kitInStock.rowIndex,
+        available: kitInStock.qty
+      };
+      Logger.log('Using ' + useFromStock + ' assembled ' + model + ' kits from stock');
+
+      // If not enough assembled kits, use BOM for the rest
+      const remaining = qty - useFromStock;
+      if (remaining > 0) {
+        kitsFromBom[model] = remaining;
+        Logger.log('Need ' + remaining + ' more ' + model + ' from BOM components');
+      }
+    } else {
+      // No assembled kits, use BOM
+      kitsFromBom[model] = qty;
+      Logger.log('No assembled ' + model + ' kits in stock, using BOM for ' + qty);
+    }
+  });
+
+  // Calculate required BOM components (only for kits NOT from stock)
+  const required = {};
+  Object.entries(kitsFromBom).forEach(([model, qty]) => {
     if (qty <= 0) return;
     const bomItems = allBom[model] || [];
     bomItems.forEach(item => {
@@ -1174,14 +1220,13 @@ function processDelivery(data) {
       required[item.ref].qty += item.qty * qty;
     });
   });
-  
+
+  // Check availability of BOM components
   const errors = [];
-  for (let i = 1; i < stockData.length; i++) {
-    const ref = String(stockData[i][0] || '').trim();
-    if (required[ref]) {
-      // Force numeric conversion
-      required[ref].available = Number(stockData[i][4]) || 0;
-      required[ref].rowIndex = i + 1;
+  Object.keys(required).forEach(ref => {
+    if (stockIndex[ref]) {
+      required[ref].available = stockIndex[ref].qty;
+      required[ref].rowIndex = stockIndex[ref].rowIndex;
 
       if (required[ref].available < required[ref].qty) {
         errors.push({
@@ -1189,26 +1234,65 @@ function processDelivery(data) {
           required: required[ref].qty, available: required[ref].available
         });
       }
+    } else {
+      errors.push({
+        ref, name: required[ref].name,
+        required: required[ref].qty, available: 0
+      });
     }
-  }
-  
+  });
+
   if (errors.length > 0) {
     return { success: false, errors };
   }
-  
+
   let totalValue = 0;
 
-  Object.entries(required).forEach(([ref, data]) => {
+  // 1. Deduct assembled kits from stock
+  Object.entries(kitsFromStock).forEach(([model, data]) => {
+    const lots = getStockLots(model);
     let qtyToDeduct = data.qty;
-    const lots = getStockLots(ref);
-    let componentValue = 0; // Track value per component
+    let kitValue = 0;
 
     for (const lot of lots) {
       if (qtyToDeduct <= 0) break;
 
       const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
       const newRemaining = lot.qtyRemaining - deductFromLot;
-      const lotPrice = Number(lot.priceCZK) || 0; // Protect against NaN
+      const lotPrice = Number(lot.priceCZK) || 0;
+
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      kitValue += deductFromLot * lotPrice;
+      qtyToDeduct -= deductFromLot;
+    }
+
+    totalValue += kitValue;
+
+    const newQty = data.available - data.qty;
+    stockSheet.getRange(data.rowIndex, 5).setValue(newQty);
+    stockSheet.getRange(data.rowIndex, 8).setValue(new Date());
+
+    const avgPrice = data.qty > 0 ? kitValue / data.qty : 0;
+    historySheet.appendRow([
+      date || new Date(), 'SORTIE', blNumber, model, data.name + ' (kit assemblé)',
+      -data.qty, avgPrice, -kitValue, client
+    ]);
+
+    Logger.log('Deducted ' + data.qty + ' assembled ' + model + ' kits, value: ' + kitValue);
+  });
+
+  // 2. Deduct BOM components for kits built from components
+  Object.entries(required).forEach(([ref, data]) => {
+    let qtyToDeduct = data.qty;
+    const lots = getStockLots(ref);
+    let componentValue = 0;
+
+    for (const lot of lots) {
+      if (qtyToDeduct <= 0) break;
+
+      const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+      const newRemaining = lot.qtyRemaining - deductFromLot;
+      const lotPrice = Number(lot.priceCZK) || 0;
 
       lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
       componentValue += deductFromLot * lotPrice;
