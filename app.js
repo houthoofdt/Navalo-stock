@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v4.4
+   NAVALO Stock PAC - Application v4.5
    Complete with i18n, Contacts, History PAC only
    ======================================== */
-console.log('=== APP.JS VERSION 4.4 LOADED ===');
+console.log('=== APP.JS VERSION 4.5 LOADED ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -872,6 +872,7 @@ async function refreshAllData() {
         await updateReceivedOrdersDisplay();
         await updateAdjustmentsDisplay();
         await updateRepairQuotesDisplay();
+        await updateQuotesDisplay();
         await loadContactsFromStorage();
         updateContactsDisplay();
         updateBomDisplay();
