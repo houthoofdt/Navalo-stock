@@ -7240,12 +7240,18 @@ function previewQuote(id) {
 }
 
 function generateQuoteHTML(quote) {
-    const itemsHtml = quote.items.map(item => `
+    // Handle field name variations (localStorage vs Google Sheets)
+    const clientAddress = quote.clientAddress || quote.address || '';
+    const validUntil = quote.validUntil || quote.validityDate || '';
+    const vatRate = quote.vatRate || 21;
+    const currency = quote.currency || 'CZK';
+
+    const itemsHtml = (quote.items || []).map(item => `
         <tr>
             <td>${item.name}</td>
             <td class="text-center">${item.qty}</td>
-            <td class="text-right">${formatCurrency(item.price)} ${quote.currency}</td>
-            <td class="text-right">${formatCurrency(item.total)} ${quote.currency}</td>
+            <td class="text-right">${formatCurrency(item.price)} ${currency}</td>
+            <td class="text-right">${formatCurrency(item.total)} ${currency}</td>
         </tr>
     `).join('');
 
@@ -7256,11 +7262,12 @@ function generateQuoteHTML(quote) {
                 <h2>NAVALO s.r.o.</h2>
                 <p>Pod Rapidem 361, 251 63 Strančice</p>
                 <p>IČO: 06301185 | DIČ: CZ06301185</p>
+                <p>Tel: 731 501 291 | navalo@navalo.cz</p>
             </div>
             <div class="inv-info">
                 <h1>NABÍDKA č. ${quote.number}</h1>
                 <p><strong>Datum:</strong> ${formatDate(quote.date)}</p>
-                <p><strong>Platnost do:</strong> ${formatDate(quote.validUntil)}</p>
+                <p><strong>Platnost do:</strong> ${validUntil ? formatDate(validUntil) : '-'}</p>
             </div>
         </div>
 
@@ -7268,8 +7275,8 @@ function generateQuoteHTML(quote) {
             <div class="inv-party">
                 <h4>Odběratel</h4>
                 <div class="inv-party-box">
-                    <strong>${quote.client}</strong><br>
-                    ${quote.clientAddress || ''}<br>
+                    <strong>${quote.client || ''}</strong><br>
+                    ${clientAddress ? clientAddress + '<br>' : ''}
                     ${quote.clientIco ? `IČO: ${quote.clientIco}` : ''}
                     ${quote.clientDic ? ` | DIČ: ${quote.clientDic}` : ''}
                 </div>
@@ -7291,15 +7298,15 @@ function generateQuoteHTML(quote) {
             <tfoot>
                 <tr>
                     <td colspan="3" class="text-right">Základ:</td>
-                    <td class="text-right">${formatCurrency(quote.subtotal)} ${quote.currency}</td>
+                    <td class="text-right">${formatCurrency(quote.subtotal || 0)} ${currency}</td>
                 </tr>
                 <tr>
-                    <td colspan="3" class="text-right">DPH (${quote.vatRate}%):</td>
-                    <td class="text-right">${formatCurrency(quote.vat)} ${quote.currency}</td>
+                    <td colspan="3" class="text-right">DPH (${vatRate}%):</td>
+                    <td class="text-right">${formatCurrency(quote.vat || 0)} ${currency}</td>
                 </tr>
                 <tr class="inv-total">
                     <td colspan="3" class="text-right"><strong>Celkem s DPH:</strong></td>
-                    <td class="text-right"><strong>${formatCurrency(quote.total)} ${quote.currency}</strong></td>
+                    <td class="text-right"><strong>${formatCurrency(quote.total || 0)} ${currency}</strong></td>
                 </tr>
             </tfoot>
         </table>
@@ -7307,7 +7314,7 @@ function generateQuoteHTML(quote) {
         ${quote.notes ? `<div class="oc-notes"><h4>Poznámky / Podmínky</h4><p>${quote.notes}</p></div>` : ''}
 
         <div class="oc-footer">
-            <p>Tato nabídka je platná do ${formatDate(quote.validUntil)}.</p>
+            <p>Tato nabídka je platná do ${validUntil ? formatDate(validUntil) : '-'}.</p>
             <p>V případě dotazů nás kontaktujte na navalo@navalo.cz</p>
         </div>
     </div>

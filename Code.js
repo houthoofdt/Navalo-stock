@@ -685,11 +685,11 @@ if (!devisSheet) {
 }
 if (devisSheet.getLastRow() === 0) {
   devisSheet.appendRow([
-    'ID', 'N° Devis', 'Date', 'Validité', 'Client', 'Adresse',
-    'HT', 'TVA', 'TTC', 'Devise', 'Statut', 'Converti', 'N° Facture',
+    'ID', 'N° Devis', 'Date', 'Validité', 'Client', 'Adresse', 'IČO', 'DIČ',
+    'Taux TVA', 'HT', 'TVA', 'TTC', 'Devise', 'Statut', 'Converti', 'N° Facture',
     'Notes', 'Items JSON'
   ]);
-  devisSheet.getRange(1, 1, 1, 15).setFontWeight('bold')
+  devisSheet.getRange(1, 1, 1, 18).setFontWeight('bold')
     .setBackground('#00897b').setFontColor('white');
 }
   // Initialize PAC Stock sheet
@@ -3117,12 +3117,12 @@ function createProformaInvoice(data) {
         .setBackground('#00897b').setFontColor('white');
     }
     
-    const { client, address, items, subtotal, vat, total, currency, validityDate, notes } = data;
-    
+    const { client, address, clientIco, clientDic, vatRate, items, subtotal, vat, total, currency, validityDate, notes } = data;
+
     // Générer numéro devis: DEV-YYYY-###
     const quoteNumber = getNextDocNumber('dev');
     const quoteId = Utilities.getUuid();
-    
+
     quoteSheet.appendRow([
       quoteId,
       quoteNumber,
@@ -3130,10 +3130,13 @@ function createProformaInvoice(data) {
       validityDate || '',
       client,
       address || '',
+      clientIco || '',
+      clientDic || '',
+      vatRate || 21,
       subtotal || 0,
       vat || 0,
       total || 0,
-      currency || 'EUR',
+      currency || 'CZK',
       'draft',         // Statut: draft, sent, accepted, rejected
       false,           // Converti en commande/facture
       '',              // N° Facture (si converti)
@@ -3165,23 +3168,26 @@ function createProformaInvoice(data) {
     
     for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
       let items = [];
-      try { items = JSON.parse(data[i][14] || '[]'); } catch(e) {}
-      
+      try { items = JSON.parse(data[i][17] || '[]'); } catch(e) {}
+
       quotes.push({
         id: data[i][0],
         number: data[i][1],
         date: normalizeDate(data[i][2]),
-        validityDate: normalizeDate(data[i][3]),
+        validUntil: normalizeDate(data[i][3]),
         client: data[i][4],
-        address: data[i][5],
-        subtotal: data[i][6],
-        vat: data[i][7],
-        total: data[i][8],
-        currency: data[i][9],
-        status: data[i][10],
-        converted: data[i][11],
-        invoiceNumber: data[i][12],
-        notes: data[i][13],
+        clientAddress: data[i][5],
+        clientIco: data[i][6],
+        clientDic: data[i][7],
+        vatRate: data[i][8] || 21,
+        subtotal: data[i][9],
+        vat: data[i][10],
+        total: data[i][11],
+        currency: data[i][12],
+        status: data[i][13],
+        converted: data[i][14],
+        invoiceNumber: data[i][15],
+        notes: data[i][16],
         items: items
       });
     }
