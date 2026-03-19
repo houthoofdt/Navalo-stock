@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v4.3
+   NAVALO Stock PAC - Application v4.4
    Complete with i18n, Contacts, History PAC only
    ======================================== */
-console.log('=== APP.JS VERSION 4.3 LOADED ===');
+console.log('=== APP.JS VERSION 4.4 LOADED ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -7405,7 +7405,6 @@ window.updateQuoteStatus = updateQuoteStatus;
 window.addQuoteItemRow = addQuoteItemRow;
 window.addQuoteItemFromList = addQuoteItemFromList;
 window.calculateQuoteTotal = calculateQuoteTotal;
-window.onQuoteClientChange = onQuoteClientChange;
 window.exportQuotes = exportQuotes;
 window.updateQuotesDisplay = updateQuotesDisplay;
 
