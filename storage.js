@@ -63,9 +63,10 @@ class StorageAdapter {
         await this.initLocalStorage();
 
         try {
+            // Use apiPostDirect to bypass the queue system
             // Load stock
             console.log('📦 Chargement du stock...');
-            const stockData = await this.apiPost('getStock', {});
+            const stockData = await this.apiPostDirect('getStock', {});
             if (stockData && !stockData.error) {
                 localStorage.setItem('navalo_stock_lots', JSON.stringify(stockData.lots || []));
                 console.log(`✅ ${(stockData.lots || []).length} lots chargés`);
@@ -73,7 +74,7 @@ class StorageAdapter {
 
             // Load contacts
             console.log('👥 Chargement des contacts...');
-            const contacts = await this.apiPost('getContacts', {});
+            const contacts = await this.apiPostDirect('getContacts', {});
             if (Array.isArray(contacts)) {
                 localStorage.setItem('navalo_contacts', JSON.stringify(contacts));
                 console.log(`✅ ${contacts.length} contacts chargés`);
@@ -81,7 +82,7 @@ class StorageAdapter {
 
             // Load purchase orders
             console.log('📋 Chargement des commandes...');
-            const orders = await this.apiPost('getPurchaseOrders', { limit: 500 });
+            const orders = await this.apiPostDirect('getPurchaseOrders', { limit: 500 });
             if (Array.isArray(orders)) {
                 localStorage.setItem('navalo_purchase_orders', JSON.stringify(orders));
                 console.log(`✅ ${orders.length} commandes chargées`);
@@ -89,7 +90,7 @@ class StorageAdapter {
 
             // Load received orders
             console.log('📥 Chargement des commandes reçues...');
-            const receivedOrders = await this.apiPost('getReceivedOrders', { limit: 500 });
+            const receivedOrders = await this.apiPostDirect('getReceivedOrders', { limit: 500 });
             if (Array.isArray(receivedOrders)) {
                 localStorage.setItem('navalo_received_orders', JSON.stringify(receivedOrders));
                 console.log(`✅ ${receivedOrders.length} commandes reçues chargées`);
@@ -97,7 +98,7 @@ class StorageAdapter {
 
             // Load deliveries
             console.log('🚚 Chargement des livraisons...');
-            const deliveries = await this.apiPost('getDeliveries', { limit: 500 });
+            const deliveries = await this.apiPostDirect('getDeliveries', { limit: 500 });
             if (Array.isArray(deliveries)) {
                 localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
                 console.log(`✅ ${deliveries.length} livraisons chargées`);
@@ -105,7 +106,7 @@ class StorageAdapter {
 
             // Load invoices
             console.log('🧾 Chargement des factures...');
-            const invoices = await this.apiPost('getInvoices', { limit: 500 });
+            const invoices = await this.apiPostDirect('getInvoices', { limit: 500 });
             if (Array.isArray(invoices)) {
                 localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
                 console.log(`✅ ${invoices.length} factures chargées`);
@@ -113,7 +114,7 @@ class StorageAdapter {
 
             // Load history
             console.log('📜 Chargement de l\'historique...');
-            const history = await this.apiPost('getHistory', { limit: 1000 });
+            const history = await this.apiPostDirect('getHistory', { limit: 1000 });
             if (Array.isArray(history)) {
                 localStorage.setItem('navalo_history', JSON.stringify(history));
                 console.log(`✅ ${history.length} entrées historique chargées`);
@@ -121,7 +122,7 @@ class StorageAdapter {
 
             // Load quotes
             console.log('📝 Chargement des devis...');
-            const quotes = await this.apiPost('getQuotes', { limit: 200 });
+            const quotes = await this.apiPostDirect('getQuotes', { limit: 200 });
             if (Array.isArray(quotes)) {
                 localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
                 console.log(`✅ ${quotes.length} devis chargés`);
@@ -129,7 +130,7 @@ class StorageAdapter {
 
             // Load subcontracting orders
             console.log('🏭 Chargement des commandes sous-traitance...');
-            const subOrders = await this.apiPost('getSubcontractingOrders', {});
+            const subOrders = await this.apiPostDirect('getSubcontractingOrders', {});
             if (Array.isArray(subOrders)) {
                 localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(subOrders));
                 console.log(`✅ ${subOrders.length} commandes sous-traitance chargées`);
