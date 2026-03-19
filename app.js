@@ -9861,7 +9861,13 @@ function showRepairQuotePreview(quote) {
     let pacsTableHtml = '';
     let pacNumber = 1;
 
-    quote.pacs.forEach(pac => {
+    // Safety check for pacs array
+    const pacs = quote.pacs || [];
+    if (pacs.length === 0) {
+        pacsTableHtml = '<tr><td colspan="5" class="text-center text-muted">Žádné PAC</td></tr>';
+    }
+
+    pacs.forEach(pac => {
         // PAC header
         const warrantyBadge = pac.underWarranty ? ' <span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; margin-left: 8px;">POD ZÁRUKOU - ZDARMA</span>' : '';
         const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
@@ -9909,38 +9915,39 @@ function showRepairQuotePreview(quote) {
         }
 
         // Services (show even if under warranty)
-        if (pac.services.labor > 0) {
+        const services = pac.services || {};
+        if (services.labor > 0) {
             pacsTableHtml += `
                 <tr>
                     <td>${t('laborHours')}</td>
                     <td>SERVICE</td>
-                    <td style="text-align:center">${pac.services.labor} h</td>
+                    <td style="text-align:center">${services.labor} h</td>
                     <td style="text-align:right">${serviceRates.labor.price} EUR/h</td>
-                    <td style="text-align:right">${(pac.services.labor * serviceRates.labor.price).toFixed(2)} EUR</td>
+                    <td style="text-align:right">${(services.labor * serviceRates.labor.price).toFixed(2)} EUR</td>
                 </tr>
             `;
         }
 
-        if (pac.services.refrigerant > 0) {
+        if (services.refrigerant > 0) {
             pacsTableHtml += `
                 <tr>
                     <td>${t('refrigerantKg')}</td>
                     <td>R134a</td>
-                    <td style="text-align:center">${pac.services.refrigerant.toFixed(2)} kg</td>
+                    <td style="text-align:center">${services.refrigerant.toFixed(2)} kg</td>
                     <td style="text-align:right">${serviceRates.refrigerantR134a.price} EUR/kg</td>
-                    <td style="text-align:right">${(pac.services.refrigerant * serviceRates.refrigerantR134a.price).toFixed(2)} EUR</td>
+                    <td style="text-align:right">${(services.refrigerant * serviceRates.refrigerantR134a.price).toFixed(2)} EUR</td>
                 </tr>
             `;
         }
 
-        if (pac.services.disposal > 0) {
+        if (services.disposal > 0) {
             pacsTableHtml += `
                 <tr>
                     <td>${t('disposalKg')}</td>
                     <td>SERVICE</td>
-                    <td style="text-align:center">${pac.services.disposal} kg</td>
+                    <td style="text-align:center">${services.disposal} kg</td>
                     <td style="text-align:right">${serviceRates.disposal.price} EUR/kg</td>
-                    <td style="text-align:right">${(pac.services.disposal * serviceRates.disposal.price).toFixed(2)} EUR</td>
+                    <td style="text-align:right">${(services.disposal * serviceRates.disposal.price).toFixed(2)} EUR</td>
                 </tr>
             `;
         }
