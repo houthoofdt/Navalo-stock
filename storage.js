@@ -1697,6 +1697,89 @@ class StorageAdapter {
         return await this.apiPost('deleteRepairQuote', { quoteId });
     }
 
+    // ========================================
+    // QUOTES / DEVIS
+    // ========================================
+
+    async createQuote(data) {
+        // Always update counter locally (for next number generation)
+        const config = JSON.parse(localStorage.getItem('navalo_config') || '{}');
+        const year = new Date().getFullYear();
+        config.next_quote = (config.next_quote || 1) + 1;
+        config.year = year;
+        localStorage.setItem('navalo_config', JSON.stringify(config));
+
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            const quoteData = {
+                ...data,
+                id: data.id || 'DEV-' + Date.now(),
+                createdAt: data.createdAt || new Date().toISOString()
+            };
+            quotes.unshift(quoteData);
+            localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+            return { success: true, quoteId: quoteData.id, quoteNumber: quoteData.number };
+        }
+
+        // Google Sheets mode
+        return await this.apiPost('createQuote', {
+            client: data.client,
+            address: data.clientAddress,
+            clientIco: data.clientIco,
+            clientDic: data.clientDic,
+            items: data.items,
+            subtotal: data.subtotal,
+            vatRate: data.vatRate,
+            vat: data.vat,
+            total: data.total,
+            currency: data.currency,
+            validityDate: data.validUntil,
+            notes: data.notes
+        });
+    }
+
+    async getQuotes(limit = 100) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            return quotes.slice(0, limit);
+        }
+        try {
+            const result = await this.apiGet('getQuotes', { limit });
+            return Array.isArray(result) ? result : [];
+        } catch (e) {
+            console.warn('Failed to get quotes from API, returning localStorage:', e);
+            const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            return quotes.slice(0, limit);
+        }
+    }
+
+    async updateQuote(quoteData) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            const index = quotes.findIndex(q => q.id === quoteData.id);
+            if (index !== -1) {
+                quoteData.updatedAt = new Date().toISOString();
+                quotes[index] = { ...quotes[index], ...quoteData };
+                localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+                return { success: true };
+            }
+            return { success: false, error: 'Quote not found' };
+        }
+
+        return await this.apiPost('updateQuote', quoteData);
+    }
+
+    async deleteQuote(quoteId) {
+        if (this.mode === 'local') {
+            const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            const filteredQuotes = quotes.filter(q => q.id !== quoteId);
+            localStorage.setItem('navalo_quotes', JSON.stringify(filteredQuotes));
+            return { success: true };
+        }
+
+        return await this.apiPost('deleteQuote', { quoteId });
+    }
+
     // Google Drive methods
     async uploadToDrive(data) {
         return await this.apiPost('uploadToDrive', data);

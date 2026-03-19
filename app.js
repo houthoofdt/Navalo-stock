@@ -7000,7 +7000,7 @@ function onQuoteClientInput() {
     }
 }
 
-function saveQuote() {
+async function saveQuote() {
     const items = [];
     document.querySelectorAll('#quoteItems .item-row').forEach(row => {
         const name = row.querySelector('.quote-item-name')?.value;
@@ -7012,7 +7012,7 @@ function saveQuote() {
     });
 
     if (items.length === 0) {
-        showToast(t('selectAtLeastOne') || 'Ajoutez au moins une ligne', 'error');
+        showToast(t('selectAtLeastOne') || 'Přidejte alespoň jednu položku', 'error');
         return;
     }
 
@@ -7037,28 +7037,48 @@ function saveQuote() {
         total: parseFloat(document.getElementById('quoteTotal').value) || 0,
         currency: document.getElementById('quoteCurrency').value,
         notes: document.getElementById('quoteNotes').value,
-        status: 'draft', // draft, sent, accepted, rejected
+        status: 'draft',
         createdAt: new Date().toISOString()
     };
 
-    let quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
-
-    if (editingQuoteId) {
-        const index = quotes.findIndex(q => q.id === editingQuoteId);
-        if (index >= 0) {
-            quote.createdAt = quotes[index].createdAt;
-            quote.status = quotes[index].status;
-            quotes[index] = quote;
+    try {
+        let result;
+        if (editingQuoteId) {
+            // Update existing quote
+            result = await storage.updateQuote(quote);
+        } else {
+            // Create new quote
+            result = await storage.createQuote(quote);
         }
-    } else {
-        quotes.unshift(quote);
+
+        if (result.success) {
+            // Also update localStorage for quick access
+            let quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+            if (editingQuoteId) {
+                const index = quotes.findIndex(q => q.id === editingQuoteId);
+                if (index >= 0) {
+                    quote.createdAt = quotes[index].createdAt;
+                    quote.status = quotes[index].status;
+                    quotes[index] = quote;
+                }
+            } else {
+                // Use ID from server if available
+                if (result.quoteId) quote.id = result.quoteId;
+                if (result.quoteNumber) quote.number = result.quoteNumber;
+                quotes.unshift(quote);
+            }
+            localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+
+            closeQuoteModal();
+            updateQuotesDisplay();
+            showToast(`${quote.number} ${t('saved')}`, 'success');
+        } else {
+            showToast('Chyba: ' + (result.error || 'Nelze uložit'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving quote:', error);
+        showToast('Chyba při ukládání: ' + error.message, 'error');
     }
-
-    localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
-
-    closeQuoteModal();
-    updateQuotesDisplay();
-    showToast(`${quote.number} ${t('saved')}`, 'success');
 }
 
 function editQuote(id) {
@@ -7094,30 +7114,55 @@ function editQuote(id) {
     document.getElementById('quoteModal').classList.add('active');
 }
 
-function deleteQuote(id) {
-    if (!confirm(t('confirmDelete') || 'Supprimer ce devis ?')) return;
+async function deleteQuote(id) {
+    if (!confirm(t('confirmDelete') || 'Smazat tuto nabídku?')) return;
 
-    let quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
-    quotes = quotes.filter(q => q.id !== id);
-    localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+    try {
+        await storage.deleteQuote(id);
 
-    updateQuotesDisplay();
-    showToast(t('deleted') || 'Supprimé', 'success');
+        // Also update localStorage
+        let quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+        quotes = quotes.filter(q => q.id !== id);
+        localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+
+        updateQuotesDisplay();
+        showToast(t('deleted') || 'Smazáno', 'success');
+    } catch (error) {
+        console.error('Error deleting quote:', error);
+        showToast('Chyba při mazání: ' + error.message, 'error');
+    }
 }
 
-function updateQuoteStatus(id, status) {
+async function updateQuoteStatus(id, status) {
     let quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
     const index = quotes.findIndex(q => q.id === id);
     if (index >= 0) {
         quotes[index].status = status;
         localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+
+        // Sync with server
+        try {
+            await storage.updateQuote(quotes[index]);
+        } catch (error) {
+            console.warn('Failed to sync quote status:', error);
+        }
+
         updateQuotesDisplay();
         showToast(t('saved'), 'success');
     }
 }
 
-function updateQuotesDisplay() {
-    const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+async function updateQuotesDisplay() {
+    // Try to get from storage (Google Sheets or localStorage)
+    let quotes;
+    try {
+        quotes = await storage.getQuotes(100);
+        // Update localStorage cache
+        localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+    } catch (error) {
+        console.warn('Failed to fetch quotes, using localStorage:', error);
+        quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
+    }
 
     const statusFilter = document.getElementById('quoteStatusFilter')?.value || 'all';
     const monthFilter = document.getElementById('quoteMonthFilter')?.value || '';
@@ -7151,10 +7196,10 @@ function updateQuotesDisplay() {
     }
 
     const statusLabels = {
-        'draft': { label: 'Brouillon', class: 'badge-secondary' },
-        'sent': { label: 'Envoyé', class: 'badge-info' },
-        'accepted': { label: 'Accepté', class: 'badge-success' },
-        'rejected': { label: 'Refusé', class: 'badge-danger' }
+        'draft': { label: 'Koncept', class: 'badge-secondary' },
+        'sent': { label: 'Odesláno', class: 'badge-info' },
+        'accepted': { label: 'Přijato', class: 'badge-success' },
+        'rejected': { label: 'Odmítnuto', class: 'badge-danger' }
     };
 
     tbody.innerHTML = filtered.map(q => {
