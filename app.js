@@ -22,6 +22,7 @@ let currentReceivedOrderFile = null;
 let loadedComponentPrices = {}; // Prices loaded from Google Sheets
 let currentPrintDocNumber = ''; // Current document number for PDF filename
 let editingSubcontractingOrderId = null;
+let _updatingReceivedOrders = false;
 
 // ========================================
 // BOM (Bill of Materials) - ASSEMBLY DEFINITIONS
@@ -7905,8 +7906,6 @@ function editReceivedOrder(id) {
     calculateRecOrdTotal();
     document.getElementById('receivedOrderModal').classList.add('active');
 }
-
-let _updatingReceivedOrders = false;
 
 async function updateReceivedOrdersDisplay() {
     // Prevent concurrent updates that cause UI flickering
