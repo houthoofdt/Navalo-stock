@@ -320,6 +320,43 @@ function doPost(e) {
         case 'deductStockForComponents':
           result = deductStockForComponents(data.components, data.docNumber, data.client, data.date);
           break;
+        // GET actions also supported via POST for flexibility
+        case 'getQuotes':
+          result = getQuotes(data.limit || 50);
+          break;
+        case 'getStock':
+          result = getStock();
+          break;
+        case 'getContacts':
+          result = getContacts(data.type);
+          break;
+        case 'getPurchaseOrders':
+          result = getPurchaseOrders(data.limit || 100);
+          break;
+        case 'getReceivedOrders':
+          result = getReceivedOrders(data.limit || 100);
+          break;
+        case 'getDeliveries':
+          result = getDeliveries(data.limit || 100);
+          break;
+        case 'getInvoices':
+          result = getInvoices(data.limit || 100);
+          break;
+        case 'getHistory':
+          result = getHistory(data.limit || 500);
+          break;
+        case 'getSubcontractingOrders':
+          result = getSubcontractingOrders(data.limit || 100);
+          break;
+        case 'getRepairQuotes':
+          result = getRepairQuotes(data.limit || 50);
+          break;
+        case 'getBom':
+          result = getBom();
+          break;
+        case 'getComponentPrices':
+          result = getComponentPrices();
+          break;
       default:
         result = { error: 'Action non reconnue: ' + action };
     }
