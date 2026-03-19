@@ -20,10 +20,19 @@ class StorageAdapter {
             this.apiUrl = CONFIG.API_URL;
             this.hybridMode = CONFIG.HYBRID_MODE || false;
             this.syncInterval = CONFIG.SYNC_INTERVAL || 300000;
+            this.syncOnStartup = CONFIG.SYNC_ON_STARTUP || false;
 
             if (this.hybridMode) {
                 console.log('⚡ Mode Hybride activé (local + sync Google Sheets)');
-                await this.initLocalStorage();
+
+                // Sync from Google Sheets on startup if enabled
+                if (this.syncOnStartup) {
+                    console.log('🔄 Chargement des données depuis Google Sheets...');
+                    await this.loadAllFromGoogleSheets();
+                } else {
+                    await this.initLocalStorage();
+                }
+
                 await this.initSyncSystem();
                 await this.fetchExchangeRate();
             } else {
@@ -36,6 +45,102 @@ class StorageAdapter {
             await this.initLocalStorage();
         }
         return true;
+    }
+
+    // Load all data from Google Sheets and save to localStorage
+    async loadAllFromGoogleSheets() {
+        console.log('🗑️ Effacement du cache local...');
+
+        // Clear all navalo_ keys except language preference
+        const keysToKeep = ['navalo_lang'];
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('navalo_') && !keysToKeep.includes(key)) {
+                localStorage.removeItem(key);
+            }
+        });
+
+        // Initialize empty local storage structure
+        await this.initLocalStorage();
+
+        try {
+            // Load stock
+            console.log('📦 Chargement du stock...');
+            const stockData = await this.apiPost('getStock', {});
+            if (stockData && !stockData.error) {
+                localStorage.setItem('navalo_stock_lots', JSON.stringify(stockData.lots || []));
+                console.log(`✅ ${(stockData.lots || []).length} lots chargés`);
+            }
+
+            // Load contacts
+            console.log('👥 Chargement des contacts...');
+            const contacts = await this.apiPost('getContacts', {});
+            if (Array.isArray(contacts)) {
+                localStorage.setItem('navalo_contacts', JSON.stringify(contacts));
+                console.log(`✅ ${contacts.length} contacts chargés`);
+            }
+
+            // Load purchase orders
+            console.log('📋 Chargement des commandes...');
+            const orders = await this.apiPost('getPurchaseOrders', { limit: 500 });
+            if (Array.isArray(orders)) {
+                localStorage.setItem('navalo_purchase_orders', JSON.stringify(orders));
+                console.log(`✅ ${orders.length} commandes chargées`);
+            }
+
+            // Load received orders
+            console.log('📥 Chargement des commandes reçues...');
+            const receivedOrders = await this.apiPost('getReceivedOrders', { limit: 500 });
+            if (Array.isArray(receivedOrders)) {
+                localStorage.setItem('navalo_received_orders', JSON.stringify(receivedOrders));
+                console.log(`✅ ${receivedOrders.length} commandes reçues chargées`);
+            }
+
+            // Load deliveries
+            console.log('🚚 Chargement des livraisons...');
+            const deliveries = await this.apiPost('getDeliveries', { limit: 500 });
+            if (Array.isArray(deliveries)) {
+                localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
+                console.log(`✅ ${deliveries.length} livraisons chargées`);
+            }
+
+            // Load invoices
+            console.log('🧾 Chargement des factures...');
+            const invoices = await this.apiPost('getInvoices', { limit: 500 });
+            if (Array.isArray(invoices)) {
+                localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
+                console.log(`✅ ${invoices.length} factures chargées`);
+            }
+
+            // Load history
+            console.log('📜 Chargement de l\'historique...');
+            const history = await this.apiPost('getHistory', { limit: 1000 });
+            if (Array.isArray(history)) {
+                localStorage.setItem('navalo_history', JSON.stringify(history));
+                console.log(`✅ ${history.length} entrées historique chargées`);
+            }
+
+            // Load quotes
+            console.log('📝 Chargement des devis...');
+            const quotes = await this.apiPost('getQuotes', { limit: 200 });
+            if (Array.isArray(quotes)) {
+                localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+                console.log(`✅ ${quotes.length} devis chargés`);
+            }
+
+            // Load subcontracting orders
+            console.log('🏭 Chargement des commandes sous-traitance...');
+            const subOrders = await this.apiPost('getSubcontractingOrders', {});
+            if (Array.isArray(subOrders)) {
+                localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(subOrders));
+                console.log(`✅ ${subOrders.length} commandes sous-traitance chargées`);
+            }
+
+            console.log('✅ Synchronisation terminée! Travail en mode hybride.');
+
+        } catch (error) {
+            console.error('❌ Erreur lors du chargement depuis Google Sheets:', error);
+            // Continue with empty local storage
+        }
     }
 
     async initLocalStorage() {

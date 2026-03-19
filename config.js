@@ -14,6 +14,11 @@ const CONFIG = {
     // ⚡ RECOMMANDÉ pour meilleures performances
     HYBRID_MODE: true,
 
+    // Charger toutes les données depuis Google Sheets au démarrage
+    // Efface le cache local et le remplace par les données Google Sheets
+    // ⚡ RECOMMANDÉ pour synchroniser les données au démarrage
+    SYNC_ON_STARTUP: true,
+
     // Intervalle de synchronisation en millisecondes (par défaut 5 minutes)
     // 60000 = 1 min, 300000 = 5 min, 600000 = 10 min
     // ⚡ Réduit à 30s pour sync plus rapide
