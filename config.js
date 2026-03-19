@@ -23,11 +23,12 @@ const CONFIG = {
     // Informations entreprise
     COMPANY: {
         name: 'NAVALO s.r.o.',
-        address: 'Radvanická 140/60, 71500 Ostrava - Michálkovice, Česká republika',
+        address: 'Radvanická 140/60, 715 00 Michálkovice',
+        country: 'Czech Republic',
         ico: '25352695',
         dic: 'CZ25352695',
-        phone: '731 259 988',
-        email: 'info@navalo.cz',
+        phone: '731 501 291',
+        email: 'navalo@navalo.cz',
 
         // Coordonnées bancaires
         bank: {

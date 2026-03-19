@@ -7256,14 +7256,16 @@ function generateQuoteHTML(quote) {
         </tr>
     `).join('');
 
+    const company = CONFIG?.COMPANY || {};
+
     return `
     <div class="quote-doc">
         <div class="inv-header">
             <div class="inv-company">
-                <h2>NAVALO s.r.o.</h2>
-                <p>Pod Rapidem 361, 251 63 Strančice</p>
-                <p>IČO: 06301185 | DIČ: CZ06301185</p>
-                <p>Tel: 731 501 291 | navalo@navalo.cz</p>
+                <h2>${company.name || 'NAVALO s.r.o.'}</h2>
+                <p>${company.address || ''}</p>
+                <p>IČO: ${company.ico || ''} | DIČ: ${company.dic || ''}</p>
+                <p>Tel: ${company.phone || ''} | ${company.email || ''}</p>
             </div>
             <div class="inv-info">
                 <h1>NABÍDKA č. ${quote.number}</h1>
@@ -7316,7 +7318,7 @@ function generateQuoteHTML(quote) {
 
         <div class="oc-footer">
             <p>Tato nabídka je platná do ${validUntil ? formatDate(validUntil) : '-'}.</p>
-            <p>V případě dotazů nás kontaktujte na navalo@navalo.cz</p>
+            <p>V případě dotazů nás kontaktujte na ${company.email || 'navalo@navalo.cz'}</p>
         </div>
     </div>
     `;
