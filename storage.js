@@ -1851,7 +1851,10 @@ class StorageAdapter {
         }
         try {
             const result = await this.apiGet('getQuotes', { limit });
-            return Array.isArray(result) ? result : [];
+            const quotes = Array.isArray(result) ? result : [];
+            // Cache to localStorage for display
+            localStorage.setItem('navalo_quotes', JSON.stringify(quotes));
+            return quotes;
         } catch (e) {
             console.warn('Failed to get quotes from API, returning localStorage:', e);
             const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
