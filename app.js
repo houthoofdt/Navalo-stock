@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v4.2
+   NAVALO Stock PAC - Application v4.3
    Complete with i18n, Contacts, History PAC only
    ======================================== */
-console.log('=== APP.JS VERSION 4.2 LOADED ===');
+console.log('=== APP.JS VERSION 4.3 LOADED ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -23,6 +23,8 @@ let loadedComponentPrices = {}; // Prices loaded from Google Sheets
 let currentPrintDocNumber = ''; // Current document number for PDF filename
 let editingSubcontractingOrderId = null;
 let _updatingReceivedOrders = false;
+let autoRefreshInterval = null;
+let currentRepairQuotePreview = null;
 
 // ========================================
 // BOM (Bill of Materials) - ASSEMBLY DEFINITIONS
@@ -8528,7 +8530,6 @@ window.testGoogleSheetsConnection = testGoogleSheetsConnection;
 // AUTO-REFRESH FOR MULTI-USER SYNC
 // ========================================
 
-let autoRefreshInterval = null;
 let autoRefreshPaused = false;
 let _refreshInProgress = false;  // Guard to prevent concurrent refreshes
 let _eventListenersAdded = false;  // Ensure listeners are only added once
@@ -9824,8 +9825,6 @@ async function updateRepairQuotesDisplay() {
         `;
     }).join('');
 }
-
-let currentRepairQuotePreview = null;
 
 function getServiceRates() {
     // Return service rates from REPAIR_PRICE_LIST in data.js
