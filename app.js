@@ -2134,20 +2134,34 @@ function showDeliveryNote(d) {
         d.repairQuoteData.pacs.forEach(pac => {
             const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
 
-            // PAC header
+            // PAC as main item (this is what we're delivering back - the repaired PAC)
             itemsHtml += `
-                <tr style="background: #dbeafe;">
-                    <td colspan="3"><strong>PAC #${pacNumber} - ${pac.model} (S/N: ${pac.serial || 'N/A'}${allianceSerial})</strong></td>
+                <tr>
+                    <td><strong>PAC ${pac.model}</strong> (S/N: ${pac.serial || 'N/A'}${allianceSerial})</td>
+                    <td style="text-align:center">1</td>
+                    <td>${pcs}</td>
                 </tr>
             `;
+            total += 1;
 
-            // Components
+            // Add repair notes if available
+            if (pac.notes) {
+                itemsHtml += `
+                    <tr style="background: #f3f4f6;">
+                        <td colspan="3" style="padding-left: 20px; font-style: italic; font-size: 0.9em;">
+                            <strong>Poznámky:</strong> ${pac.notes.substring(0, 200)}${pac.notes.length > 200 ? '...' : ''}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Components (if any)
             if (pac.components && pac.components.length > 0) {
                 pac.components.forEach(comp => {
                     if (comp.qty > 0) {
                         itemsHtml += `
                             <tr>
-                                <td style="padding-left: 20px;">${comp.name || comp.ref}</td>
+                                <td style="padding-left: 20px;">+ ${comp.name || comp.ref}</td>
                                 <td style="text-align:center">${comp.qty}</td>
                                 <td>${pcs}</td>
                             </tr>
@@ -2162,7 +2176,7 @@ function showDeliveryNote(d) {
                 const refQty = Math.round(pac.services.refrigerant);
                 itemsHtml += `
                     <tr>
-                        <td style="padding-left: 20px;">Fluide frigorigène R134a</td>
+                        <td style="padding-left: 20px;">+ Fluide frigorigène R134a</td>
                         <td style="text-align:center">${refQty}</td>
                         <td>kg</td>
                     </tr>
@@ -11490,6 +11504,16 @@ function previewDeliveryBeforeSave() {
             custom: []
         }
     };
+
+    // Check for repair quote data (stored when creating BL from repair quote)
+    const deliveryForm = document.getElementById('tab-sorties');
+    if (deliveryForm?.dataset?.repairQuoteData) {
+        try {
+            deliveryData.repairQuoteData = JSON.parse(deliveryForm.dataset.repairQuoteData);
+        } catch (e) {
+            console.warn('Could not parse repair quote data:', e);
+        }
+    }
 
     // Get PAC quantities
     getPacModels().forEach(m => {
