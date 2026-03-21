@@ -1961,7 +1961,7 @@ class StorageAdapter {
     // ========================================
 
     async getSubcontractingOrders(limit = 100) {
-        if (this.storageMode === 'googlesheets') {
+        if (this.mode === 'googlesheets') {
             return await this.apiGet('getSubcontractingOrders', { limit });
         } else {
             return JSON.parse(localStorage.getItem('navalo_subcontracting_orders') || '[]');
@@ -1971,7 +1971,7 @@ class StorageAdapter {
     async saveSubcontractingOrders(orders) {
         localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(orders));
 
-        if (this.storageMode === 'googlesheets') {
+        if (this.mode === 'googlesheets') {
             return await this.apiPost('saveSubcontractingOrders', { orders });
         }
 
@@ -1979,7 +1979,7 @@ class StorageAdapter {
     }
 
     async deleteSubcontractingOrder(id) {
-        if (this.storageMode === 'googlesheets') {
+        if (this.mode === 'googlesheets') {
             await this.apiPost('deleteSubcontractingOrder', { id });
         }
 
