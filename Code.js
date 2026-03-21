@@ -2469,9 +2469,17 @@ function getDeliveries(limit) {
       }
     } catch (e) { customItems = []; }
 
+    // Column structure (with TIZ_TH11 at position 9):
+    // 0:ID, 1:Date, 2:BL, 3:Client, 4:Address, 5:TX9, 6:TX12-3PH, 7:TX12-1PH, 8:TH11,
+    // 9:TIZ_TH11, 10:Total, 11:Value, 12:Status, 13:Notes, 14:LinkedOrderId,
+    // 15:ClientOrderNumber, 16:ComponentItems, 17:CustomItems, 18:TotalComponents,
+    // 19:TotalCustom, 20:RepairQuoteData
     const quantities = {
-      'TX9': data[i][5], 'TX12-3PH': data[i][6],
-      'TX12-1PH': data[i][7], 'TH11': data[i][8]
+      'TX9': data[i][5] || 0,
+      'TX12-3PH': data[i][6] || 0,
+      'TX12-1PH': data[i][7] || 0,
+      'TH11': data[i][8] || 0,
+      'TIZ_TH11': data[i][9] || 0
     };
 
     // Parse repairQuoteData from column 20
@@ -2493,11 +2501,10 @@ function getDeliveries(limit) {
         components: componentItems,
         custom: customItems
       },
-      total: data[i][9], value: data[i][10],
-      status: data[i][11], notes: data[i][12],
-      linkedOrderId: data[i][13] || '',
-      clientOrderNumber: data[i][14] || '',
-      invoiceNumber: data[i][15] || '',
+      total: data[i][10], value: data[i][11],
+      status: data[i][12], notes: data[i][13],
+      linkedOrderId: data[i][14] || '',
+      clientOrderNumber: data[i][15] || '',
       totalComponents: data[i][18] || 0,
       totalCustom: data[i][19] || 0,
       repairQuoteData: repairQuoteData
