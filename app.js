@@ -12519,7 +12519,10 @@ async function transferComponentsForOrder(orderId) {
 
             // Calculate component value per kit
             const stockItem = stock[comp.ref];
-            const unitPrice = stockItem ? (stockItem.lastPrice || stockItem.price || 0) : 0;
+            // Unit price = total value / quantity in stock
+            const unitPrice = stockItem && stockItem.qty > 0
+                ? (stockItem.value || 0) / stockItem.qty
+                : (stockItem?.lastPrice || stockItem?.price || 0);
             componentValuePerKit += comp.qty * unitPrice;
         });
 
