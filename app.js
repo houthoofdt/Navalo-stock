@@ -12468,13 +12468,25 @@ async function transferComponentsForOrder(orderId) {
         console.log('✓ Delivery processed:', result);
 
         // Track transfer in order
+        let componentValuePerKit = 0;
         bom.components.forEach(comp => {
             const needed = comp.qty * qty;
             if (!order.transferred[comp.ref]) {
                 order.transferred[comp.ref] = 0;
             }
             order.transferred[comp.ref] += needed;
+
+            // Calculate component value per kit
+            const stockItem = stock[comp.ref];
+            const unitPrice = stockItem ? (stockItem.lastPrice || stockItem.price || 0) : 0;
+            componentValuePerKit += comp.qty * unitPrice;
         });
+
+        // Store component value per kit in order for later use when receiving
+        if (!order.componentValuePerKit || order.componentValuePerKit === 0) {
+            order.componentValuePerKit = componentValuePerKit;
+            console.log(`✓ Component value per kit stored: ${componentValuePerKit} CZK`);
+        }
 
         // Reload stock after delivery to get updated values
         const stockData = await storage.getStockWithValue();
@@ -12558,11 +12570,18 @@ async function receiveKitsForOrder(orderId) {
         localStorage.setItem('navalo_stock', JSON.stringify(stock));
     }
 
+    // Calculate kit price = component value + assembly cost
+    const componentValuePerKit = order.componentValuePerKit || 0;
+    const assemblyCost = bom.assemblyCost || 0;
+    const kitPrice = componentValuePerKit + assemblyCost;
+
+    console.log(`✓ Kit price calculation: ${componentValuePerKit} (components) + ${assemblyCost} (assembly) = ${kitPrice} CZK`);
+
     const receiptData = {
         items: [{
             ref: order.kitType,
             qty: qty,
-            price: bom.assemblyCost || 0
+            price: kitPrice  // Component value + assembly cost
         }],
         supplier: order.subcontractor,
         bonNum: bonNum,

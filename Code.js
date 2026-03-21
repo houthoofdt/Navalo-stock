@@ -797,9 +797,10 @@ if (devisSheet.getLastRow() === 0) {
   if (subcontractingSheet.getLastRow() === 0) {
     subcontractingSheet.appendRow([
       'ID', 'N° Ordre', 'Date', 'Sous-traitant', 'Type de Kit', 'Quantité',
-      'Date de Livraison', 'Statut', 'Transféré', 'Reçu', 'Notes', 'Créé le'
+      'Date de Livraison', 'Statut', 'Transféré', 'Reçu', 'Notes', 'Créé le',
+      'Valeur Composants/Kit'  // NEW: Component value per kit
     ]);
-    subcontractingSheet.getRange(1, 1, 1, 12).setFontWeight('bold')
+    subcontractingSheet.getRange(1, 1, 1, 13).setFontWeight('bold')
       .setBackground('#9c27b0').setFontColor('white');
   }
 
@@ -3938,7 +3939,8 @@ function getSubcontractingOrders(limit) {
       transferred: row[8] ? JSON.parse(row[8]) : {},
       received: row[9] || 0,
       notes: row[10] || '',
-      createdAt: row[11]
+      createdAt: row[11],
+      componentValuePerKit: row[12] || 0  // Component value per kit for stock valuation
     });
   }
   
@@ -3962,6 +3964,8 @@ function saveSubcontractingOrders(orders) {
   }
   
   // Add all orders
+  // Column structure: ID, N°Ordre, Date, Sous-traitant, Type Kit, Quantité,
+  // Date Livraison, Statut, Transféré, Reçu, Notes, Créé le, Valeur Composants/Kit
   if (orders && orders.length > 0) {
     const rows = orders.map(order => [
       order.id,
@@ -3975,10 +3979,11 @@ function saveSubcontractingOrders(orders) {
       JSON.stringify(order.transferred || {}),
       order.received || 0,
       order.notes || '',
-      order.createdAt || new Date().toISOString()
+      order.createdAt || new Date().toISOString(),
+      order.componentValuePerKit || 0  // NEW: Component value per kit for stock valuation
     ]);
-    
-    sheet.getRange(2, 1, rows.length, 12).setValues(rows);
+
+    sheet.getRange(2, 1, rows.length, 13).setValues(rows);
   }
   
   return { success: true };
