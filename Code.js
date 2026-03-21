@@ -41,7 +41,7 @@ const SHEET_NAMES = {
 };
 
 // PAC Models configuration
-const PAC_MODELS = ['TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'TIZ_TH11'];
+const PAC_MODELS = ['TX9', 'TX12-3PH', 'TX12-1PH', 'TH11', 'TIZ_TH11', 'TIZ_TX9'];
 
 // CNB Exchange Rate API
 const CNB_URL = 'https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt';
@@ -1412,11 +1412,14 @@ function processDelivery(data) {
   const totalComponents = componentItems.reduce((sum, item) => sum + item.qty, 0);
   const totalCustom = customItems.reduce((sum, item) => sum + item.qty, 0);
 
+  // Column structure: ID, Date, BL, Client, Address, TX9, TX12-3PH, TX12-1PH, TH11,
+  // TIZ_TH11, TIZ_TX9, Total, Value, Status, Notes, LinkedOrderId, ClientOrderNumber,
+  // ComponentItems, CustomItems, TotalComponents, TotalCustom, RepairQuoteData
   deliveriesSheet.appendRow([
     deliveryId, date || new Date(), blNumber, client, clientAddress,
     quantities['TX9'] || 0, quantities['TX12-3PH'] || 0,
     quantities['TX12-1PH'] || 0, quantities['TH11'] || 0,
-    quantities['TIZ_TH11'] || 0, // TIZ_TH11 was missing!
+    quantities['TIZ_TH11'] || 0, quantities['TIZ_TX9'] || 0,
     totalPac, Math.round(totalValue * 100) / 100, 'Créé', notes || '',
     linkedOrderId || '', clientOrderNumber || '',
     JSON.stringify(componentItems.length > 0 ? componentItems : []), // componentItems
@@ -2452,40 +2455,42 @@ function getDeliveries(limit) {
 
   const deliveries = [];
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
-    // Parse componentItems and customItems from JSON (columns 16 and 17)
+    // Column structure (with TIZ_TH11 and TIZ_TX9):
+    // 0:ID, 1:Date, 2:BL, 3:Client, 4:Address, 5:TX9, 6:TX12-3PH, 7:TX12-1PH, 8:TH11,
+    // 9:TIZ_TH11, 10:TIZ_TX9, 11:Total, 12:Value, 13:Status, 14:Notes, 15:LinkedOrderId,
+    // 16:ClientOrderNumber, 17:ComponentItems, 18:CustomItems, 19:TotalComponents,
+    // 20:TotalCustom, 21:RepairQuoteData
+
+    // Parse componentItems and customItems from JSON (columns 17 and 18)
     let componentItems = [];
     let customItems = [];
     try {
-      const compStr = data[i][16];
+      const compStr = data[i][17];
       if (compStr && typeof compStr === 'string' && compStr.trim() !== '') {
         componentItems = JSON.parse(compStr);
       }
     } catch (e) { componentItems = []; }
 
     try {
-      const custStr = data[i][17];
+      const custStr = data[i][18];
       if (custStr && typeof custStr === 'string' && custStr.trim() !== '') {
         customItems = JSON.parse(custStr);
       }
     } catch (e) { customItems = []; }
 
-    // Column structure (with TIZ_TH11 at position 9):
-    // 0:ID, 1:Date, 2:BL, 3:Client, 4:Address, 5:TX9, 6:TX12-3PH, 7:TX12-1PH, 8:TH11,
-    // 9:TIZ_TH11, 10:Total, 11:Value, 12:Status, 13:Notes, 14:LinkedOrderId,
-    // 15:ClientOrderNumber, 16:ComponentItems, 17:CustomItems, 18:TotalComponents,
-    // 19:TotalCustom, 20:RepairQuoteData
     const quantities = {
       'TX9': data[i][5] || 0,
       'TX12-3PH': data[i][6] || 0,
       'TX12-1PH': data[i][7] || 0,
       'TH11': data[i][8] || 0,
-      'TIZ_TH11': data[i][9] || 0
+      'TIZ_TH11': data[i][9] || 0,
+      'TIZ_TX9': data[i][10] || 0
     };
 
-    // Parse repairQuoteData from column 20
+    // Parse repairQuoteData from column 21
     let repairQuoteData = null;
     try {
-      const rqStr = data[i][20];
+      const rqStr = data[i][21];
       if (rqStr && typeof rqStr === 'string' && rqStr.trim() !== '') {
         repairQuoteData = JSON.parse(rqStr);
       }
@@ -2501,12 +2506,12 @@ function getDeliveries(limit) {
         components: componentItems,
         custom: customItems
       },
-      total: data[i][10], value: data[i][11],
-      status: data[i][12], notes: data[i][13],
-      linkedOrderId: data[i][14] || '',
-      clientOrderNumber: data[i][15] || '',
-      totalComponents: data[i][18] || 0,
-      totalCustom: data[i][19] || 0,
+      total: data[i][11], value: data[i][12],
+      status: data[i][13], notes: data[i][14],
+      linkedOrderId: data[i][15] || '',
+      clientOrderNumber: data[i][16] || '',
+      totalComponents: data[i][19] || 0,
+      totalCustom: data[i][20] || 0,
       repairQuoteData: repairQuoteData
     });
   }
