@@ -12383,7 +12383,7 @@ function updateSubcontractingSummary(orders) {
  */
 async function transferComponentsForOrder(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find(o => String(o.id) === String(orderId));
 
     if (!order) {
         showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -12562,7 +12562,7 @@ async function transferComponentsForOrder(orderId) {
  */
 async function receiveKitsForOrder(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find(o => String(o.id) === String(orderId));
 
     if (!order) {
         showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -12672,7 +12672,7 @@ async function receiveKitsForOrder(orderId) {
  */
 async function viewSubcontractingOrder(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find(o => String(o.id) === String(orderId));
 
     if (!order) {
         showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -12764,7 +12764,7 @@ async function deleteSubcontractingOrder(orderId) {
     }
 
     let orders = await storage.getSubcontractingOrders() || [];
-    orders = orders.filter(o => o.id !== orderId);
+    orders = orders.filter(o => String(o.id) !== String(orderId));
     await storage.saveSubcontractingOrders(orders);
 
     showToast(t('orderDeleted') || 'Commande supprimée', 'success');
@@ -12777,7 +12777,7 @@ async function deleteSubcontractingOrder(orderId) {
 async function sendSubcontractingOrderByEmail(orderId) {
     try {
         const orders = await storage.getSubcontractingOrders() || [];
-        const order = orders.find(o => o.id === orderId);
+        const order = orders.find(o => String(o.id) === String(orderId));
 
         if (!order) {
             showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -12901,7 +12901,7 @@ async function sendSubcontractingOrderByEmail(orderId) {
  */
 async function generateSubcontractingPO(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find(o => String(o.id) === String(orderId));
 
     if (!order) {
         showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
@@ -13030,7 +13030,7 @@ async function generateSubcontractingPO(orderId) {
  */
 async function generateSubcontractingBL(orderId) {
     const orders = await storage.getSubcontractingOrders() || [];
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find(o => String(o.id) === String(orderId));
 
     if (!order) {
         showToast(t('orderNotFound') || 'Commande non trouvée', 'error');
