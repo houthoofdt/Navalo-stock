@@ -660,7 +660,48 @@ function migrateReceivedOrdersToPartial() {
     }
 }
 
+/**
+ * Clear local cache on startup to ensure fresh data from Google Sheets
+ * Keeps only user preferences (language, config)
+ */
+function clearLocalCacheOnStartup() {
+    console.log('🧹 Clearing local cache on startup...');
+
+    // Keys to KEEP (user preferences)
+    const keysToKeep = [
+        'navalo_lang',
+        'navalo_config'
+    ];
+
+    // Keys to CLEAR (data cache)
+    const keysToClear = [
+        'navalo_stock',
+        'navalo_stock_lots',
+        'navalo_deliveries',
+        'navalo_purchase_orders',
+        'navalo_received_orders',
+        'navalo_quotes',
+        'navalo_repair_quotes',
+        'navalo_contacts',
+        'navalo_subcontracting_orders',
+        'navalo_invoices',
+        'navalo_history'
+    ];
+
+    keysToClear.forEach(key => {
+        if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+            console.log(`  ✓ Cleared: ${key}`);
+        }
+    });
+
+    console.log('✅ Local cache cleared - data will be loaded fresh from Google Sheets');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    // Clear local cache on startup (keep only preferences)
+    clearLocalCacheOnStartup();
+
     currentLang = localStorage.getItem('navalo_lang') || 'fr';
     document.getElementById('languageSelect').value = currentLang;
 
