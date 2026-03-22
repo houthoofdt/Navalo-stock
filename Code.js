@@ -4008,19 +4008,88 @@ function saveSubcontractingOrders(orders) {
 function deleteSubcontractingOrder(orderId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.SUBCONTRACTING);
-  
+
   if (!sheet) {
     return { success: false, error: 'Subcontracting sheet not found' };
   }
-  
+
   const data = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === orderId) {
       sheet.deleteRow(i + 1);
       return { success: true };
     }
   }
-  
+
   return { success: false, error: 'Order not found' };
+}
+
+// ========================================
+// CREATE MISSING FIFO LOTS
+// ========================================
+
+/**
+ * Creates FIFO lots for stock items that have qty > 0 but no lots
+ * Run this once in Apps Script to fix valuation issues
+ */
+function createMissingLots() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+
+  const stockData = stockSheet.getDataRange().getValues();
+  const lotsData = lotsSheet.getDataRange().getValues();
+
+  // Calculate total qtyRemaining per ref from lots
+  const lotsTotals = {};
+  for (let i = 1; i < lotsData.length; i++) {
+    const ref = String(lotsData[i][1] || '').trim();
+    const qtyRemaining = Number(lotsData[i][5]) || 0;
+    if (ref) {
+      lotsTotals[ref] = (lotsTotals[ref] || 0) + qtyRemaining;
+    }
+  }
+
+  let created = 0;
+  const today = new Date();
+
+  for (let i = 1; i < stockData.length; i++) {
+    const ref = String(stockData[i][0] || '').trim();
+    const stockQty = Number(stockData[i][4]) || 0;
+    const stockValue = Number(stockData[i][6]) || 0;
+
+    if (!ref || stockQty <= 0) continue;
+
+    const lotsQty = lotsTotals[ref] || 0;
+    const missingQty = stockQty - lotsQty;
+
+    if (missingQty > 0) {
+      // Calculate unit price from stock value
+      const unitPrice = stockValue > 0 ? stockValue / stockQty : 0;
+
+      // Create a lot for the missing quantity
+      const lotId = 'LOT-INIT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      lotsSheet.appendRow([
+        lotId,
+        ref,
+        today,
+        'INIT-STOCK',
+        missingQty,
+        missingQty,
+        unitPrice,
+        'CZK',
+        unitPrice,
+        'Initial'
+      ]);
+
+      created++;
+      Logger.log('Created lot for ' + ref + ': ' + missingQty + ' pcs at ' + unitPrice + ' CZK');
+    }
+  }
+
+  // Recalculate valuation
+  getStockValuation();
+
+  return { success: true, lotsCreated: created };
 }
