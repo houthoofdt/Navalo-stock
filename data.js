@@ -423,20 +423,32 @@ const BOM_TIZ_TH11 = [
     { ref: '63', name: 'Composant 63', category: 'refrigeration', qty: 2, manufacturer: '' }
 ];
 
+// BOM TIZ_TX9 (Kit à assembler)
+const BOM_TIZ_TX9 = [
+    { ref: '00062_LP_0.7/1.7', name: 'Presostat LP ACB-2UA521W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '00062_HP_26', name: 'Presostat HP ACB-2UB507W', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '068U2215', name: 'Ventil expanzní TUAE', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: '060-017166', name: 'Kapilára pro WVFX', category: 'refrigeration', qty: 1, manufacturer: '' },
+    { ref: 'DML_053S', name: 'Filtr dehydrátor DML 053S', category: 'refrigeration', qty: 1, manufacturer: 'Danfoss' },
+    { ref: 'YCV-15009', name: 'Ventil zpětný SANHUA 10mm', category: 'refrigeration', qty: 1, manufacturer: 'Sanhua' },
+    { ref: 'MDF3H02', name: 'Ventil elektromagneticky 6mm', category: 'refrigeration', qty: 1, manufacturer: '' }
+];
+
 // Combined BOM for app
 const SAMPLE_BOM = {
     'TX9': BOM_TX9,
     'TX12-3PH': BOM_TX12_3PH,
     'TX12-1PH': BOM_TX12_1PH,
     'TH11': BOM_TH11,
-    'TIZ_TH11': BOM_TIZ_TH11
+    'TIZ_TH11': BOM_TIZ_TH11,
+    'TIZ_TX9': BOM_TIZ_TX9
 };
 
 // Generate initial stock from data
 function generateInitialStock() {
     return {
         components: INITIAL_STOCK,
-        pac: { 'TX9': 0, 'TX12-3PH': 0, 'TX12-1PH': 0, 'TH11': 0, 'TIZ_TH11': 0 }
+        pac: { 'TX9': 0, 'TX12-3PH': 0, 'TX12-1PH': 0, 'TH11': 0, 'TIZ_TH11': 0, 'TIZ_TX9': 0 }
     };
 }
 

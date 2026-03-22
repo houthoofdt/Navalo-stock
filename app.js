@@ -42,25 +42,25 @@ const ASSEMBLY_BOM = {
     'TIZ_TX9': {
         name: 'Kit TIZ TX9',
         components: [
-            { ref: '00062_LP_0.7/1.7', qty: 0 },  // Inclus dans kit TIZ
-            { ref: '00062_HP_26', qty: 0 },       // Inclus dans kit TIZ
-            { ref: '068U2215', qty: 0 },          // Inclus dans kit TIZ
-            { ref: '060-017166', qty: 1 },
-            { ref: 'DML_053S', qty: 0 },          // Inclus dans kit TIZ
-            { ref: 'YCV-15009', qty: 0 },         // Inclus dans kit TIZ
-            { ref: 'MDF3H02', qty: 0 }            // Inclus dans kit TIZ
+            { ref: '00062_LP_0.7/1.7', qty: 1 },  // Presostat LP
+            { ref: '00062_HP_26', qty: 1 },       // Presostat HP
+            { ref: '068U2215', qty: 1 },          // Ventil expanzní TUAE
+            { ref: '060-017166', qty: 1 },        // Kapilára pro WVFX
+            { ref: 'DML_053S', qty: 1 },          // Filtr dehydrátor
+            { ref: 'YCV-15009', qty: 1 },         // Ventil zpětný
+            { ref: 'MDF3H02', qty: 1 }            // Ventil elektromagneticky
         ],
         assemblyCost: 2450 // CZK par kit (travail + tubes)
     },
     'TIZ_TH11': {
         name: 'Kit TIZ TH11',
         components: [
-            { ref: '00062_LP_0.7/1.7', qty: 0 },  // Inclus dans kit TIZ
-            { ref: '00062_HP_26', qty: 0 },       // Inclus dans kit TIZ
-            { ref: '6.04726.0000', qty: 0 },      // Inclus dans kit TIZ
-            { ref: '6.04677.0000', qty: 0 },      // Inclus dans kit TIZ
-            { ref: 'TGEN2,5_134', qty: 0 },       // Inclus dans kit TIZ
-            { ref: '63', qty: 0 }                 // Inclus dans kit TIZ
+            { ref: '00062_LP_0.7/1.7', qty: 1 },  // Presostat LP
+            { ref: '00062_HP_26', qty: 1 },       // Presostat HP
+            { ref: '6.04726.0000', qty: 1 },      // Filtr Emerson FDB 084S
+            { ref: '6.04677.0000', qty: 1 },      // Průhledítko Sanhua
+            { ref: 'TGEN2,5_134', qty: 1 },       // Ventil expanzní
+            { ref: '63', qty: 2 }                 // Composant 63
         ],
         assemblyCost: 2195 // CZK par kit (travail + tubes)
     }

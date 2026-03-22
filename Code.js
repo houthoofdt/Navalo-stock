@@ -23,6 +23,7 @@ const SHEET_NAMES = {
   BOM_TX12_1PH: 'BOM_TX12-1PH',
   BOM_TH11: 'BOM_TH11',  // NEW: TH11 model
   BOM_TIZ_TH11: 'BOM_TIZ_TH11',  // NEW: TIZ_TH11 kit
+  BOM_TIZ_TX9: 'BOM_TIZ_TX9',    // NEW: TIZ_TX9 kit
   HISTORY: 'Historique',
   RECEIPTS: 'Prijemky',  // NEW: Receipts/Příjemky
   DELIVERIES: 'Livraisons',
@@ -2175,7 +2176,8 @@ function getAllBom() {
     'TX12-3PH': SHEET_NAMES.BOM_TX12_3PH,
     'TX12-1PH': SHEET_NAMES.BOM_TX12_1PH,
     'TH11': SHEET_NAMES.BOM_TH11,
-    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11
+    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11,
+    'TIZ_TX9': SHEET_NAMES.BOM_TIZ_TX9
   };
 
   PAC_MODELS.forEach(model => {
@@ -2207,7 +2209,8 @@ function saveBom(bomData) {
     'TX12-3PH': SHEET_NAMES.BOM_TX12_3PH,
     'TX12-1PH': SHEET_NAMES.BOM_TX12_1PH,
     'TH11': SHEET_NAMES.BOM_TH11,
-    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11
+    'TIZ_TH11': SHEET_NAMES.BOM_TIZ_TH11,
+    'TIZ_TX9': SHEET_NAMES.BOM_TIZ_TX9
   };
 
   let updated = 0;
