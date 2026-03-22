@@ -55,12 +55,12 @@ const ASSEMBLY_BOM = {
     'TIZ_TH11': {
         name: 'Kit TIZ TH11',
         components: [
-            { ref: '00062_LP_0.7/1.7', qty: 1 },
-            { ref: '00062_HP_26', qty: 1 },
-            { ref: '6.04726.0000', qty: 1 },
-            { ref: '6.04677.0000', qty: 1 },
-            { ref: 'TGEN2,5_134', qty: 1 },
-            { ref: '63', qty: 2 }
+            { ref: '00062_LP_0.7/1.7', qty: 0 },  // Inclus dans kit TIZ
+            { ref: '00062_HP_26', qty: 0 },       // Inclus dans kit TIZ
+            { ref: '6.04726.0000', qty: 0 },      // Inclus dans kit TIZ
+            { ref: '6.04677.0000', qty: 0 },      // Inclus dans kit TIZ
+            { ref: 'TGEN2,5_134', qty: 0 },       // Inclus dans kit TIZ
+            { ref: '63', qty: 0 }                 // Inclus dans kit TIZ
         ],
         assemblyCost: 2195 // CZK par kit (travail + tubes)
     }
