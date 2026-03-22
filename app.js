@@ -42,13 +42,13 @@ const ASSEMBLY_BOM = {
     'TIZ_TX9': {
         name: 'Kit TIZ TX9',
         components: [
-            { ref: '00062_LP_0.7/1.7', qty: 1 },
-            { ref: '00062_HP_26', qty: 1 },
-            { ref: '068U2215', qty: 1 },
+            { ref: '00062_LP_0.7/1.7', qty: 0 },  // Inclus dans kit TIZ
+            { ref: '00062_HP_26', qty: 0 },       // Inclus dans kit TIZ
+            { ref: '068U2215', qty: 0 },          // Inclus dans kit TIZ
             { ref: '060-017166', qty: 1 },
-            { ref: 'DML_053S', qty: 1 },
-            { ref: 'YCV-15009', qty: 1 },
-            { ref: 'MDF3H02', qty: 1 }
+            { ref: 'DML_053S', qty: 0 },          // Inclus dans kit TIZ
+            { ref: 'YCV-15009', qty: 0 },         // Inclus dans kit TIZ
+            { ref: 'MDF3H02', qty: 0 }            // Inclus dans kit TIZ
         ],
         assemblyCost: 2450 // CZK par kit (travail + tubes)
     },
