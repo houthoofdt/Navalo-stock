@@ -12527,10 +12527,9 @@ async function transferComponentsForOrder(orderId) {
         });
 
         // Store component value per kit in order for later use when receiving
-        if (!order.componentValuePerKit || order.componentValuePerKit === 0) {
-            order.componentValuePerKit = componentValuePerKit;
-            console.log(`✓ Component value per kit stored: ${componentValuePerKit} CZK`);
-        }
+        // Always update with fresh calculation (fixes accumulation bug)
+        order.componentValuePerKit = componentValuePerKit;
+        console.log(`✓ Component value per kit: ${componentValuePerKit} CZK`);
 
         // Reload stock after delivery to get updated values
         const stockData = await storage.getStockWithValue();
