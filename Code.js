@@ -1392,6 +1392,16 @@ function processDelivery(data) {
       qtyToDeduct -= deductFromLot;
     }
 
+    // Fallback: if no lot value, use stock value / qty as unit price
+    if (deductedValue === 0 && itemQty > 0) {
+      // Get stock value from Stock sheet (column 7 = value)
+      const stockValue = Number(stockData[componentRowIndex - 1][6]) || 0;
+      const stockQty = Number(stockData[componentRowIndex - 1][4]) || 1;
+      const unitPrice = stockQty > 0 ? stockValue / stockQty : 0;
+      deductedValue = itemQty * unitPrice;
+      Logger.log('processDelivery: Using stock value fallback for ' + itemRef + ': ' + unitPrice + ' CZK/unit, total: ' + deductedValue);
+    }
+
     totalValue += deductedValue;
 
     // Update stock quantity
@@ -1401,10 +1411,10 @@ function processDelivery(data) {
     stockSheet.getRange(componentRowIndex, 8).setValue(new Date());
 
     // Add to history
-    const avgPrice = qty > 0 ? deductedValue / qty : 0;
+    const avgPrice = itemQty > 0 ? deductedValue / itemQty : 0;
     historySheet.appendRow([
       date || new Date(), 'SORTIE', blNumber, ref, name || ref,
-      -qty, avgPrice, -deductedValue, client
+      -itemQty, avgPrice, -deductedValue, client
     ]);
   });
 
