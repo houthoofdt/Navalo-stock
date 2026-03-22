@@ -12660,7 +12660,7 @@ async function receiveKitsForOrder(orderId) {
     await storage.saveSubcontractingOrders(orders);
 
     showToast(
-        `Réception ${receiptNumber} créée - ${qty} kits reçus`,
+        `Réception ${bonNum} créée - ${qty} kits reçus`,
         'success'
     );
 
