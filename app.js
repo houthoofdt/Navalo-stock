@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v4.5
+   NAVALO Stock PAC - Application v4.7
    Complete with i18n, Contacts, History PAC only
    ======================================== */
-console.log('=== APP.JS VERSION 4.5 LOADED ===');
+console.log('=== APP.JS VERSION 4.7 LOADED - FIX SUBCONTRACTING ===');
 
 let currentBomModel = null;
 let currentStock = null;
