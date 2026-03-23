@@ -1623,7 +1623,11 @@ async function processDelivery() {
     const hasComponents = items.components.length > 0;
     const hasCustom = items.custom.length > 0;
 
-    if (!hasPac && !hasComponents && !hasCustom) {
+    // Check if this is a repair quote delivery
+    const deliveryForm = document.getElementById('tab-sorties');
+    const hasRepairQuoteData = deliveryForm?.dataset?.repairQuoteData ? true : false;
+
+    if (!hasPac && !hasComponents && !hasCustom && !hasRepairQuoteData) {
         showToast('Veuillez sélectionner au moins un article à livrer', 'error');
         return;
     }
