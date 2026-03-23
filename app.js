@@ -2161,6 +2161,10 @@ async function viewDelivery(id) {
 }
 
 function showDeliveryNote(d) {
+    console.log('=== DELIVERY NOTE DEBUG ===');
+    console.log('Notes:', d.notes);
+    console.log('Full delivery data:', d);
+    console.log('===========================');
     const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
     const pcs = t('pieces');
 
