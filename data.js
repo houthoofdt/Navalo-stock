@@ -504,7 +504,8 @@ const REPAIR_PRICE_LIST = {
         { ref: 'pas_upinaci_2,5_25mm', name: 'Upínací pás se spojkou 25mm/2,5', price: 4, currency: 'EUR' },
         { ref: '0712174', name: 'Koncovka - svorkovnice k elektromag. Ventilu', price: 3, currency: 'EUR' },
         { ref: 'R11780_AlMg3_1mm_A-04', name: 'Kryt pro rozběhový kondenzátor TX9 Hydra', price: 6, currency: 'EUR' },
-        { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' }
+        { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' },
+        { ref: 'SADA_REPASY_TX9', name: 'Sada na repasy stroju', price: 22, currency: 'EUR' }
     ]
 };
 
