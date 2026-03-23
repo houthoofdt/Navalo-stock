@@ -5360,14 +5360,25 @@ function exportInvoices() {
 // BOM DISPLAY
 // ========================================
 
-function changeBomModel() {
+async function changeBomModel() {
     currentBomModel = document.getElementById('bomModelSelect')?.value || 'TX9';
-    updateBomDisplay();
+    await updateBomDisplay();
 }
 
-function updateBomDisplay() {
+async function updateBomDisplay() {
     const tbody = document.getElementById('bomTableBody');
     if (!tbody || !currentBom) return;
+
+    // Refresh stock data from Google Sheets before displaying BOM
+    try {
+        const stockData = await storage.getStockWithValue();
+        if (stockData && stockData.components) {
+            currentStock = stockData.components;
+            console.log('🔄 BOM: Stock refreshed from Google Sheets');
+        }
+    } catch (e) {
+        console.warn('BOM: Could not refresh stock:', e);
+    }
     
     const bomItems = currentBom[currentBomModel] || [];
     if (bomItems.length === 0) {
