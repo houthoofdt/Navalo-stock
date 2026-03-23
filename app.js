@@ -1655,7 +1655,6 @@ async function processDelivery() {
 
     // Get repair quote data if this delivery is created from a repair quote
     let repairQuoteData = null;
-    const deliveryForm = document.getElementById('tab-sorties');
     if (deliveryForm?.dataset?.repairQuoteData) {
         try {
             repairQuoteData = JSON.parse(deliveryForm.dataset.repairQuoteData);
