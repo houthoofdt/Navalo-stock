@@ -1667,6 +1667,7 @@ async function processDelivery() {
         date: document.getElementById('deliveryDate').value,
         linkedOrderId,
         clientOrderNumber: document.getElementById('deliveryClientOrderNum')?.value || '',
+        notes: document.getElementById('deliveryNotes')?.value || '',
         items, // Pass all items: { pac: {}, components: [], custom: [] }
         repairQuoteData // Pass repair quote data if available
     };
@@ -1865,6 +1866,10 @@ function clearDeliveryForm() {
     // Clear component and custom item rows
     document.getElementById('deliveryComponentsContainer').innerHTML = '';
     document.getElementById('deliveryCustomItemsContainer').innerHTML = '';
+
+    // Clear notes
+    const notesField = document.getElementById('deliveryNotes');
+    if (notesField) notesField.value = '';
 
     // Clear repair quote data
     const deliveryForm = document.getElementById('tab-sorties');
@@ -2284,6 +2289,7 @@ function showDeliveryNote(d) {
                     <tr class="dn-total"><td><strong>TOTAL</strong></td><td><strong>${total}</strong></td><td>${pcs}</td></tr>
                 </tbody>
             </table>
+            ${d.notes ? `<div class="dn-notes" style="margin-top: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 3px solid #007bff; font-size: 0.9rem;"><strong>${t('notes')}:</strong> ${d.notes}</div>` : ''}
             <div class="dn-signatures">
                 <div class="dn-signature"><div class="dn-signature-line"></div><p>${t('senderSignature')}</p></div>
                 <div class="dn-signature"><div class="dn-signature-line"></div><p>${t('recipientSignature')}</p></div>
