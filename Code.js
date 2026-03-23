@@ -1706,30 +1706,30 @@ function createReceivedOrder(data) {
   }
 
   roSheet.appendRow([
-    roId,
-    date || new Date(),
-    roNumber,
-    clientOrderNumber || '',
-    client,
-    address || '',
-    quantities['TX9'] || 0, prices['TX9'] || 0,
-    quantities['TX12-3PH'] || 0, prices['TX12-3PH'] || 0,
-    quantities['TX12-1PH'] || 0, prices['TX12-1PH'] || 0,
-    quantities['TH11'] || 0, prices['TH11'] || 0,
-    total,
-    currency || 'EUR',
-    deliveryDate || '',
-    status || 'new',
-    0, // delivered
-    0, // invoiced
-    notes || '',
-    '', // driveFileId
-    '', // driveFileUrl
-    JSON.stringify(stockComponents || []), // stockComponents as JSON
-    JSON.stringify(customItems || []), // customItems as JSON
-    // TIZ models at end (cols 25-28) for backwards compatibility
-    quantities['TIZ_TH11'] || 0, prices['TIZ_TH11'] || 0,
-    quantities['TIZ_TX9'] || 0, prices['TIZ_TX9'] || 0
+    roId,                                           // 0 (A)
+    date || new Date(),                             // 1 (B)
+    roNumber,                                       // 2 (C)
+    clientOrderNumber || '',                        // 3 (D)
+    client,                                         // 4 (E)
+    address || '',                                  // 5 (F)
+    quantities['TX9'] || 0, prices['TX9'] || 0,     // 6-7 (G-H)
+    quantities['TX12-3PH'] || 0, prices['TX12-3PH'] || 0,  // 8-9 (I-J)
+    quantities['TX12-1PH'] || 0, prices['TX12-1PH'] || 0,  // 10-11 (K-L)
+    quantities['TH11'] || 0, prices['TH11'] || 0,   // 12-13 (M-N)
+    total,                                          // 14 (O)
+    currency || 'EUR',                              // 15 (P)
+    deliveryDate || '',                             // 16 (Q)
+    status || 'new',                                // 17 (R)
+    0, // delivered                                 // 18 (S)
+    0, // invoiced                                  // 19 (T)
+    notes || '',                                    // 20 (U)
+    // TIZ models (cols V-Y = 21-24)
+    quantities['TIZ_TH11'] || 0, prices['TIZ_TH11'] || 0,  // 21-22 (V-W)
+    quantities['TIZ_TX9'] || 0, prices['TIZ_TX9'] || 0,    // 23-24 (X-Y)
+    '', // driveFileId                              // 25 (Z)
+    '', // driveFileUrl                             // 26 (AA)
+    JSON.stringify(stockComponents || []),          // 27 (AB)
+    JSON.stringify(customItems || [])               // 28 (AC)
   ]);
 
   return { success: true, roId, roNumber, total };
@@ -1744,14 +1744,14 @@ function getReceivedOrders(limit) {
   for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
     const row = data[i];
 
-    // Parse stockComponents and customItems from JSON (original positions)
+    // Parse stockComponents and customItems from JSON (cols 27-28 after TIZ)
     let stockComponents = [];
     let customItems = [];
     try {
-      if (row[23]) stockComponents = JSON.parse(row[23]);
+      if (row[27]) stockComponents = JSON.parse(row[27]);
     } catch (e) {}
     try {
-      if (row[24]) customItems = JSON.parse(row[24]);
+      if (row[28]) customItems = JSON.parse(row[28]);
     } catch (e) {}
 
     orders.push({
@@ -1766,16 +1766,16 @@ function getReceivedOrders(limit) {
         'TX12-3PH': row[8] || 0,
         'TX12-1PH': row[10] || 0,
         'TH11': row[12] || 0,
-        'TIZ_TH11': row[25] || 0,  // At end for backwards compatibility
-        'TIZ_TX9': row[27] || 0
+        'TIZ_TH11': row[21] || 0,  // Column V
+        'TIZ_TX9': row[23] || 0    // Column X
       },
       prices: {
         'TX9': row[7] || 0,
         'TX12-3PH': row[9] || 0,
         'TX12-1PH': row[11] || 0,
         'TH11': row[13] || 0,
-        'TIZ_TH11': row[26] || 0,  // At end for backwards compatibility
-        'TIZ_TX9': row[28] || 0
+        'TIZ_TH11': row[22] || 0,  // Column W
+        'TIZ_TX9': row[24] || 0    // Column Y
       },
       total: row[14] || 0,
       currency: row[15] || 'EUR',
@@ -1784,8 +1784,8 @@ function getReceivedOrders(limit) {
       delivered: row[18] || 0,
       invoiced: row[19] || 0,
       notes: row[20] || '',
-      driveFileId: row[21] || '',
-      driveFileUrl: row[22] || '',
+      driveFileId: row[25] || '',   // Column Z
+      driveFileUrl: row[26] || '',  // Column AA
       stockComponents: stockComponents,
       customItems: customItems
     });
@@ -1824,26 +1824,26 @@ function updateReceivedOrder(data) {
         roSheet.getRange(i + 1, 9).setValue(quantities['TX12-3PH'] || 0);
         roSheet.getRange(i + 1, 11).setValue(quantities['TX12-1PH'] || 0);
         roSheet.getRange(i + 1, 13).setValue(quantities['TH11'] || 0);
-        // TIZ models at end (cols 26-29)
-        roSheet.getRange(i + 1, 26).setValue(quantities['TIZ_TH11'] || 0);
-        roSheet.getRange(i + 1, 28).setValue(quantities['TIZ_TX9'] || 0);
+        // TIZ models (cols V-Y = 22-25 in 1-indexed)
+        roSheet.getRange(i + 1, 22).setValue(quantities['TIZ_TH11'] || 0);
+        roSheet.getRange(i + 1, 24).setValue(quantities['TIZ_TX9'] || 0);
       }
       if (prices) {
         roSheet.getRange(i + 1, 8).setValue(prices['TX9'] || 0);
         roSheet.getRange(i + 1, 10).setValue(prices['TX12-3PH'] || 0);
         roSheet.getRange(i + 1, 12).setValue(prices['TX12-1PH'] || 0);
         roSheet.getRange(i + 1, 14).setValue(prices['TH11'] || 0);
-        // TIZ models at end (cols 26-29)
-        roSheet.getRange(i + 1, 27).setValue(prices['TIZ_TH11'] || 0);
-        roSheet.getRange(i + 1, 29).setValue(prices['TIZ_TX9'] || 0);
+        // TIZ models (cols V-Y = 22-25 in 1-indexed)
+        roSheet.getRange(i + 1, 23).setValue(prices['TIZ_TH11'] || 0);
+        roSheet.getRange(i + 1, 25).setValue(prices['TIZ_TX9'] || 0);
       }
 
-      // Update stockComponents and customItems if provided (original positions)
+      // Update stockComponents and customItems if provided (cols AB-AC = 28-29 in 1-indexed)
       if (stockComponents !== undefined) {
-        roSheet.getRange(i + 1, 24).setValue(JSON.stringify(stockComponents || []));
+        roSheet.getRange(i + 1, 28).setValue(JSON.stringify(stockComponents || []));
       }
       if (customItems !== undefined) {
-        roSheet.getRange(i + 1, 25).setValue(JSON.stringify(customItems || []));
+        roSheet.getRange(i + 1, 29).setValue(JSON.stringify(customItems || []));
       }
 
       return { success: true };
