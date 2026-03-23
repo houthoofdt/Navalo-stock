@@ -2289,7 +2289,7 @@ function showDeliveryNote(d) {
                     <tr class="dn-total"><td><strong>TOTAL</strong></td><td><strong>${total}</strong></td><td>${pcs}</td></tr>
                 </tbody>
             </table>
-            ${d.notes ? `<div class="dn-notes" style="margin-top: 1rem; padding: 0.75rem; background: #f8f9fa; border-left: 3px solid #007bff; font-size: 0.9rem;"><strong>${t('notes')}:</strong> ${d.notes}</div>` : ''}
+            ${d.notes ? `<div class="dn-notes"><strong>${t('notes')}:</strong> ${d.notes}</div>` : ''}
             <div class="dn-signatures">
                 <div class="dn-signature"><div class="dn-signature-line"></div><p>${t('senderSignature')}</p></div>
                 <div class="dn-signature"><div class="dn-signature-line"></div><p>${t('recipientSignature')}</p></div>
