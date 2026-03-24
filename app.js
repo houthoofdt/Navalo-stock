@@ -8026,7 +8026,10 @@ async function updateReceivedOrdersDisplay() {
         const models = getPacModels();
         models.forEach(model => {
             const key = modelIdToKey(model.id);
-            const toDeliverQty = toDeliver.reduce((sum, o) => sum + (o.quantities?.[model.id] || 0), 0);
+            const toDeliverQty = toDeliver.reduce((sum, o) => {
+                const qty = Number(o.quantities?.[model.id]) || 0;
+                return sum + (isNaN(qty) ? 0 : qty);
+            }, 0);
             const el = document.getElementById(`recOrder-${key}`);
             if (el) el.textContent = toDeliverQty;
         });
@@ -8053,10 +8056,11 @@ async function updateReceivedOrdersDisplay() {
         const statusClasses = { new: 'badge-warning', confirmed: 'badge-info', delivered: 'badge-success', invoiced: 'badge-success' };
 
         tbody.innerHTML = filtered.map(order => {
-            // Generate model quantity cells dynamically
-            const modelCells = models.map(model =>
-                `<td class="text-center">${order.quantities?.[model.id] || 0}</td>`
-            ).join('');
+            // Generate model quantity cells dynamically (ensure numeric values only)
+            const modelCells = models.map(model => {
+                const qty = Number(order.quantities?.[model.id]) || 0;
+                return `<td class="text-center">${isNaN(qty) ? 0 : qty}</td>`;
+            }).join('');
 
             // Normalize status - handle undefined, null, empty string
             const orderStatus = (order.status || 'new').toLowerCase().trim();
@@ -8226,7 +8230,10 @@ function updateReceivedOrdersDisplayLocal() {
     const models = getPacModels();
     models.forEach(model => {
         const key = modelIdToKey(model.id);
-        const toDeliverQty = toDeliver.reduce((sum, o) => sum + (o.quantities?.[model.id] || 0), 0);
+        const toDeliverQty = toDeliver.reduce((sum, o) => {
+            const qty = Number(o.quantities?.[model.id]) || 0;
+            return sum + (isNaN(qty) ? 0 : qty);
+        }, 0);
         const el = document.getElementById(`recOrder-${key}`);
         if (el) el.textContent = toDeliverQty;
     });
@@ -8253,9 +8260,11 @@ function updateReceivedOrdersDisplayLocal() {
     const statusClasses = { new: 'badge-warning', confirmed: 'badge-info', partial: 'badge-warning-alt', delivered: 'badge-success', invoiced: 'badge-success' };
 
     tbody.innerHTML = filtered.map(order => {
-        const modelCells = models.map(model =>
-            `<td class="text-center">${order.quantities?.[model.id] || 0}</td>`
-        ).join('');
+        // Ensure numeric values only (filter out file IDs or other strings)
+        const modelCells = models.map(model => {
+            const qty = Number(order.quantities?.[model.id]) || 0;
+            return `<td class="text-center">${isNaN(qty) ? 0 : qty}</td>`;
+        }).join('');
 
         const orderStatus = (order.status || 'new').toLowerCase().trim();
         const canConfirm = orderStatus === 'new' || orderStatus === '' || !order.status;
