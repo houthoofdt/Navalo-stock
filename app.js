@@ -2178,8 +2178,7 @@ function showDeliveryNote(d) {
 
     // Check if this is a repair quote delivery
     if (d.repairQuoteData && d.repairQuoteData.pacs && d.repairQuoteData.pacs.length > 0) {
-        // Display in repair quote format with PAC structure
-        let pacNumber = 1;
+        // Display only PAC with serial numbers (no components, no notes)
         d.repairQuoteData.pacs.forEach(pac => {
             const allianceSerial = pac.serialAlliance ? ` | Alliance S/N: ${pac.serialAlliance}` : '';
 
@@ -2192,48 +2191,6 @@ function showDeliveryNote(d) {
                 </tr>
             `;
             total += 1;
-
-            // Add repair notes if available
-            if (pac.notes) {
-                itemsHtml += `
-                    <tr style="background: #f3f4f6;">
-                        <td colspan="3" style="padding-left: 20px; font-style: italic; font-size: 0.9em;">
-                            <strong>Poznámky:</strong> ${pac.notes.substring(0, 200)}${pac.notes.length > 200 ? '...' : ''}
-                        </td>
-                    </tr>
-                `;
-            }
-
-            // Components (if any)
-            if (pac.components && pac.components.length > 0) {
-                pac.components.forEach(comp => {
-                    if (comp.qty > 0) {
-                        itemsHtml += `
-                            <tr>
-                                <td style="padding-left: 20px;">+ ${comp.name || comp.ref}</td>
-                                <td style="text-align:center">${comp.qty}</td>
-                                <td>${pcs}</td>
-                            </tr>
-                        `;
-                        total += comp.qty;
-                    }
-                });
-            }
-
-            // Refrigerant (if any)
-            if (pac.services && pac.services.refrigerant > 0) {
-                const refQty = Math.round(pac.services.refrigerant);
-                itemsHtml += `
-                    <tr>
-                        <td style="padding-left: 20px;">+ Fluide frigorigène R134a</td>
-                        <td style="text-align:center">${refQty}</td>
-                        <td>kg</td>
-                    </tr>
-                `;
-                total += refQty;
-            }
-
-            pacNumber++;
         });
 
         // Add quote reference
