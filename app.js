@@ -1049,7 +1049,7 @@ function updateStockDisplay() {
 async function updateHistoryDisplay() {
     try {
         console.log('=== updateHistoryDisplay START ===');
-        const history = await storage.getHistory(200);
+        const history = await storage.getHistory(10000);
         console.log('Raw history data length:', history?.length || 0);
 
         const tbody = document.getElementById('historyTableBody');
