@@ -2257,12 +2257,46 @@ body {
         top: 0 !important;
         left: 0 !important;
         width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
         background: white !important;
+        display: block !important;
     }
 
     #repairQuotePreviewModal .modal-content {
         width: 190mm !important;
         max-width: 190mm !important;
+        position: static !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important;
+    }
+
+    #repairQuotePreview {
+        position: static !important;
+        overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .rq-doc {
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 9pt !important;
+        background: white !important;
+        page-break-inside: auto !important;
+    }
+
+    .rq-header {
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .rq-pac-section {
+        page-break-inside: avoid !important;
     }
 
     /* === RECEIVED ORDERS PREVIEW PRINT STYLES === */
