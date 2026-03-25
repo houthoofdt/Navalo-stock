@@ -10630,23 +10630,35 @@ async function sendRepairQuoteByEmail() {
             return;
         }
 
-        // Get client email
+        // Get client email as default (if available)
         const contacts = await storage.getContacts();
         const client = contacts.find(c => c.id === quote.clientId);
+        const defaultEmail = client?.email || '';
 
-        if (!client || !client.email) {
-            showToast('Email du client non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
-            return;
+        // Ask for recipient email
+        const recipientEmail = prompt(
+            currentLang === 'cz'
+                ? `Zadejte email příjemce pro nabídku ${quote.quoteNumber}:`
+                : `Entrez l'email du destinataire pour le devis ${quote.quoteNumber}:`,
+            defaultEmail
+        );
+
+        if (!recipientEmail || !recipientEmail.trim()) {
+            return; // User cancelled or empty
         }
 
-        // Confirm send
-        if (!confirm(`Envoyer le devis ${quote.quoteNumber} à ${client.email}?`)) {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(recipientEmail.trim())) {
+            showToast(currentLang === 'cz' ? 'Neplatný formát emailu' : 'Format email invalide', 'error');
             return;
         }
 
         // Ask for CC addresses
         const ccAddresses = prompt(
-            `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules ou points-virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+            currentLang === 'cz'
+                ? `Přidat adresy v kopii (CC)?\n\nOddělte adresy čárkami.\nPříklad: email1@domain.com, email2@domain.com\n\nNechte prázdné, pokud nechcete kopii.`
+                : `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
             ''
         );
 
@@ -10655,7 +10667,7 @@ async function sendRepairQuoteByEmail() {
 
         // Prepare email data
         const emailData = {
-            to: client.email,
+            to: recipientEmail.trim(),
             replyTo: 'tomas.karas@hotjet.cz',
             subject: `${currentLang === 'cz' ? 'Nabídka opravy' : 'Devis de réparation'} ${quote.quoteNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             body: currentLang === 'cz' ?
