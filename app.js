@@ -13134,6 +13134,13 @@ async function generateSubcontractingBL(orderId) {
         .total { font-weight: bold; background: #f9f9f9; }
         .warning { color: #ff9800; font-weight: bold; }
         .footer { margin-top: 40px; font-size: 0.9em; color: #666; }
+
+        /* Hide stock and value columns when printing */
+        @media print {
+            .hide-print { display: none !important; }
+            .delivery-info { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; }
+            th { background-color: #2196F3 !important; color: white !important; -webkit-print-color-adjust: exact; }
+        }
     </style>
 </head>
 <body>
@@ -13166,7 +13173,7 @@ async function generateSubcontractingBL(orderId) {
                 <th>${labels.qtyPerKit}</th>
                 <th>${labels.kits}</th>
                 <th>${labels.totalQty}</th>
-                <th>${labels.stockAvail}</th>
+                <th class="hide-print">${labels.stockAvail}</th>
             </tr>
         </thead>
         <tbody>
@@ -13177,12 +13184,12 @@ async function generateSubcontractingBL(orderId) {
                     <td style="text-align: center;">${comp.qtyPerKit}</td>
                     <td style="text-align: center;">${qty}</td>
                     <td style="text-align: center;"><strong>${comp.totalQty}</strong></td>
-                    <td style="text-align: center;" class="${comp.available < comp.totalQty ? 'warning' : ''}">
+                    <td style="text-align: center;" class="hide-print ${comp.available < comp.totalQty ? 'warning' : ''}">
                         ${comp.available}${comp.available < comp.totalQty ? ' ⚠️' : ' ✓'}
                     </td>
                 </tr>
             `).join('')}
-            <tr class="total">
+            <tr class="total hide-print">
                 <td colspan="5" style="text-align: right;"><strong>${labels.estimatedValue}:</strong></td>
                 <td style="text-align: right;"><strong>${formatCurrency(totalValueCZK)} CZK</strong></td>
             </tr>
