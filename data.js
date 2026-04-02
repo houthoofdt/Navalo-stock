@@ -109,7 +109,16 @@ const COMPONENT_PRICES = {
     'N00381': { eur: 6.00, czk: null },                  // Cu tr.D18/1mm z výparníku
     'Sada_komplet_Cu': { eur: 45.00, czk: null },        // Kompletní sada Cu T9/T11
     'Sada_komplet_cu_TX18': { eur: 55.00, czk: null },   // Sada trubky TX12-18
-    
+    // === Tubes individuels Sada TX18 (prix à définir) ===
+    '12934': { eur: 0, czk: null },                       // Copper Pipe 10 mm (4)
+    '12933': { eur: 0, czk: null },                       // Copper Pipe 12 mm (6)
+    '12930': { eur: 0, czk: null },                       // Copper Pipe 16 mm (10)
+    '12931_1': { eur: 0, czk: null },                     // Copper Pipe 12 mm (12)
+    '12931_2': { eur: 0, czk: null },                     // Copper Pipe 12 mm (13)
+    '12937': { eur: 0, czk: null },                       // Copper Pipe 10 mm (14)
+    '12932': { eur: 0, czk: null },                       // Copper Pipe 12 mm (15)
+    '12936': { eur: 0, czk: null },                       // Copper Pipe 10 mm (17)
+
     // === Autres ===
     'CV-220200-1FHP': { eur: 250.00, czk: null },        // Driver Invertek 1ph (estimé)
     'PE2300-25-06': { eur: 55.00, czk: null },           // EMI filtr 1ph (estimé)
@@ -194,6 +203,15 @@ const INITIAL_STOCK = {
     'TG4A': { ref: 'TG4A', name: 'Teplotní čidlo NTC10k', category: 'electronique', manufacturer: 'Sensit', qty: 101, min: 20 },
     'TX12_el_svazek': { ref: 'TX12_el_svazek', name: 'El. svazek TX12-18', category: 'electrique', manufacturer: 'Navalo', qty: 1, min: 10 },
     'Sada_komplet_cu_TX18': { ref: 'Sada_komplet_cu_TX18', name: 'Sada trubky TX12-18', category: 'tuyauterie', manufacturer: 'Navalo', qty: 46, min: 10 },
+    // === Tubes individuels Sada_Komplet_Cu_TX18 ===
+    '12934': { ref: '12934', name: 'Copper Pipe 10 mm (4)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12933': { ref: '12933', name: 'Copper Pipe 12 mm (6)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12930': { ref: '12930', name: 'Copper Pipe 16 mm (10)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12931_1': { ref: '12931_1', name: 'Copper Pipe 12 mm (12)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12931_2': { ref: '12931_2', name: 'Copper Pipe 12 mm (13)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12937': { ref: '12937', name: 'Copper Pipe 10 mm (14)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12932': { ref: '12932', name: 'Copper Pipe 12 mm (15)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
+    '12936': { ref: '12936', name: 'Copper Pipe 10 mm (17)', category: 'tuyauterie', manufacturer: 'TIZ', qty: 0, min: 10 },
     'Plastovy_vytok': { ref: 'Plastovy_vytok', name: 'Plastový výtok', category: 'autre', manufacturer: '', qty: 69, min: 15 },
     'PE3300-16-06': { ref: 'PE3300-16-06', name: 'PE3300-16-06 - EMI filtr 3ph', category: 'electrique', manufacturer: 'Pioneer', qty: 0, min: 10 },
     'PE2300-25-06': { ref: 'PE2300-25-06', name: 'PE2300-25-06 - EMI filtr 1ph', category: 'electrique', manufacturer: 'Pioneer', qty: 0, min: 10 },
@@ -442,6 +460,27 @@ const SAMPLE_BOM = {
     'TH11': BOM_TH11,
     'TIZ_TH11': BOM_TIZ_TH11,
     'TIZ_TX9': BOM_TIZ_TX9
+};
+
+// ========================================
+// COMPONENT KITS (raccourcis pour commandes)
+// ========================================
+// Kits de composants qui peuvent être ajoutés en une fois lors des commandes
+const COMPONENT_KITS = {
+    'Sada_Komplet_Cu_TX18': {
+        name: 'Sada Komplet Cu TX12-18',
+        description: 'Kit complet tubes cuivre TX12-18',
+        components: [
+            { ref: '12934', name: 'Copper Pipe 10 mm (4)', qty: 1 },
+            { ref: '12933', name: 'Copper Pipe 12 mm (6)', qty: 1 },
+            { ref: '12930', name: 'Copper Pipe 16 mm (10)', qty: 1 },
+            { ref: '12931_1', name: 'Copper Pipe 12 mm (12)', qty: 1 },
+            { ref: '12931_2', name: 'Copper Pipe 12 mm (13)', qty: 1 },
+            { ref: '12937', name: 'Copper Pipe 10 mm (14)', qty: 1 },
+            { ref: '12932', name: 'Copper Pipe 12 mm (15)', qty: 1 },
+            { ref: '12936', name: 'Copper Pipe 10 mm (17)', qty: 1 }
+        ]
+    }
 };
 
 // Generate initial stock from data

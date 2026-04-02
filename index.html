@@ -1696,7 +1696,10 @@
                 <div class="items-section">
                     <h4 data-i18n="stockComponents">Composants du stock</h4>
                     <div id="recOrdStockComponents"></div>
-                    <button type="button" class="btn btn-outline" onclick="addRecOrdStockComponent()">+ <span data-i18n="addStockComponent">Composant</span></button>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-outline" onclick="addRecOrdStockComponent()">+ <span data-i18n="addStockComponent">Composant</span></button>
+                        <button type="button" class="btn btn-outline" onclick="addRecOrdKit('Sada_Komplet_Cu_TX18')" title="Ajouter tous les tubes Cu TX18">📦 Sada Cu TX18</button>
+                    </div>
                 </div>
                 <div class="items-section">
                     <h4 data-i18n="customItems">Articles libres</h4>

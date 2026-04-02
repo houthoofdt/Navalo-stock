@@ -7725,6 +7725,39 @@ function getRecOrdStockComponents() {
 
 window.addRecOrdStockComponent = addRecOrdStockComponent;
 
+// Add all components of a kit to the order
+function addRecOrdKit(kitId) {
+    if (typeof COMPONENT_KITS === 'undefined' || !COMPONENT_KITS[kitId]) {
+        showToast('Kit non trouvé: ' + kitId, 'error');
+        return;
+    }
+
+    const kit = COMPONENT_KITS[kitId];
+    console.log(`📦 Adding kit ${kitId} with ${kit.components.length} components`);
+
+    // Add each component of the kit
+    kit.components.forEach(comp => {
+        const price = getComponentPrice(comp.ref, 'EUR') || 0;
+        addRecOrdStockComponent(comp.ref, comp.qty, price);
+    });
+
+    showToast(`Kit "${kit.name}" ajouté (${kit.components.length} composants)`, 'success');
+    calculateRecOrdTotal();
+}
+window.addRecOrdKit = addRecOrdKit;
+
+// Get available kits for dropdown
+function getAvailableKits() {
+    if (typeof COMPONENT_KITS === 'undefined') return [];
+    return Object.entries(COMPONENT_KITS).map(([id, kit]) => ({
+        id,
+        name: kit.name,
+        description: kit.description,
+        componentCount: kit.components.length
+    }));
+}
+window.getAvailableKits = getAvailableKits;
+
 function calculateRecOrdTotal() {
     const models = getPacModels();
     let subtotal = 0;
