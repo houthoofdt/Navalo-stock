@@ -4214,6 +4214,27 @@ function addPOCustomItemRow(name = '', qty = '', price = '') {
     container.appendChild(row);
 }
 
+// Add all components of a kit to purchase order
+function addPOKit(kitId) {
+    if (typeof COMPONENT_KITS === 'undefined' || !COMPONENT_KITS[kitId]) {
+        showToast('Kit non trouvé: ' + kitId, 'error');
+        return;
+    }
+
+    const kit = COMPONENT_KITS[kitId];
+    const currency = document.getElementById('poCurrency')?.value || 'EUR';
+    console.log(`📦 Adding kit ${kitId} to PO with ${kit.components.length} components`);
+
+    // Add each component of the kit
+    kit.components.forEach(comp => {
+        addPOItemRow(comp.ref, comp.qty);
+    });
+
+    showToast(`Kit "${kit.name}" ajouté (${kit.components.length} composants)`, 'success');
+    updatePOTotal();
+}
+window.addPOKit = addPOKit;
+
 // Auto-fill price when component is selected
 function autoFillPrice(selectEl) {
     const row = selectEl.closest('.item-row');
