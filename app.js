@@ -4190,7 +4190,7 @@ function addPOItemRow(ref = '', qty = '') {
     row.className = 'item-row';
     row.innerHTML = `
         <select class="item-ref" onchange="updatePOTotal(); autoFillPrice(this)"><option value="">${t('refPlaceholder')}</option></select>
-        <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="1" value="${qty}" onchange="updatePOTotal()">
+        <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" value="${qty}" onchange="updatePOTotal()">
         <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" onchange="updatePOTotal()">
         <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
     container.appendChild(row);
@@ -4208,7 +4208,7 @@ function addPOCustomItemRow(name = '', qty = '', price = '') {
     row.className = 'item-row item-row-custom';
     row.innerHTML = `
         <input type="text" class="item-ref item-custom-name" placeholder="${t('customItemPlaceholder') || 'Description article/service'}" value="${name}" oninput="updatePOTotal()">
-        <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="1" value="${qty}" onchange="updatePOTotal()">
+        <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" value="${qty}" onchange="updatePOTotal()">
         <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${price}" onchange="updatePOTotal()">
         <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
     container.appendChild(row);
@@ -4331,7 +4331,7 @@ async function editPO(poId) {
         row.className = 'item-row';
         row.innerHTML = `
             <select class="item-ref" required onchange="updatePOTotal()"><option value="">${t('refPlaceholder')}</option></select>
-            <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="1" value="${item.qty}" required onchange="updatePOTotal()">
+            <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" value="${item.qty}" required onchange="updatePOTotal()">
             <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${item.price || ''}" onchange="updatePOTotal()">
             <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
         document.getElementById('poItems').appendChild(row);
@@ -6423,7 +6423,7 @@ function addInvoiceItemRow(name = '', qty = 1, price = 0) {
     row.className = 'item-row';
     row.innerHTML = `
         <input type="text" class="inv-item-name" placeholder="Název položky" value="${name}" required>
-        <input type="number" class="inv-item-qty" placeholder="Množství" min="1" value="${qty}" onchange="calculateInvoiceTotal()">
+        <input type="number" class="inv-item-qty" placeholder="Množství" min="0.01" step="0.01" value="${qty}" onchange="calculateInvoiceTotal()">
         <input type="number" class="inv-item-price" placeholder="Cena/ks" step="0.01" min="0" value="${price}" onchange="calculateInvoiceTotal()">
         <input type="number" class="inv-item-total" placeholder="Celkem" step="0.01" readonly class="input-readonly">
         <button type="button" class="btn-icon btn-remove" onclick="removeInvItemRow(this)">✕</button>
@@ -7661,7 +7661,7 @@ function addRecOrdCustomItem(name = '', qty = 1, price = 0) {
     row.className = 'item-row item-row-custom';
     row.innerHTML = `
         <input type="text" class="recOrd-item-name" placeholder="Description" value="${name}" oninput="calculateRecOrdTotal()">
-        <input type="number" class="recOrd-item-qty" placeholder="Qté" min="1" value="${qty}" onchange="calculateRecOrdTotal()">
+        <input type="number" class="recOrd-item-qty" placeholder="Qté" min="0.01" step="0.01" value="${qty}" onchange="calculateRecOrdTotal()">
         <input type="number" class="recOrd-item-price" placeholder="Prix unit." min="0" step="0.01" value="${price}" onchange="calculateRecOrdTotal()">
         <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); calculateRecOrdTotal()">✕</button>
     `;
