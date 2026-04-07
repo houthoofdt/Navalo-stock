@@ -5377,8 +5377,9 @@ async function updateBomDisplay() {
     }
 
     tbody.innerHTML = bomItems.map((item, idx) => {
-        const stock = currentStock[item.ref]?.qty || 0;
-        const ok = stock >= item.qty;
+        const stock = parseFloat(currentStock[item.ref]?.qty) || 0;
+        const itemQtyNum = parseFloat(String(item.qty).replace(',', '.')) || 0;
+        const ok = stock >= itemQtyNum;
         // Try EUR price first, then CZK price converted to EUR
         let unitPrice = getComponentPrice(item.ref, 'EUR');
         const priceCZK = getComponentPrice(item.ref, 'CZK');
@@ -5397,8 +5398,7 @@ async function updateBomDisplay() {
         }
         // Ensure unitPrice is a valid number
         unitPrice = parseFloat(unitPrice) || 0;
-        const itemQty = parseFloat(item.qty) || 0;
-        const lineTotal = unitPrice * itemQty;
+        const lineTotal = unitPrice * itemQtyNum;
 
         // Debug: check for NaN
         if (isNaN(lineTotal)) {
