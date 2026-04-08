@@ -1548,6 +1548,8 @@ body {
         margin-bottom: 10px;
         border-bottom: 2px solid #000;
         padding-bottom: 5px;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     /* Compact header */
@@ -1555,6 +1557,8 @@ body {
         border-bottom: 1px solid #000 !important;
         margin-bottom: 8px !important;
         padding-bottom: 5px !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     .inv-header h1 {
@@ -1586,6 +1590,8 @@ body {
     /* Compact parties */
     .inv-parties {
         margin-bottom: 8px !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
     }
 
     .inv-party h4 {
@@ -1606,6 +1612,11 @@ body {
     .inv-table {
         font-size: 8pt !important;
         margin-bottom: 8px !important;
+    }
+
+    /* Repeat table header on each page */
+    .inv-table thead {
+        display: table-header-group !important;
     }
 
     .inv-table th {
@@ -1819,6 +1830,11 @@ body {
 
     .dn-table {
         margin-bottom: 15px !important;
+    }
+
+    /* Repeat table header on each page for delivery notes */
+    .dn-table thead {
+        display: table-header-group !important;
     }
 
     .dn-table th {
