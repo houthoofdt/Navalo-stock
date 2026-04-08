@@ -10800,6 +10800,10 @@ async function sendRepairQuoteByEmail() {
             }
         } else {
             throw new Error(result?.error || t('sendError'));
+        }
+    } catch (error) {
+        console.error('Error sending repair quote:', error);
+        showToast(t('sendError') + ': ' + error.message, 'error');
     }
 }
 
@@ -12989,6 +12993,10 @@ async function sendSubcontractingOrderByEmail(orderId) {
             showToast(`${t('emailSent')} - ${subcontractorEmail}`, 'success');
         } else {
             throw new Error(result?.error || t('sendError'));
+        }
+    } catch (error) {
+        console.error('Error sending subcontracting order email:', error);
+        showToast(t('sendError') + ': ' + error.message, 'error');
     }
 }
 
