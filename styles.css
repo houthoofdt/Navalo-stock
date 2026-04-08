@@ -1628,6 +1628,11 @@ body {
         display: table-header-group !important;
     }
 
+    /* Do NOT repeat table footer (totals) on each page */
+    .inv-table tfoot {
+        display: table-row-group !important;
+    }
+
     .inv-table th {
         background: #f0f0f0 !important;
         color: #000 !important;
@@ -1844,6 +1849,11 @@ body {
     /* Repeat table header on each page for delivery notes */
     .dn-table thead {
         display: table-header-group !important;
+    }
+
+    /* Do NOT repeat table footer on each page for delivery notes */
+    .dn-table tfoot {
+        display: table-row-group !important;
     }
 
     .dn-table th {
