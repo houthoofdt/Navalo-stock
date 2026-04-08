@@ -8273,8 +8273,7 @@ async function markOrderDelivered(id) {
                 if (!deductResult.success) {
                     console.error('❌ Stock deduction failed:', deductResult.errors);
                     const errorMsg = deductResult.errors.map(e => `${e.ref}: ${e.error}`).join('\n');
-                    showToast(t('stockDeductionError') + ':
-' + errorMsg, 'error');
+                    showToast(t('stockDeductionError') + ': ' + errorMsg, 'error');
                     return;
                 }
                 console.log('✅ Stock deducted:', deductResult.deductedComponents, 'components');
