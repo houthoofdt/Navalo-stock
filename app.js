@@ -214,6 +214,10 @@ const TRANSLATIONS = {
         subtotalCZK: 'Base HT en CZK', vatCZK: 'TVA en CZK', totalCZK: 'Total TTC en CZK',
         // Auto-refresh
         dataRefreshed: 'Données actualisées',
+        syncInProgress: 'Synchronisation...',
+        syncDone: 'Synchronisation terminée',
+        invalidEmail: 'Format email invalide',
+        syncFirst: 'Synchronisez d\'abord vos données',
         // Tax document
         taxDocTitle: 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ',
         paymentDate: 'Date de paiement',
@@ -332,7 +336,28 @@ const TRANSLATIONS = {
         orderDeleted: 'Commande supprimée',
         quantityTooHigh: 'Quantité trop élevée',
         assemblyCost: 'Coût assemblage',
-        totalCost: 'Coût total'
+        totalCost: 'Coût total',
+        // Hardcoded strings fix
+        deliveryImpossible: 'Livraison impossible',
+        receptionImpossible: 'Réception impossible',
+        blCreated: 'livré(s)',
+        confirmSendPO: 'Envoyer la commande',
+        poSent: 'Commande envoyée à',
+        sendError: 'Erreur lors de l\'envoi',
+        stockDeductionError: 'Erreur lors de la déduction du stock',
+        proformaNotFound: 'Proforma non trouvée',
+        invoiceNotFound: 'Facture non trouvée',
+        confirmConvertProformaSupplier: 'Convertir cette proforma fournisseur en facture définitive ?',
+        confirmConvertProforma: 'Convertir cette proforma en facture définitive ?',
+        proformaConverted: 'convertie en facture',
+        confirmSendInvoice: 'Envoyer la facture',
+        invoiceSent: 'Facture envoyée à',
+        quoteConverted: 'Devis converti - complétez la facture',
+        confirmAddComponent: 'Ajouter automatiquement le composant',
+        confirmRenumber: 'Voulez-vous renuméroter tous les devis de réparation avec des numéros uniques?\n\nCela corrigera les doublons (DV2026001, DV2026001, DV2026001) en (DV2026001, DV2026002, DV2026003)',
+        blTransferred: 'kits transférés',
+        receptionCreated: 'kits reçus',
+        selectAtLeastOneDelivery: 'Veuillez sélectionner au moins un article à livrer'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -430,6 +455,10 @@ const TRANSLATIONS = {
         subtotalCZK: 'Základ daně v CZK', vatCZK: 'DPH v CZK', totalCZK: 'Celkem s DPH v CZK',
         // Auto-refresh
         dataRefreshed: 'Data aktualizována',
+        syncInProgress: 'Synchronizace...',
+        syncDone: 'Synchronizace dokončena',
+        invalidEmail: 'Neplatný formát emailu',
+        syncFirst: 'Nejprve synchronizujte data',
         // Tax document
         taxDocTitle: 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ',
         paymentDate: 'Datum přijetí platby',
@@ -548,7 +577,28 @@ const TRANSLATIONS = {
         orderDeleted: 'Objednávka smazána',
         quantityTooHigh: 'Příliš vysoké množství',
         assemblyCost: 'Náklady na montáž',
-        totalCost: 'Celkové náklady'
+        totalCost: 'Celkové náklady',
+        // Hardcoded strings fix
+        deliveryImpossible: 'Dodávka není možná',
+        receptionImpossible: 'Příjem není možný',
+        blCreated: 'dodáno',
+        confirmSendPO: 'Odeslat objednávku',
+        poSent: 'Objednávka odeslána na',
+        sendError: 'Chyba při odesílání',
+        stockDeductionError: 'Chyba při odpočtu ze skladu',
+        proformaNotFound: 'Proforma nenalezena',
+        invoiceNotFound: 'Faktura nenalezena',
+        confirmConvertProformaSupplier: 'Převést tuto proformu dodavatele na konečnou fakturu?',
+        confirmConvertProforma: 'Převést tuto proformu na konečnou fakturu?',
+        proformaConverted: 'převedena na fakturu',
+        confirmSendInvoice: 'Odeslat fakturu',
+        invoiceSent: 'Faktura odeslána na',
+        quoteConverted: 'Nabídka převedena - doplňte fakturu',
+        confirmAddComponent: 'Automaticky přidat komponentu',
+        confirmRenumber: 'Chcete přečíslovat všechny nabídky oprav s unikátními čísly?\n\nToto opraví duplikáty (DV2026001, DV2026001, DV2026001) na (DV2026001, DV2026002, DV2026003)',
+        blTransferred: 'sad přeneseno',
+        receptionCreated: 'sad přijato',
+        selectAtLeastOneDelivery: 'Vyberte prosím alespoň jednu položku k dodání'
     }
 };
 
@@ -1628,7 +1678,7 @@ async function processDelivery() {
     const hasRepairQuoteData = deliveryForm?.dataset?.repairQuoteData ? true : false;
 
     if (!hasPac && !hasComponents && !hasCustom && !hasRepairQuoteData) {
-        showToast('Veuillez sélectionner au moins un article à livrer', 'error');
+        showToast(t('selectAtLeastOneDelivery'), 'error');
         return;
     }
 
@@ -1638,7 +1688,7 @@ async function processDelivery() {
     if (linkedOrderId && hasPac) {
         const validation = storage.validatePartialDelivery(linkedOrderId, items.pac);
         if (!validation.valid) {
-            showToast('Livraison impossible: ' + validation.errors.join('; '), 'error');
+            showToast(t('deliveryImpossible') + ': ' + validation.errors.join('; '), 'error');
             return;
         }
     }
@@ -1679,7 +1729,7 @@ async function processDelivery() {
         const result = await storage.processDelivery(data);
         if (result.success) {
             const totalItems = result.totalPac + result.totalComponents + result.totalCustom;
-            showToast(`BL ${result.blNumber} - ${totalItems} articles livrés`, 'success');
+            showToast(`BL ${result.blNumber} - ${totalItems} ${t('blCreated')}`, 'success');
             currentDelivery = { ...data, blNumber: result.blNumber, value: result.totalValue, repairQuoteData };
             showDeliveryNote(currentDelivery);
             clearDeliveryForm();
@@ -2262,7 +2312,7 @@ function showDeliveryNote(d) {
 function closeDeliveryModal() { document.getElementById('deliveryModal').classList.remove('active'); }
 function printDelivery() {
     const originalTitle = document.title;
-    document.title = currentDelivery?.blNumber || 'BL';
+    document.title = currentDelivery?.blNumber || t('deliveryNote');
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
@@ -3351,7 +3401,7 @@ function updateReceivedInvoicesDisplayLocal() {
 }
 
 async function convertReceivedProformaToInvoice(proformaId) {
-    if (!confirm('Convertir cette proforma fournisseur en facture définitive ?')) return;
+    if (!confirm(t('confirmConvertProformaSupplier'))) return;
 
     let invoices = JSON.parse(localStorage.getItem('navalo_received_invoices') || '[]');
     const proformaIndex = invoices.findIndex(i => i.id === proformaId);
@@ -3385,7 +3435,7 @@ async function convertReceivedProformaToInvoice(proformaId) {
 
     localStorage.setItem('navalo_received_invoices', JSON.stringify(invoices));
     await updateReceivedInvoicesDisplay();
-    showToast(`Proforma ${proforma.internalNumber} convertie en facture ${newInternalNumber}`, 'success');
+    showToast(`Proforma ${proforma.internalNumber} ${t('proformaConverted')} ${newInternalNumber}`, 'success');
 }
 
 async function deleteRecInv(id) {
@@ -3533,7 +3583,7 @@ async function processReceipt() {
     if (linkedPO) {
         const validation = storage.validatePartialReceipt(linkedPO, items);
         if (!validation.valid) {
-            showToast('Réception impossible: ' + validation.errors.join('; '), 'error');
+            showToast(t('receptionImpossible') + ': ' + validation.errors.join('; '), 'error');
             return;
         }
     }
@@ -4448,7 +4498,7 @@ async function markPOReceived(poId) {
                 await refreshAllData();
             } else {
                 console.error('processReceipt failed:', result);
-                showToast('Erreur: ' + (result.error || 'Échec de la réception'), 'error');
+                showToast(t('error') + ': ' + (result.error || t('receptionImpossible')), 'error');
             }
         } catch (e) {
             console.error('markPOReceived error:', e);
@@ -4516,14 +4566,14 @@ function showPOPreview(po) {
 function closePOPreviewModal() { document.getElementById('poPreviewModal').classList.remove('active'); }
 function printPO() {
     const originalTitle = document.title;
-    document.title = currentPO?.poNumber || 'Commande';
+    document.title = currentPO?.poNumber || t('purchaseOrder');
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
 async function sendPurchaseOrderByEmail() {
     if (!currentPO) {
-        showToast('Aucune commande sélectionnée', 'error');
+        showToast(t('noData'), 'error');
         return;
     }
 
@@ -4532,12 +4582,12 @@ async function sendPurchaseOrderByEmail() {
     const supplier = contacts.find(c => c.name === currentPO.supplier);
 
     if (!supplier || !supplier.email) {
-        showToast('Email du fournisseur non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
+        showToast(t('selectSupplierFirst'), 'error');
         return;
     }
 
     // Confirm send and ask for CC addresses
-    if (!confirm(`Envoyer la commande ${currentPO.poNumber} à ${supplier.email}?`)) {
+    if (!confirm(`${t('confirmSendPO')} ${currentPO.poNumber} → ${supplier.email}?`)) {
         return;
     }
 
@@ -4571,13 +4621,13 @@ async function sendPurchaseOrderByEmail() {
         const result = await storage.apiPost('sendEmail', emailData);
 
         if (result && result.success) {
-            showToast(`Commande envoyée à ${supplier.email}`, 'success');
+            showToast(`${t('poSent')} ${supplier.email}`, 'success');
         } else {
-            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+            throw new Error(result?.error || t('sendError'));
         }
     } catch (error) {
         console.error('Error sending purchase order:', error);
-        showToast('Erreur lors de l\'envoi: ' + error.message, 'error');
+        showToast(t('sendError') + ': ' + error.message, 'error');
     }
 }
 
@@ -5650,12 +5700,12 @@ function calculateDepositAmount() {
 }
 
 async function convertProformaToInvoice(proformaNumber) {
-    if (!confirm('Convertir cette proforma en facture définitive ?')) return;
+    if (!confirm(t('confirmConvertProforma'))) return;
 
     let invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const proformaIndex = invoices.findIndex(i => i.number === proformaNumber);
     if (proformaIndex < 0) {
-        showToast('Proforma non trouvée', 'error');
+        showToast(t('proformaNotFound'), 'error');
         return;
     }
 
@@ -5723,7 +5773,7 @@ async function convertProformaToInvoice(proformaNumber) {
     }
 
     await updateInvoicesDisplay();
-    showToast(`Proforma ${proformaNumber} convertie en facture ${newInvoiceNumber}`, 'success');
+    showToast(`Proforma ${proformaNumber} ${t('proformaConverted')} ${newInvoiceNumber}`, 'success');
 }
 
 function closeInvoiceModal() {
@@ -5739,14 +5789,14 @@ function closeInvoicePreviewModal() {
 
 function printInvoice() {
     const originalTitle = document.title;
-    document.title = currentInvoice?.number || 'Facture';
+    document.title = currentInvoice?.number || t('invoice');
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
 async function sendInvoiceByEmail() {
     if (!currentInvoice) {
-        showToast('Aucune facture sélectionnée', 'error');
+        showToast(t('noData'), 'error');
         return;
     }
 
@@ -5755,12 +5805,12 @@ async function sendInvoiceByEmail() {
     const client = contacts.find(c => c.name === currentInvoice.client);
 
     if (!client || !client.email) {
-        showToast('Email du client non trouvé. Veuillez ajouter un email dans les contacts.', 'error');
+        showToast(t('selectContact'), 'error');
         return;
     }
 
     // Confirm send and ask for CC addresses
-    if (!confirm(`Envoyer la facture ${currentInvoice.number} à ${client.email}?`)) {
+    if (!confirm(`${t('confirmSendInvoice')} ${currentInvoice.number} → ${client.email}?`)) {
         return;
     }
 
@@ -5794,13 +5844,13 @@ async function sendInvoiceByEmail() {
         const result = await storage.apiPost('sendEmail', emailData);
 
         if (result && result.success) {
-            showToast(`Facture envoyée à ${client.email}`, 'success');
+            showToast(`${t('invoiceSent')} ${client.email}`, 'success');
         } else {
-            throw new Error(result?.error || 'Erreur lors de l\'envoi');
+            throw new Error(result?.error || t('sendError'));
         }
     } catch (error) {
         console.error('Error sending invoice:', error);
-        showToast('Erreur lors de l\'envoi: ' + error.message, 'error');
+        showToast(t('sendError') + ': ' + error.message, 'error');
     }
 }
 
@@ -5812,7 +5862,7 @@ async function generateTaxDocument(invNumber) {
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) {
-        showToast('Facture non trouvée', 'error');
+        showToast(t('invoiceNotFound'), 'error');
         return;
     }
 
@@ -6084,7 +6134,7 @@ async function generateTaxDocumentWithDate(invNumber, paymentDate) {
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) {
-        showToast('Facture non trouvée', 'error');
+        showToast(t('invoiceNotFound'), 'error');
         return;
     }
 
@@ -6111,7 +6161,7 @@ async function generateTaxDocumentWithRate(invNumber, paymentDate, rate) {
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) {
-        showToast('Facture non trouvée', 'error');
+        showToast(t('invoiceNotFound'), 'error');
         return;
     }
 
@@ -7385,7 +7435,7 @@ function printQuote() {
     const id = window.currentPreviewQuoteId;
     const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
     const quote = quotes.find(q => q.id === id);
-    document.title = quote?.number || 'Devis';
+    document.title = quote?.number || t('quotesTitle');
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
@@ -7430,7 +7480,7 @@ function convertQuoteToInvoiceById(id) {
 
     calculateInvoiceTotal();
     closeQuotePreviewModal();
-    showToast('Devis converti - complétez la facture', 'info');
+    showToast(t('quoteConverted'), 'info');
 }
 
 function exportQuotes() {
@@ -8223,13 +8273,14 @@ async function markOrderDelivered(id) {
                 if (!deductResult.success) {
                     console.error('❌ Stock deduction failed:', deductResult.errors);
                     const errorMsg = deductResult.errors.map(e => `${e.ref}: ${e.error}`).join('\n');
-                    showToast('Erreur déduction stock:\n' + errorMsg, 'error');
+                    showToast(t('stockDeductionError') + ':
+' + errorMsg, 'error');
                     return;
                 }
                 console.log('✅ Stock deducted:', deductResult.deductedComponents, 'components');
             } catch (e) {
                 console.error('❌ Failed to deduct stock:', e);
-                showToast('Erreur lors de la déduction du stock: ' + e.message, 'error');
+                showToast(t('stockDeductionError') + ': ' + e.message, 'error');
                 return;
             }
         }
@@ -8559,7 +8610,7 @@ function closeOrderConfirmModal() {
 
 function printOrderConfirm() {
     const originalTitle = document.title;
-    document.title = window.currentReceivedOrder?.orderNumber || 'Confirmation';
+    document.title = window.currentReceivedOrder?.orderNumber || t('orderConfirmation');
     window.print();
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
@@ -8831,7 +8882,7 @@ async function forceRefreshStock() {
         }
     } catch (e) {
         console.error('Force refresh failed:', e);
-        showToast('Erreur: ' + e.message, 'error');
+        showToast(t('error') + ': ' + e.message, 'error');
     }
 }
 
@@ -9071,18 +9122,18 @@ async function syncNowManual() {
     btn.disabled = true;
 
     try {
-        showToast(currentLang === 'cz' ? 'Synchronizace...' : 'Synchronisation...', 'info');
+        showToast(t('syncInProgress'), 'info');
         const result = await storage.syncNow();
 
         if (result.success) {
-            showToast(currentLang === 'cz' ? 'Synchronizace dokončena' : 'Synchronisation terminée', 'success');
+            showToast(t('syncDone'), 'success');
             updateSyncIndicator();
         } else {
-            showToast(result.error || 'Erreur', 'error');
+            showToast(result.error || t('error'), 'error');
         }
     } catch (error) {
         console.error('Sync error:', error);
-        showToast(currentLang === 'cz' ? 'Chyba synchronizace' : 'Erreur de synchronisation', 'error');
+        showToast(t('error'), 'error');
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -9459,7 +9510,7 @@ function updateComponentsForPAC(pacIndex) {
 
             // Only suggest if no components have been added yet
             if (componentsList.children.length === 0) {
-                if (confirm(`Ajouter automatiquement le composant ${repairComponent.name} (${repairComponent.price} EUR)?`)) {
+                if (confirm(`${t('confirmAddComponent')} ${repairComponent.name} (${repairComponent.price} EUR)?`)) {
                     // Add the suggested component
                     addComponentToPACWithRef(pacIndex, suggestedRef);
                 }
@@ -10162,7 +10213,7 @@ async function printRepairQuote() {
     const originalTitle = document.title;
     const quotes = await storage.getRepairQuotes(100);
     const quote = quotes.find(q => q.id === currentRepairQuotePreview);
-    document.title = quote?.quoteNumber || 'Devis';
+    document.title = quote?.quoteNumber || t('repairQuote');
 
     // Force scroll to top and remove scroll constraints
     const modal = document.getElementById('repairQuotePreviewModal');
@@ -10410,7 +10461,7 @@ async function convertRepairQuoteToInvoice(quoteId) {
         showToast(t('repairQuoteConverted') || 'Devis converti en facture', 'success');
     } catch (error) {
         console.error('Error converting repair quote to invoice:', error);
-        showToast('Erreur lors de la conversion: ' + error.message, 'error');
+        showToast(t('error') + ': ' + error.message, 'error');
     }
 }
 
@@ -10664,7 +10715,7 @@ async function deleteRepairQuote(quoteId) {
         showToast(t('deleted') || 'Supprimé', 'success');
     } catch (error) {
         console.error('Error deleting repair quote:', error);
-        showToast('Erreur lors de la suppression: ' + error.message, 'error');
+        showToast(t('error') + ': ' + error.message, 'error');
     }
 }
 
@@ -10704,7 +10755,7 @@ async function sendRepairQuoteByEmail() {
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(recipientEmail.trim())) {
-            showToast(currentLang === 'cz' ? 'Neplatný formát emailu' : 'Format email invalide', 'error');
+            showToast(t('invalidEmail'), 'error');
             return;
         }
 
@@ -10749,11 +10800,7 @@ async function sendRepairQuoteByEmail() {
                 await updateRepairQuotesDisplay();
             }
         } else {
-            throw new Error(result?.error || 'Erreur lors de l\'envoi');
-        }
-    } catch (error) {
-        console.error('Error sending repair quote:', error);
-        showToast(t('emailError') + ': ' + error.message, 'error');
+            throw new Error(result?.error || t('sendError'));
     }
 }
 
@@ -10979,7 +11026,7 @@ window.sendRepairQuoteByEmail = sendRepairQuoteByEmail;
 
 // Function to fix duplicate repair quote numbers
 async function fixDuplicateRepairQuoteNumbers() {
-    if (!confirm('Voulez-vous renuméroter tous les devis de réparation avec des numéros uniques?\n\nCela corrigera les doublons (DV2026001, DV2026001, DV2026001) en (DV2026001, DV2026002, DV2026003)')) {
+    if (!confirm(t('confirmRenumber'))) {
         return;
     }
 
@@ -11084,7 +11131,7 @@ async function fixDuplicateRepairQuoteNumbers() {
 
     } catch (error) {
         console.error('Error fixing duplicate numbers:', error);
-        showToast('Erreur: ' + error.message, 'error');
+        showToast(t('error') + ': ' + error.message, 'error');
     }
 }
 
@@ -12588,8 +12635,8 @@ async function transferComponentsForOrder(orderId) {
         currentStock = stockData.components;
 
     } catch (error) {
-        console.error('❌ Erreur lors du transfert:', error);
-        showToast('Erreur lors du transfert: ' + error.message, 'error');
+        console.error('❌ Error during transfer:', error);
+        showToast(t('error') + ': ' + error.message, 'error');
         return;
     }
 
@@ -12601,7 +12648,7 @@ async function transferComponentsForOrder(orderId) {
     await storage.saveSubcontractingOrders(orders);
 
     showToast(
-        `BL ${blNumber} créé - ${qty} kits transférés`,
+        `BL ${blNumber} - ${qty} ${t('blTransferred')}`,
         'success'
     );
 
@@ -12694,8 +12741,8 @@ async function receiveKitsForOrder(orderId) {
         currentStock = stockData.components;
 
     } catch (error) {
-        console.error('❌ Erreur lors de la réception:', error);
-        showToast('Erreur lors de la réception: ' + error.message, 'error');
+        console.error('❌ Error during reception:', error);
+        showToast(t('error') + ': ' + error.message, 'error');
         return;
     }
 
@@ -12711,7 +12758,7 @@ async function receiveKitsForOrder(orderId) {
     await storage.saveSubcontractingOrders(orders);
 
     showToast(
-        `Réception ${bonNum} créée - ${qty} kits reçus`,
+        `${bonNum} - ${qty} ${t('receptionCreated')}`,
         'success'
     );
 
@@ -12848,7 +12895,7 @@ async function sendSubcontractingOrderByEmail(orderId) {
         const subcontractorEmail = 'tomas.karas@hotjet.cz';
 
         // Confirm send
-        if (!confirm(`Envoyer la commande de sous-traitance ${order.number} à ${subcontractorEmail}?`)) {
+        if (!confirm(`${t('confirmSendPO')} ${order.number} → ${subcontractorEmail}?`)) {
             return;
         }
 
@@ -12942,11 +12989,7 @@ async function sendSubcontractingOrderByEmail(orderId) {
         if (result && result.success) {
             showToast(`${t('emailSent')} - ${subcontractorEmail}`, 'success');
         } else {
-            throw new Error(result?.error || 'Erreur lors de l\'envoi');
-        }
-    } catch (error) {
-        console.error('Error sending subcontracting order:', error);
-        showToast(t('emailError') + ': ' + error.message, 'error');
+            throw new Error(result?.error || t('sendError'));
     }
 }
 
