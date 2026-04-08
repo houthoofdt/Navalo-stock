@@ -286,8 +286,11 @@ const TRANSLATIONS = {
         addComponent: 'Ajouter composant',
         services: 'Services',
         laborHours: 'Main d\'œuvre (heures)',
+        labor: 'Main d\'œuvre',
         refrigerantKg: 'Réfrigérant (kg)',
+        refrigerantFluid: 'Fluide frigorigène',
         disposalKg: 'Élimination (kg)',
+        wasteDisposal: 'Élimination déchets',
         pacSubtotal: 'Sous-total PAC',
         removePAC: 'Retirer cette PAC',
         removeComponent: 'Retirer',
@@ -527,8 +530,11 @@ const TRANSLATIONS = {
         addComponent: 'Přidat komponentu',
         services: 'Služby',
         laborHours: 'Pracovní hodiny',
+        labor: 'Práce',
         refrigerantKg: 'Chladivo (kg)',
+        refrigerantFluid: 'Chladivo',
         disposalKg: 'Likvidace (kg)',
+        wasteDisposal: 'Likvidace odpadu',
         pacSubtotal: 'Mezisoučet TČ',
         removePAC: 'Odebrat toto TČ',
         removeComponent: 'Odebrat',
@@ -10392,13 +10398,13 @@ async function convertRepairQuoteToInvoice(quoteId) {
                 if (pac.services) {
                     console.log('Services:', pac.services);
                     if (pac.services.labor > 0) {
-                        addInvoiceItemRow(`Main d'œuvre`, pac.services.labor, serviceRates.labor.price);
+                        addInvoiceItemRow(t('labor'), pac.services.labor, serviceRates.labor.price);
                     }
                     if (pac.services.refrigerant > 0) {
-                        addInvoiceItemRow(`Fluide frigorigène`, pac.services.refrigerant, serviceRates.refrigerantR134a.price);
+                        addInvoiceItemRow(t('refrigerantFluid'), pac.services.refrigerant, serviceRates.refrigerantR134a.price);
                     }
                     if (pac.services.disposal > 0) {
-                        addInvoiceItemRow(`Élimination déchets`, pac.services.disposal, serviceRates.disposal.price);
+                        addInvoiceItemRow(t('wasteDisposal'), pac.services.disposal, serviceRates.disposal.price);
                     }
                 }
             });
@@ -10567,8 +10573,8 @@ async function acceptRepairQuote(quoteId) {
                 if (pac.services) {
                     if (pac.services.labor > 0) {
                         items.push({
-                            name: `Main d'œuvre`,
-                            description: `Main d'œuvre`,
+                            name: t('labor'),
+                            description: t('labor'),
                             qty: pac.services.labor,  // Hours
                             price: serviceRates.labor.price,  // EUR/hour
                             pricePerUnit: serviceRates.labor.price
@@ -10576,8 +10582,8 @@ async function acceptRepairQuote(quoteId) {
                     }
                     if (pac.services.refrigerant > 0) {
                         items.push({
-                            name: `Fluide frigorigène`,
-                            description: `Fluide frigorigène`,
+                            name: t('refrigerantFluid'),
+                            description: t('refrigerantFluid'),
                             qty: pac.services.refrigerant,  // kg
                             price: serviceRates.refrigerantR134a.price,  // EUR/kg
                             pricePerUnit: serviceRates.refrigerantR134a.price
@@ -10585,8 +10591,8 @@ async function acceptRepairQuote(quoteId) {
                     }
                     if (pac.services.disposal > 0) {
                         items.push({
-                            name: `Élimination déchets`,
-                            description: `Élimination déchets`,
+                            name: t('wasteDisposal'),
+                            description: t('wasteDisposal'),
                             qty: pac.services.disposal,  // kg
                             price: serviceRates.disposal.price,  // EUR/kg
                             pricePerUnit: serviceRates.disposal.price
@@ -10969,7 +10975,7 @@ async function createDeliveryFromRepairQuote(quoteId) {
                         addDeliveryComponentRow(refrigerantRef, refQty);
                         componentsAdded++;
                     } else {
-                        addDeliveryCustomItemRow(`Fluide frigorigène R134a (PAC ${pacIndex + 1})`, refQty);
+                        addDeliveryCustomItemRow(`${t('refrigerantFluid')} R134a (PAC ${pacIndex + 1})`, refQty);
                         customItemsAdded++;
                     }
                 }
