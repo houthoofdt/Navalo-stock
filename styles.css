@@ -1472,12 +1472,14 @@ body {
     }
 
     .modal.active {
-        display: flex !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
+        display: block !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
         width: 100% !important;
         background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     .modal.active .modal-content {
@@ -1522,9 +1524,12 @@ body {
         overflow: visible !important;
         width: 100%;
         padding: 0 !important;
+        margin: 0 !important;
         position: static !important;
         transform: none !important;
         height: auto !important;
+        top: auto !important;
+        left: auto !important;
     }
 
     /* === SIMPLIFIED PRINT STYLES - FIT ON ONE A4 PAGE === */
@@ -1537,6 +1542,10 @@ body {
         background: white !important;
         padding: 0 !important;
         font-size: 9pt !important;
+        margin: 0 !important;
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
     }
 
     /* Invoice title at top */
