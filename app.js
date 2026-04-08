@@ -10300,6 +10300,11 @@ async function convertRepairQuoteToInvoice(quoteId) {
         const componentsForDeduction = [];
         if (quote.pacs && Array.isArray(quote.pacs)) {
             quote.pacs.forEach(pac => {
+                // Skip components from PACs under warranty
+                if (pac.underWarranty) {
+                    console.log('PAC under warranty - skipping stock deduction for this PAC');
+                    return;
+                }
                 if (pac.components && Array.isArray(pac.components)) {
                     pac.components.forEach(comp => {
                         if (comp.qty > 0 && comp.ref) {
@@ -10380,6 +10385,12 @@ async function convertRepairQuoteToInvoice(quoteId) {
 
                 // Store PAC info for notes as well
                 pacInfoLines.push(pacHeader);
+
+                // Skip items if PAC is under warranty (free)
+                if (pac.underWarranty) {
+                    console.log('PAC under warranty - skipping items');
+                    return;
+                }
 
                 // Add components - use total if priceUnit is not set
                 if (pac.components && Array.isArray(pac.components)) {
