@@ -10794,8 +10794,42 @@ async function sendRepairQuoteByEmail() {
             ''
         );
 
-        // Get the quote HTML
-        const quoteHtml = document.getElementById('repairQuotePreview').innerHTML;
+        // Get the quote HTML and wrap with inline styles for PDF
+        const quoteHtmlRaw = document.getElementById('repairQuotePreview').innerHTML;
+
+        // Add inline styles for better PDF rendering
+        const quoteHtml = `
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                .delivery-note { max-width: 800px; margin: 0 auto; }
+                .dn-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+                .dn-company h2 { margin: 0; font-size: 16px; }
+                .dn-company p { margin: 3px 0; font-size: 11px; }
+                .dn-info { text-align: right; }
+                .dn-info h1 { margin: 0; font-size: 20px; font-weight: bold; }
+                .dn-info p { margin: 3px 0; font-size: 11px; }
+                .dn-title { font-size: 14px; font-weight: bold; margin: 15px 0; text-align: center; }
+                .dn-addresses { display: flex; gap: 20px; margin-bottom: 20px; }
+                .dn-address { flex: 1; }
+                .dn-address h4 { font-size: 11px; margin-bottom: 5px; font-weight: bold; }
+                .dn-address-box { border: 1px solid #000; padding: 10px; font-size: 11px; }
+                .dn-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .dn-table td, .dn-table th { border: 1px solid #999; padding: 6px; font-size: 10px; }
+                .dn-table th { background: #e5e7eb; font-weight: bold; }
+                .pac-separator { background: #dbeafe; font-weight: bold; }
+                .pac-separator td { border-top: 2px solid #3b82f6; padding: 10px; }
+                .pac-notes-row td { background: #f3f4f6; border-left: 3px solid #3b82f6; }
+                .pac-subtotal { background: #f5f5f5; font-weight: bold; }
+                .pac-subtotal td { border-bottom: 2px solid #000; }
+                .dn-totals { border: 1px solid #000; padding: 15px; margin-top: 20px; }
+                .dn-total-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; }
+                .dn-total-main { border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; font-size: 14px; font-weight: bold; }
+                .dn-notes { margin-top: 20px; padding: 10px; background: #f5f5f5; border-left: 3px solid #3b82f6; font-size: 11px; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+            </style>
+            ${quoteHtmlRaw}
+        `;
 
         // Prepare email data
         const emailData = {
