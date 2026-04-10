@@ -10342,12 +10342,23 @@ async function convertRepairQuoteToInvoice(quoteId) {
         if (clientSelect && quote.clientId) {
             // Find option by client ID
             const options = Array.from(clientSelect.options);
-            const matchingOption = options.find(opt => opt.value === quote.clientId);
+            let matchingOption = options.find(opt => opt.value === quote.clientId);
+
+            // If client not found in dropdown, add it as a temporary option
+            if (!matchingOption && clientName) {
+                console.log('Client ID not found, adding temporary option:', quote.clientId, clientName);
+                const opt = document.createElement('option');
+                opt.value = quote.clientId;
+                opt.textContent = clientName;
+                clientSelect.appendChild(opt);
+                matchingOption = opt;
+            }
+
             if (matchingOption) {
                 clientSelect.value = quote.clientId;
                 console.log('Client set via ID:', quote.clientId);
             } else {
-                console.warn('Client ID not found in options:', quote.clientId);
+                console.warn('Could not set client:', quote.clientId);
             }
             // Trigger change event to load address
             const event = new Event('change', { bubbles: true });
