@@ -3514,7 +3514,8 @@ a.btn-icon[draggable="true"]:active {
 /* Proforma Badge */
 .badge-proforma {
     background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-    color: white;
+    color: #000000 !important;
+    font-weight: 600;
 }
 
 /* Enhanced Filter Controls */
