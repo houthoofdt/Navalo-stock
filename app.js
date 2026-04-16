@@ -10701,8 +10701,19 @@ async function convertRepairQuoteToInvoice(quoteId) {
         }
 
         // If no items were added, add at least one empty row
-        if (document.getElementById('invItems').children.length === 0) {
-            console.warn('No invoice items were added, adding default empty row');
+        const itemsCount = document.getElementById('invItems').children.length;
+        console.log('Total invoice items added:', itemsCount);
+        if (itemsCount === 0) {
+            console.warn('⚠️ AUCUN article ajouté! Vérifiez:');
+            console.warn('- quote.pacs existe?', quote.pacs ? 'OUI' : 'NON');
+            console.warn('- Nombre de PACs:', quote.pacs?.length || 0);
+            if (quote.pacs && quote.pacs.length > 0) {
+                quote.pacs.forEach((pac, i) => {
+                    console.warn(`- PAC ${i + 1}: sous garantie?`, pac.underWarranty ? 'OUI (items ignorés!)' : 'NON');
+                    console.warn(`- PAC ${i + 1}: composants?`, pac.components?.length || 0);
+                });
+            }
+            showToast('⚠️ Aucun article à facturer trouvé. Vérifiez la console (F12)', 'error');
             addInvoiceItemRow();
         }
 
