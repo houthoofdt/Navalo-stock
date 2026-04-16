@@ -7739,13 +7739,9 @@ function convertQuoteToInvoiceById(id) {
     document.getElementById('invItems').innerHTML = '';
     if (quote.items && quote.items.length > 0) {
         console.log('✅ Adding', quote.items.length, 'items to invoice');
-        quote.items.forEach(item => {
-            addInvoiceItemRow();
-            const rows = document.querySelectorAll('#invItems .item-row');
-            const lastRow = rows[rows.length - 1];
-            lastRow.querySelector('.inv-item-name').value = item.name;
-            lastRow.querySelector('.inv-item-qty').value = item.qty;
-            lastRow.querySelector('.inv-item-price').value = item.price;
+        quote.items.forEach((item, index) => {
+            console.log(`  Item ${index + 1}:`, item.name, '| Qty:', item.qty, '| Price:', item.price);
+            addInvoiceItemRow(item.name, item.qty, item.price);
         });
     } else {
         console.error('⚠️ AUCUN ARTICLE dans le devis!');
