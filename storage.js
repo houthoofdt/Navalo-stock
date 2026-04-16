@@ -1564,6 +1564,11 @@ class StorageAdapter {
         return await this.apiPost('deleteDelivery', data);
     }
 
+    async updateDelivery(data) {
+        // data: { id, date, clientAddress, clientOrderNumber, notes }
+        return await this.apiPost('updateDelivery', data);
+    }
+
     async getPurchaseOrders(limit = 50) {
         return await this.apiGet('getPurchaseOrders', { limit });
     }
