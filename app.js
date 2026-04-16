@@ -1744,6 +1744,12 @@ function updateBomPreview() {
 }
 
 async function processDelivery() {
+    // If editing existing delivery, call update instead
+    if (editingDeliveryId) {
+        await updateDelivery();
+        return;
+    }
+
     const items = getDeliveryItems();
 
     // Check if at least one item is selected
@@ -1986,6 +1992,8 @@ function getDeliveryItems() {
 }
 
 function clearDeliveryForm() {
+    editingDeliveryId = null; // Reset editing mode
+
     getPacModels().forEach(m => {
         const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
         if (input) input.value = 0;
@@ -2085,6 +2093,90 @@ async function deleteDelivery(id) {
     localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
     await refreshAllData();
     showToast(t('deleted'), 'success');
+}
+
+let editingDeliveryId = null;
+
+async function editDelivery(id) {
+    const deliveries = await storage.getDeliveries(100);
+    const delivery = deliveries.find(d => d.id === id);
+
+    if (!delivery) {
+        showToast(t('error'), 'error');
+        return;
+    }
+
+    // Check if delivery is already invoiced
+    if (delivery.invoiceNumber) {
+        showToast('Impossible de modifier - BL déjà facturé', 'error');
+        return;
+    }
+
+    editingDeliveryId = id;
+
+    // Pre-fill the delivery form with current values
+    document.getElementById('deliveryDate').value = delivery.date || '';
+    document.getElementById('deliveryClientAddress').value = delivery.clientAddress || '';
+    document.getElementById('deliveryClientOrderNum').value = delivery.clientOrderNumber || delivery.linkedOrderNumber || '';
+    document.getElementById('deliveryNotes').value = delivery.notes || '';
+
+    // Set client (need to find or add to select)
+    const clientSelect = document.getElementById('deliveryClient');
+    const contacts = await storage.getContacts();
+    const client = contacts.find(c => c.id === delivery.clientId || c.name === delivery.client);
+
+    if (client) {
+        let option = Array.from(clientSelect.options).find(opt => opt.value === client.id);
+        if (!option) {
+            // Add client if not in dropdown
+            option = document.createElement('option');
+            option.value = client.id;
+            option.textContent = client.name;
+            clientSelect.appendChild(option);
+        }
+        clientSelect.value = client.id;
+    }
+
+    // Show items as read-only info
+    showToast(`Édition BL ${delivery.blNumber} - Les quantités ne peuvent pas être modifiées`, 'info');
+
+    // Scroll to delivery form
+    document.getElementById('tab-sorties').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function updateDelivery() {
+    if (!editingDeliveryId) return;
+
+    const deliveries = await storage.getDeliveries(100);
+    const delivery = deliveries.find(d => d.id === editingDeliveryId);
+
+    if (!delivery) {
+        showToast(t('error'), 'error');
+        return;
+    }
+
+    const updatedData = {
+        id: editingDeliveryId,
+        date: document.getElementById('deliveryDate').value,
+        clientAddress: document.getElementById('deliveryClientAddress').value,
+        clientOrderNumber: document.getElementById('deliveryClientOrderNum').value,
+        notes: document.getElementById('deliveryNotes').value
+    };
+
+    try {
+        const result = await storage.updateDelivery(updatedData);
+        if (result.success) {
+            showToast(`BL ${delivery.blNumber} ${t('saved')}`, 'success');
+            editingDeliveryId = null;
+            clearDeliveryForm();
+            await refreshAllData();
+        } else {
+            showToast(t('error'), 'error');
+        }
+    } catch (e) {
+        console.error('Update delivery error:', e);
+        showToast(t('error') + ': ' + e.message, 'error');
+    }
 }
 
 function populateDeliveryOrderSelect() {
@@ -4285,6 +4377,7 @@ async function updateDeliveriesDisplay() {
                 <td>${invoiced ? `<span class="status-badge status-ok">${d.invoiceNumber}</span>` : `<span class="status-badge">${t('no')}</span>`}</td>
                 <td>
                     <button class="btn btn-outline btn-small" onclick="viewDelivery('${d.id}')" title="${t('view')}">👁️</button>
+                    ${!invoiced ? `<button class="btn btn-outline btn-small" onclick="editDelivery('${d.id}')" title="${t('edit')}">✏️</button>` : ''}
                     ${d.linkedOrderId ? `<button class="btn btn-outline btn-small" onclick="viewOrderFromDelivery('${d.linkedOrderId}')" title="Voir commande">📋</button>` : ''}
                     ${!invoiced ? `<button class="btn btn-secondary btn-small" onclick="createInvoiceFromBL('${d.id}')" title="${t('createInvoice')}">🧾</button>` : ''}
                     <button class="btn btn-outline btn-small" onclick="deleteDelivery('${d.id}')" title="${t('delete')}">🗑️</button>

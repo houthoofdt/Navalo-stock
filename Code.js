@@ -1463,6 +1463,36 @@ function processDelivery(data) {
 }
 
 /**
+ * Update delivery note metadata (client info, dates, notes)
+ * Does NOT change items/quantities to avoid complex stock adjustments
+ * @param {Object} data - {id, date, clientAddress, clientOrderNumber, notes}
+ * @returns {Object} {success}
+ */
+function updateDelivery(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const deliveriesSheet = ss.getSheetByName(SHEET_NAMES.DELIVERIES);
+  const deliveriesData = deliveriesSheet.getDataRange().getValues();
+
+  const { id, date, clientAddress, clientOrderNumber, notes } = data;
+
+  // Find delivery by ID
+  for (let i = 1; i < deliveriesData.length; i++) {
+    if (deliveriesData[i][0] === id) {
+      // Update only metadata fields
+      if (date) deliveriesSheet.getRange(i + 1, 2).setValue(new Date(date));
+      if (clientAddress !== undefined) deliveriesSheet.getRange(i + 1, 5).setValue(clientAddress);
+      if (clientOrderNumber !== undefined) deliveriesSheet.getRange(i + 1, 17).setValue(clientOrderNumber);
+      if (notes !== undefined) deliveriesSheet.getRange(i + 1, 15).setValue(notes);
+
+      Logger.log('Updated delivery ' + deliveriesData[i][2] + ' (ID: ' + id + ')');
+      return { success: true };
+    }
+  }
+
+  return { success: false, error: 'Delivery not found' };
+}
+
+/**
  * Deduct stock for a list of components (used when marking order as delivered or converting repair quote to invoice)
  * @param {Array} components - Array of {ref, name, qty}
  * @param {String} docNumber - Document number for history (e.g. order number, invoice number)
