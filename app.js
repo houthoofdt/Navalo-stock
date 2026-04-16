@@ -1717,8 +1717,9 @@ function updateBomPreview() {
             if (!required[item.ref]) {
                 required[item.ref] = { name: item.name, qty: 0, available: parseFloat(currentStock[item.ref]?.qty) || 0 };
             }
-            const itemQty = parseFloat(item.qty) || 0;
-            const modelQty = parseFloat(qty) || 0;
+            // Handle European decimal format (comma instead of dot)
+            const itemQty = parseFloat(String(item.qty).replace(',', '.')) || 0;
+            const modelQty = parseFloat(String(qty).replace(',', '.')) || 0;
             required[item.ref].qty += itemQty * modelQty;
         });
     });
