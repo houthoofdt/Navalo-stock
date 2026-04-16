@@ -4703,7 +4703,28 @@ async function sendPurchaseOrderByEmail() {
         const result = await storage.apiPost('sendEmail', emailData);
 
         if (result && result.success) {
+            // Mark PO as sent
+            let pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
+            const poIndex = pos.findIndex(p => p.id === currentPO.id);
+            if (poIndex >= 0) {
+                pos[poIndex].emailSentAt = new Date().toISOString();
+                pos[poIndex].emailSentTo = supplier.email;
+                localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
+
+                // Sync to Google Sheets
+                if (storage.getMode() === 'googlesheets') {
+                    try {
+                        await storage.updatePurchaseOrder({
+                            poId: currentPO.id,
+                            emailSentAt: pos[poIndex].emailSentAt,
+                            emailSentTo: pos[poIndex].emailSentTo
+                        });
+                    } catch (e) { console.warn('Failed to sync email status:', e); }
+                }
+            }
+
             showToast(`${t('poSent')} ${supplier.email}`, 'success');
+            await refreshAllData();
         } else {
             throw new Error(result?.error || t('sendError'));
         }
@@ -4752,8 +4773,9 @@ async function updatePurchaseOrdersDisplay() {
         
         tbody.innerHTML = filtered.map(po => {
             const statusClass = po.status === 'Reçu' ? 'status-ok' : po.status === 'Envoyé' ? 'status-low' : po.status === 'Annulé' ? 'status-critical' : '';
+            const emailIcon = po.emailSentAt ? ` <span title="Email envoyé le ${formatDate(po.emailSentAt)} à ${po.emailSentTo || 'destinataire'}" style="color: #10b981; cursor: help;">📧</span>` : '';
             return `<tr>
-                <td><strong>${po.poNumber}</strong></td>
+                <td><strong>${po.poNumber}</strong>${emailIcon}</td>
                 <td>${formatDate(po.date)}</td>
                 <td>${po.supplier}</td>
                 <td>${po.itemCount}</td>
@@ -4855,8 +4877,9 @@ async function updateInvoicesDisplay() {
         const statusText = inv.paid ? t('paid') : (isOverdue ? t('overdue') : t('unpaid'));
         const depositInfo = inv.isProforma && inv.depositPercent && inv.depositPercent < 100 ? ` ${inv.depositPercent}%` : '';
         const proformaBadge = inv.isProforma ? `<span class="badge badge-proforma" style="margin-left: 4px;">ZÁLOHA${depositInfo}</span>` : '';
+        const emailIcon = inv.emailSentAt ? ` <span title="Email envoyé le ${formatDate(inv.emailSentAt)} à ${inv.emailSentTo || 'destinataire'}" style="color: #10b981; cursor: help;">📧</span>` : '';
         return `<tr class="${isOverdue && !inv.paid ? 'row-warning' : ''}">
-            <td><strong>${inv.number}</strong>${proformaBadge}</td>
+            <td><strong>${inv.number}</strong>${proformaBadge}${emailIcon}</td>
             <td>${formatDate(inv.date)}</td>
             <td>${inv.client}</td>
             <td>${inv.clientOrderNumber || inv.linkedOrderNumber || '-'}</td>
@@ -5926,7 +5949,28 @@ async function sendInvoiceByEmail() {
         const result = await storage.apiPost('sendEmail', emailData);
 
         if (result && result.success) {
+            // Mark invoice as sent
+            let invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+            const invIndex = invoices.findIndex(i => i.number === currentInvoice.number);
+            if (invIndex >= 0) {
+                invoices[invIndex].emailSentAt = new Date().toISOString();
+                invoices[invIndex].emailSentTo = client.email;
+                localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
+
+                // Sync to Google Sheets
+                if (storage.getMode() === 'googlesheets') {
+                    try {
+                        await storage.updateInvoice({
+                            invNumber: currentInvoice.number,
+                            emailSentAt: invoices[invIndex].emailSentAt,
+                            emailSentTo: invoices[invIndex].emailSentTo
+                        });
+                    } catch (e) { console.warn('Failed to sync email status:', e); }
+                }
+            }
+
             showToast(`${t('invoiceSent')} ${client.email}`, 'success');
+            await refreshAllData();
         } else {
             throw new Error(result?.error || t('sendError'));
         }
@@ -10034,10 +10078,12 @@ async function updateRepairQuotesDisplay() {
             statusDisplay = `<span class="status-badge ${statusClass}">${t('status' + quote.status.charAt(0).toUpperCase() + quote.status.slice(1)) || quote.status}</span>`;
         }
 
+        const emailIcon = quote.emailSentAt ? ` <span title="Email envoyé le ${formatDate(quote.emailSentAt)} à ${quote.emailSentTo || 'destinataire'}" style="color: #10b981; cursor: help;">📧</span>` : '';
+
         return `
             <tr>
                 <td>${formatDate(quote.date) || '-'}</td>
-                <td><strong>${quote.quoteNumber || '-'}</strong>${quote.ticketNumber ? `<br><small style="color:#666;">Ticket: ${quote.ticketNumber}</small>` : ''}</td>
+                <td><strong>${quote.quoteNumber || '-'}</strong>${emailIcon}${quote.ticketNumber ? `<br><small style="color:#666;">Ticket: ${quote.ticketNumber}</small>` : ''}</td>
                 <td>${quote.client || '-'}</td>
                 <td>${pacCount}</td>
                 <td>${(parseFloat(quote.subtotal) || 0).toFixed(2)} EUR</td>
@@ -10929,13 +10975,17 @@ async function sendRepairQuoteByEmail() {
         const result = await storage.apiPost('sendEmail', emailData);
 
         if (result && result.success) {
-            showToast(`${t('emailSent')} - ${client.email}`, 'success');
+            // Mark quote as sent with email tracking
+            const emailSentAt = new Date().toISOString();
+            await storage.updateRepairQuote({
+                quoteId: quote.id,
+                emailSentAt: emailSentAt,
+                emailSentTo: recipientEmail.trim(),
+                status: 'sent'
+            });
 
-            // Update quote status to 'sent' if it was 'pending'
-            if (quote.status === 'pending') {
-                await storage.updateRepairQuoteStatus(quote.id, 'sent');
-                await updateRepairQuotesDisplay();
-            }
+            showToast(`${t('emailSent')} - ${recipientEmail.trim()}`, 'success');
+            await updateRepairQuotesDisplay();
         } else {
             throw new Error(result?.error || t('sendError'));
         }
