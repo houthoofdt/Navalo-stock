@@ -213,6 +213,9 @@ function doPost(e) {
       case 'processDelivery':
         result = processDelivery(data);
         break;
+      case 'updateDelivery':
+        result = updateDelivery(data);
+        break;
       case 'deleteDelivery':
         result = deleteDelivery(data.id);
         break;
