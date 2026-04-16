@@ -7720,6 +7720,9 @@ function convertQuoteToInvoiceById(id) {
     const quote = quotes.find(q => q.id === id);
     if (!quote) return;
 
+    console.log('🔍 Converting quote to invoice:', quote);
+    console.log('Quote items:', quote.items);
+
     // Open invoice modal with quote data prefilled
     openFreeInvoiceModal();
 
@@ -7735,6 +7738,7 @@ function convertQuoteToInvoiceById(id) {
     // Add items
     document.getElementById('invItems').innerHTML = '';
     if (quote.items && quote.items.length > 0) {
+        console.log('✅ Adding', quote.items.length, 'items to invoice');
         quote.items.forEach(item => {
             addInvoiceItemRow();
             const rows = document.querySelectorAll('#invItems .item-row');
@@ -7743,6 +7747,14 @@ function convertQuoteToInvoiceById(id) {
             lastRow.querySelector('.inv-item-qty').value = item.qty;
             lastRow.querySelector('.inv-item-price').value = item.price;
         });
+    } else {
+        console.error('⚠️ AUCUN ARTICLE dans le devis!');
+        console.error('quote.items existe?', quote.items ? 'OUI' : 'NON');
+        console.error('quote.items.length:', quote.items?.length || 0);
+        console.error('Structure du devis:', Object.keys(quote));
+        showToast('⚠️ Le devis ne contient pas d\'articles. Vérifiez la console (F12)', 'error');
+        // Add one empty row as fallback
+        addInvoiceItemRow();
     }
 
     // Update quote status
