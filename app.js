@@ -360,7 +360,13 @@ const TRANSLATIONS = {
         confirmRenumber: 'Voulez-vous renuméroter tous les devis de réparation avec des numéros uniques?\n\nCela corrigera les doublons (DV2026001, DV2026001, DV2026001) en (DV2026001, DV2026002, DV2026003)',
         blTransferred: 'kits transférés',
         receptionCreated: 'kits reçus',
-        selectAtLeastOneDelivery: 'Veuillez sélectionner au moins un article à livrer'
+        selectAtLeastOneDelivery: 'Veuillez sélectionner au moins un article à livrer',
+        // Email templates
+        poEmailSubject: 'Commande',
+        poEmailGreeting: 'Bonjour',
+        poEmailBody: 'Veuillez trouver ci-joint notre commande',
+        poEmailContact: 'Pour toute question, veuillez contacter',
+        poEmailClosing: 'Cordialement'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -604,12 +610,75 @@ const TRANSLATIONS = {
         confirmRenumber: 'Chcete přečíslovat všechny nabídky oprav s unikátními čísly?\n\nToto opraví duplikáty (DV2026001, DV2026001, DV2026001) na (DV2026001, DV2026002, DV2026003)',
         blTransferred: 'sad přeneseno',
         receptionCreated: 'sad přijato',
-        selectAtLeastOneDelivery: 'Vyberte prosím alespoň jednu položku k dodání'
+        selectAtLeastOneDelivery: 'Vyberte prosím alespoň jednu položku k dodání',
+        // Email templates
+        poEmailSubject: 'Objednávka',
+        poEmailGreeting: 'Dobrý den',
+        poEmailBody: 'V příloze naleznete naši objednávku',
+        poEmailContact: 'Pro odpověď kontaktujte',
+        poEmailClosing: 'S pozdravem'
+    },
+    en: {
+        // Purchase Order specific translations
+        purchaseOrder: 'PURCHASE ORDER',
+        poTitle: 'Purchase Orders',
+        newPO: 'New Order',
+        poNumber: 'Order No.',
+        orderNumber: 'Order No.',
+        orderDate: 'Order Date',
+        expectedDeliveryDate: 'Expected Delivery',
+        confirmOrder: 'Please confirm receipt of this purchase order.',
+        confirmSendPO: 'Send purchase order',
+        poSent: 'Order sent to',
+        // Common terms
+        date: 'Date',
+        reference: 'Reference',
+        designation: 'Description',
+        qty: 'Qty',
+        quantity: 'Quantity',
+        unitPrice: 'Unit Price',
+        total: 'Total',
+        supplier: 'Supplier',
+        from: 'From',
+        to: 'To',
+        notes: 'Notes',
+        articles: 'Items',
+        totalValue: 'Total Value',
+        currency: 'Currency',
+        save: 'Save',
+        cancel: 'Cancel',
+        edit: 'Edit',
+        delete: 'Delete',
+        view: 'View',
+        print: 'Print',
+        close: 'Close',
+        sendEmail: 'Send Email',
+        // Status
+        filterDraft: 'Draft',
+        filterSent: 'Sent',
+        filterReceived: 'Received',
+        filterCancelled: 'Cancelled',
+        markSent: 'Mark Sent',
+        markReceived: 'Mark Received',
+        // Messages
+        selectSupplierFirst: 'Please select a supplier',
+        noData: 'No data',
+        saved: 'Saved',
+        deleted: 'Deleted',
+        error: 'Error',
+        success: 'Success',
+        // Email templates
+        poEmailSubject: 'Purchase Order',
+        poEmailGreeting: 'Dear Sir/Madam',
+        poEmailBody: 'Please find attached our purchase order',
+        poEmailContact: 'For any questions, please contact',
+        poEmailClosing: 'Best regards'
     }
 };
 
-function t(key) {
-    return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS['fr']?.[key] || key;
+function t(key, lang) {
+    const useLang = lang || currentLang;
+    return TRANSLATIONS[useLang]?.[key] || TRANSLATIONS['fr']?.[key] || key;
 }
 
 function changeLanguage() {
@@ -4322,6 +4391,7 @@ async function createPurchaseOrder() {
     const supplier = document.getElementById('poSupplier').value;
     const currency = document.getElementById('poCurrency').value;
     const expectedDate = document.getElementById('poExpectedDate').value;
+    const language = document.getElementById('poLanguage').value;
     
     const items = [];
     document.querySelectorAll('#poItems .item-row').forEach(row => {
@@ -4341,16 +4411,16 @@ async function createPurchaseOrder() {
         const index = pos.findIndex(p => p.id === editingPOId);
         if (index >= 0) {
             let totalValue = items.reduce((sum, item) => sum + (item.price || 0) * (item.qty || 0), 0);
-            pos[index] = { ...pos[index], supplier, currency, expectedDate, items, itemCount: items.length, totalValue, updatedAt: new Date().toISOString() };
+            pos[index] = { ...pos[index], supplier, currency, expectedDate, language, items, itemCount: items.length, totalValue, updatedAt: new Date().toISOString() };
             localStorage.setItem('navalo_purchase_orders', JSON.stringify(pos));
             
             // Sync update to Google Sheets
             if (storage.getMode() === 'googlesheets') {
                 try {
-                    await storage.updatePurchaseOrder({ 
-                        poId: editingPOId, 
-                        supplier, currency, expectedDate, items, 
-                        itemCount: items.length, totalValue 
+                    await storage.updatePurchaseOrder({
+                        poId: editingPOId,
+                        supplier, currency, expectedDate, language, items,
+                        itemCount: items.length, totalValue
                     });
                 } catch (e) { console.warn('Failed to sync PO update to Google Sheets:', e); }
             }
@@ -4362,7 +4432,7 @@ async function createPurchaseOrder() {
         }
     } else {
         try {
-            const result = await storage.createPurchaseOrder({ supplier, items, currency, expectedDate });
+            const result = await storage.createPurchaseOrder({ supplier, items, currency, expectedDate, language });
             if (result.success) {
                 showToast(`${result.poNumber} ${t('saved')}`, 'success');
                 closePOModal();
@@ -4381,6 +4451,7 @@ async function editPO(poId) {
     document.getElementById('poSupplier').value = po.supplier;
     document.getElementById('poCurrency').value = po.currency;
     document.getElementById('poExpectedDate').value = po.expectedDate || '';
+    document.getElementById('poLanguage').value = po.language || 'fr';
     document.getElementById('poItems').innerHTML = '';
     (po.items || []).forEach(item => {
         const row = document.createElement('div');
@@ -4521,6 +4592,7 @@ async function viewPO(poId) {
 
 function showPOPreview(po) {
     const config = CONFIG || { COMPANY: { name: 'NAVALO s.r.o.', address: '' } };
+    const poLang = po.language || 'fr'; // Use PO's language or default to French
     let itemsHtml = '', total = 0;
     (po.items || []).forEach((item, i) => {
         const lineTotal = (item.qty || 0) * (item.price || 0);
@@ -4549,22 +4621,22 @@ function showPOPreview(po) {
             <div class="dn-header">
                 <div class="dn-company"><h2>${config.COMPANY.name}</h2><p>${config.COMPANY.address}</p></div>
                 <div class="dn-info">
-                    <h1>${t('purchaseOrder')}</h1>
+                    <h1>${t('purchaseOrder', poLang)}</h1>
                     <h2>${po.poNumber}</h2>
-                    <p>${t('date')}: ${formatDate(po.date)}</p>
-                    ${po.expectedDate ? `<p><strong>${t('expectedDeliveryDate')}:</strong> ${formatDate(po.expectedDate)}</p>` : ''}
+                    <p>${t('date', poLang)}: ${formatDate(po.date)}</p>
+                    ${po.expectedDate ? `<p><strong>${t('expectedDeliveryDate', poLang)}:</strong> ${formatDate(po.expectedDate)}</p>` : ''}
                 </div>
             </div>
             <div class="dn-addresses">
-                <div class="dn-address"><h4>${t('from')}</h4><div class="dn-address-box"><strong>${config.COMPANY.name}</strong><br>${config.COMPANY.address}</div></div>
-                <div class="dn-address"><h4>${t('to')}</h4><div class="dn-address-box">${supplierHtml}</div></div>
+                <div class="dn-address"><h4>${t('from', poLang)}</h4><div class="dn-address-box"><strong>${config.COMPANY.name}</strong><br>${config.COMPANY.address}</div></div>
+                <div class="dn-address"><h4>${t('to', poLang)}</h4><div class="dn-address-box">${supplierHtml}</div></div>
             </div>
             <table class="dn-table">
-                <thead><tr><th>#</th><th>${t('reference')}</th><th>${t('designation')}</th><th class="text-right">${t('qty')}</th><th class="text-right">${t('unitPrice')}</th><th class="text-right">${t('total')}</th></tr></thead>
+                <thead><tr><th>#</th><th>${t('reference', poLang)}</th><th>${t('designation', poLang)}</th><th class="text-right">${t('qty', poLang)}</th><th class="text-right">${t('unitPrice', poLang)}</th><th class="text-right">${t('total', poLang)}</th></tr></thead>
                 <tbody>${itemsHtml}</tbody>
                 <tfoot><tr class="dn-total"><td colspan="5" class="text-right"><strong>TOTAL</strong></td><td class="text-right"><strong>${formatCurrency(total)} ${po.currency}</strong></td></tr></tfoot>
             </table>
-            <div class="po-footer"><p>${t('confirmOrder')}</p></div>
+            <div class="po-footer"><p>${t('confirmOrder', poLang)}</p></div>
         </div>`;
     document.getElementById('poPreviewModal').classList.add('active');
 }
@@ -4607,15 +4679,19 @@ async function sendPurchaseOrderByEmail() {
         // Get the PO HTML
         const poHtml = document.getElementById('poPreview').innerHTML;
 
+        // Use PO's language for email
+        const poLang = currentPO.language || 'fr';
+        const companyName = CONFIG?.COMPANY?.name || 'NAVALO s.r.o.';
+
         // Prepare email data
         const emailData = {
             to: supplier.email,
             replyTo: 'tomas.karas@hotjet.cz',
-            subject: `Objednávka ${currentPO.poNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
-            body: `Dobrý den,\n\nV příloze naleznete naši objednávku ${currentPO.poNumber}.\n\nPro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            subject: `${t('poEmailSubject', poLang)} ${currentPO.poNumber} - ${companyName}`,
+            body: `${t('poEmailGreeting', poLang)},\n\n${t('poEmailBody', poLang)} ${currentPO.poNumber}.\n\n${t('poEmailContact', poLang)}: tomas.karas@hotjet.cz\n\n${t('poEmailClosing', poLang)},\n${companyName}`,
             htmlContent: poHtml,
             documentNumber: currentPO.poNumber,
-            documentType: 'Objednávka'
+            documentType: t('poEmailSubject', poLang)
         };
 
         // Add CC if provided
@@ -11771,6 +11847,7 @@ function previewPOBeforeSave() {
         date: new Date().toISOString().split('T')[0],
         expectedDate: document.getElementById('poExpectedDate')?.value || '',
         currency: document.getElementById('poCurrency')?.value || 'EUR',
+        language: document.getElementById('poLanguage')?.value || 'fr',
         items: []
     };
 
