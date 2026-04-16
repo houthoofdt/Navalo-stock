@@ -1996,7 +1996,12 @@ function clearDeliveryForm() {
 
     getPacModels().forEach(m => {
         const input = document.getElementById(`del-qty-${modelIdToKey(m.id)}`);
-        if (input) input.value = 0;
+        if (input) {
+            input.value = 0;
+            input.disabled = false;
+            input.style.backgroundColor = '';
+            input.title = '';
+        }
     });
     document.getElementById('bomPreviewSection').style.display = 'none';
     document.getElementById('deliveryLinkedOrder').value = '';
@@ -2135,10 +2140,31 @@ async function editDelivery(id) {
             clientSelect.appendChild(option);
         }
         clientSelect.value = client.id;
+    } else if (delivery.client) {
+        // Fallback: store client name for display
+        clientSelect.dataset.clientNameFallback = delivery.client;
+    }
+
+    // Pre-fill PAC quantities and disable them
+    const quantities = delivery.items?.pac || delivery.quantities || {};
+    getPacModels().forEach(model => {
+        const input = document.getElementById(`del-qty-${modelIdToKey(model.id)}`);
+        if (input) {
+            const qty = quantities[model.id] || delivery[model.id.toLowerCase().replace('-', '_')] || 0;
+            input.value = qty;
+            input.disabled = true;
+            input.style.backgroundColor = '#f3f4f6';
+            input.title = 'Les quantités ne peuvent pas être modifiées en mode édition';
+        }
+    });
+
+    // Pre-fill linked order if exists
+    if (delivery.linkedOrderId) {
+        document.getElementById('deliveryLinkedOrder').value = delivery.linkedOrderId;
     }
 
     // Show items as read-only info
-    showToast(`Édition BL ${delivery.blNumber} - Les quantités ne peuvent pas être modifiées`, 'info');
+    showToast(`Édition BL ${delivery.blNumber} - Les quantités et articles ne peuvent pas être modifiés`, 'info');
 
     // Scroll to delivery form
     document.getElementById('tab-sorties').scrollIntoView({ behavior: 'smooth' });
