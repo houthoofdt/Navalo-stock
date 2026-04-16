@@ -1715,9 +1715,11 @@ function updateBomPreview() {
         if (qty <= 0) return;
         (currentBom[modelId] || []).forEach(item => {
             if (!required[item.ref]) {
-                required[item.ref] = { name: item.name, qty: 0, available: currentStock[item.ref]?.qty || 0 };
+                required[item.ref] = { name: item.name, qty: 0, available: parseFloat(currentStock[item.ref]?.qty) || 0 };
             }
-            required[item.ref].qty += item.qty * qty;
+            const itemQty = parseFloat(item.qty) || 0;
+            const modelQty = parseFloat(qty) || 0;
+            required[item.ref].qty += itemQty * modelQty;
         });
     });
     
