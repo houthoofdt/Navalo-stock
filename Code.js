@@ -1338,6 +1338,16 @@ function processDelivery(data) {
       qtyToDeduct -= deductFromLot;
     }
 
+    // Fallback: if no lot value, use stock value / qty as unit price
+    if (componentValue === 0 && data.qty > 0 && data.rowIndex) {
+      // Get stock value from Stock sheet (column 7 = value)
+      const stockValue = Number(stockData[data.rowIndex - 1][6]) || 0;
+      const stockQty = Number(stockData[data.rowIndex - 1][4]) || 1;
+      const unitPrice = stockQty > 0 ? stockValue / stockQty : 0;
+      componentValue = data.qty * unitPrice;
+      Logger.log('processDelivery BOM: Using stock value fallback for ' + ref + ': ' + unitPrice + ' CZK/unit, total: ' + componentValue);
+    }
+
     totalValue += componentValue;
 
     const newQty = data.available - data.qty;
