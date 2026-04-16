@@ -2030,6 +2030,17 @@ function clearDeliveryForm() {
     // Hide order status
     const statusDiv = document.getElementById('deliveryOrderStatus');
     if (statusDiv) statusDiv.style.display = 'none';
+
+    // Restore submit button to "Create" mode
+    const submitButtons = document.querySelectorAll('.delivery-actions button');
+    submitButtons.forEach(btn => {
+        const span = btn.querySelector('span');
+        if (span && (span.textContent.includes('Enregistrer') || span.textContent.includes('Save'))) {
+            span.textContent = t('createDelivery');
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-primary');
+        }
+    });
 }
 
 async function deleteDelivery(id) {
@@ -2162,6 +2173,17 @@ async function editDelivery(id) {
     if (delivery.linkedOrderId) {
         document.getElementById('deliveryLinkedOrder').value = delivery.linkedOrderId;
     }
+
+    // Change submit button text to indicate edit mode
+    const submitButtons = document.querySelectorAll('.delivery-actions button');
+    submitButtons.forEach(btn => {
+        const span = btn.querySelector('[data-i18n="createDelivery"]');
+        if (span) {
+            span.textContent = '💾 Enregistrer';
+            btn.classList.add('btn-warning');
+            btn.classList.remove('btn-primary');
+        }
+    });
 
     // Show items as read-only info
     showToast(`Édition BL ${delivery.blNumber} - Les quantités et articles ne peuvent pas être modifiés`, 'info');
