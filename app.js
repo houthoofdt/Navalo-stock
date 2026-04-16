@@ -7710,12 +7710,12 @@ function printQuote() {
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
-function convertQuoteToInvoice() {
+async function convertQuoteToInvoice() {
     const id = window.currentPreviewQuoteId;
-    if (id) convertQuoteToInvoiceById(id);
+    if (id) await convertQuoteToInvoiceById(id);
 }
 
-function convertQuoteToInvoiceById(id) {
+async function convertQuoteToInvoiceById(id) {
     const quotes = JSON.parse(localStorage.getItem('navalo_quotes') || '[]');
     const quote = quotes.find(q => q.id === id);
     if (!quote) return;
@@ -7724,7 +7724,7 @@ function convertQuoteToInvoiceById(id) {
     console.log('Quote items:', quote.items);
 
     // Open invoice modal with quote data prefilled
-    openFreeInvoiceModal();
+    await openFreeInvoiceModal();
 
     // Fill in client info
     document.getElementById('invClientAddress').value = quote.clientAddress || '';
