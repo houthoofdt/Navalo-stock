@@ -6738,7 +6738,13 @@ function loadRecOrderToInvoice() {
 }
 
 function addInvoiceItemRow(name = '', qty = 1, price = 0) {
+    console.log('📝 addInvoiceItemRow called with:', {name, qty, price});
     const container = document.getElementById('invItems');
+    if (!container) {
+        console.error('❌ Container invItems not found!');
+        return;
+    }
+    console.log('✅ Container found, current children:', container.children.length);
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
@@ -6749,6 +6755,7 @@ function addInvoiceItemRow(name = '', qty = 1, price = 0) {
         <button type="button" class="btn-icon btn-remove" onclick="removeInvItemRow(this)">✕</button>
     `;
     container.appendChild(row);
+    console.log('✅ Row appended, new children count:', container.children.length);
     calculateInvoiceTotal();
 }
 
@@ -7736,13 +7743,18 @@ async function convertQuoteToInvoiceById(id) {
     document.getElementById('invVatRate').value = quote.vatRate || 21;
 
     // Add items
-    document.getElementById('invItems').innerHTML = '';
+    const itemsContainer = document.getElementById('invItems');
+    console.log('📦 Items container before clear:', itemsContainer ? 'EXISTS' : 'NOT FOUND', 'children:', itemsContainer?.children.length);
+    itemsContainer.innerHTML = '';
+    console.log('🧹 Items cleared, children:', itemsContainer.children.length);
+
     if (quote.items && quote.items.length > 0) {
         console.log('✅ Adding', quote.items.length, 'items to invoice');
         quote.items.forEach((item, index) => {
             console.log(`  Item ${index + 1}:`, item.name, '| Qty:', item.qty, '| Price:', item.price);
             addInvoiceItemRow(item.name, item.qty, item.price);
         });
+        console.log('✅ All items added. Final children count:', itemsContainer.children.length);
     } else {
         console.error('⚠️ AUCUN ARTICLE dans le devis!');
         console.error('quote.items existe?', quote.items ? 'OUI' : 'NON');
@@ -7756,7 +7768,9 @@ async function convertQuoteToInvoiceById(id) {
     // Update quote status
     updateQuoteStatus(id, 'accepted');
 
+    console.log('🧮 Calculating total...');
     calculateInvoiceTotal();
+    console.log('🔍 Final check - items in container:', itemsContainer.children.length);
     closeQuotePreviewModal();
     showToast(t('quoteConverted'), 'info');
 }
