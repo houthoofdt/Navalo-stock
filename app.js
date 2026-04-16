@@ -4278,7 +4278,7 @@ async function updateDeliveriesDisplay() {
                 <td>${d.client}${linkedOrderInfo ? '<br>' + linkedOrderInfo : ''}</td>
                 <td>${clientOrderNum ? `<small>${clientOrderNum}</small>` : '-'}</td>
                 <td>${d.total} PAC</td>
-                <td>${formatCurrency(d.value || 0)} CZK</td>
+                <td>${formatCurrency(parseFloat(d.value) || 0)} CZK</td>
                 <td>${invoiced ? `<span class="status-badge status-ok">${d.invoiceNumber}</span>` : `<span class="status-badge">${t('no')}</span>`}</td>
                 <td>
                     <button class="btn btn-outline btn-small" onclick="viewDelivery('${d.id}')" title="${t('view')}">👁️</button>
