@@ -7734,6 +7734,9 @@ async function convertQuoteToInvoiceById(id) {
     await openFreeInvoiceModal();
 
     // Fill in client info
+    if (quote.client) {
+        document.getElementById('invClient').value = quote.client;
+    }
     document.getElementById('invClientAddress').value = quote.clientAddress || '';
     document.getElementById('invClientIco').value = quote.clientIco || '';
     document.getElementById('invClientDic').value = quote.clientDic || '';
@@ -7741,6 +7744,11 @@ async function convertQuoteToInvoiceById(id) {
     // Set currency and VAT rate
     document.getElementById('invCurrency').value = quote.currency || 'CZK';
     document.getElementById('invVatRate').value = quote.vatRate || 21;
+
+    // Set client order number if present
+    if (quote.clientOrderNumber) {
+        document.getElementById('invClientOrderNum').value = quote.clientOrderNumber;
+    }
 
     // Add items
     const itemsContainer = document.getElementById('invItems');
