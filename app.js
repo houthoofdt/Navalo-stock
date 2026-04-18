@@ -6738,13 +6738,11 @@ function loadRecOrderToInvoice() {
 }
 
 function addInvoiceItemRow(name = '', qty = 1, price = 0) {
-    console.log('📝 addInvoiceItemRow called with:', {name, qty, price});
     const container = document.getElementById('invItems');
     if (!container) {
-        console.error('❌ Container invItems not found!');
+        console.error('Container invItems not found!');
         return;
     }
-    console.log('✅ Container found, current children:', container.children.length);
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
@@ -6755,7 +6753,6 @@ function addInvoiceItemRow(name = '', qty = 1, price = 0) {
         <button type="button" class="btn-icon btn-remove" onclick="removeInvItemRow(this)">✕</button>
     `;
     container.appendChild(row);
-    console.log('✅ Row appended, new children count:', container.children.length);
     calculateInvoiceTotal();
 }
 
@@ -7727,9 +7724,6 @@ async function convertQuoteToInvoiceById(id) {
     const quote = quotes.find(q => q.id === id);
     if (!quote) return;
 
-    console.log('🔍 Converting quote to invoice:', quote);
-    console.log('Quote items:', quote.items);
-
     // Open invoice modal with quote data prefilled
     await openFreeInvoiceModal();
 
@@ -7752,23 +7746,15 @@ async function convertQuoteToInvoiceById(id) {
 
     // Add items
     const itemsContainer = document.getElementById('invItems');
-    console.log('📦 Items container before clear:', itemsContainer ? 'EXISTS' : 'NOT FOUND', 'children:', itemsContainer?.children.length);
     itemsContainer.innerHTML = '';
-    console.log('🧹 Items cleared, children:', itemsContainer.children.length);
 
     if (quote.items && quote.items.length > 0) {
-        console.log('✅ Adding', quote.items.length, 'items to invoice');
         quote.items.forEach((item, index) => {
-            console.log(`  Item ${index + 1}:`, item.name, '| Qty:', item.qty, '| Price:', item.price);
             addInvoiceItemRow(item.name, item.qty, item.price);
         });
-        console.log('✅ All items added. Final children count:', itemsContainer.children.length);
     } else {
-        console.error('⚠️ AUCUN ARTICLE dans le devis!');
-        console.error('quote.items existe?', quote.items ? 'OUI' : 'NON');
-        console.error('quote.items.length:', quote.items?.length || 0);
-        console.error('Structure du devis:', Object.keys(quote));
-        showToast('⚠️ Le devis ne contient pas d\'articles. Vérifiez la console (F12)', 'error');
+        console.warn('No items found in quote');
+        showToast('⚠️ Le devis ne contient pas d\'articles', 'error');
         // Add one empty row as fallback
         addInvoiceItemRow();
     }
@@ -7776,9 +7762,7 @@ async function convertQuoteToInvoiceById(id) {
     // Update quote status
     updateQuoteStatus(id, 'accepted');
 
-    console.log('🧮 Calculating total...');
     calculateInvoiceTotal();
-    console.log('🔍 Final check - items in container:', itemsContainer.children.length);
     closeQuotePreviewModal();
     showToast(t('quoteConverted'), 'info');
 }
