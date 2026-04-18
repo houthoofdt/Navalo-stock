@@ -11335,7 +11335,7 @@ async function createDeliveryFromRepairQuote(quoteId) {
 
                 // Add refrigerant as component if it has a ref, otherwise as custom item
                 if (pac.services && pac.services.refrigerant > 0) {
-                    const refQty = Math.round(pac.services.refrigerant);
+                    const refQty = pac.services.refrigerant; // Keep decimal precision (2.7 kg, not 3)
                     // Try to find refrigerant component ref (R134a or similar)
                     const refrigerantRef = findRefrigerantRef();
                     if (refrigerantRef) {
@@ -12046,7 +12046,7 @@ function previewDeliveryBeforeSave() {
         const select = row.querySelector('.item-ref');
         const qtyInput = row.querySelector('.item-qty');
         const ref = select?.value;
-        const qty = parseInt(qtyInput?.value) || 0;
+        const qty = parseFloat(qtyInput?.value) || 0; // Use parseFloat to preserve decimals (e.g. 2.7 kg)
         if (ref && qty > 0) {
             // Get component name from the select option text
             const selectedOption = select.options[select.selectedIndex];
