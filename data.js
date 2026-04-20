@@ -500,7 +500,9 @@ function generateInitialStock() {
 const REPAIR_PRICE_LIST = {
     // Tarifs de service
     services: {
-        labor: { price: 30, unit: 'EUR/hod', label: 'Main d\'œuvre' },
+        labor: { price: 30, unit: 'EUR/hod', label: 'Main d\'œuvre' }, // Kept for backwards compatibility
+        cleaning: { price: 30, unit: 'EUR/hod', label: 'Nettoyage / Čištění' },
+        repair: { price: 30, unit: 'EUR/hod', label: 'Réparation / Oprava' },
         refrigerantR134a: { price: 25, unit: 'EUR/kg', label: 'Réfrigérant R134a' },
         disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' }
     },

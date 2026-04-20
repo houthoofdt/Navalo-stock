@@ -9553,7 +9553,16 @@ async function loadRepairQuoteData(quoteId) {
                 }
 
                 // Load services
-                pacCard.querySelector('.service-labor').value = pac.services?.labor || 0;
+                if (pacCard.querySelector('.service-cleaning')) {
+                    pacCard.querySelector('.service-cleaning').value = pac.services?.cleaning || 0;
+                }
+                if (pacCard.querySelector('.service-repair')) {
+                    pacCard.querySelector('.service-repair').value = pac.services?.repair || 0;
+                }
+                if (pacCard.querySelector('.service-labor')) {
+                    // For backwards compatibility with old quotes that only have "labor"
+                    pacCard.querySelector('.service-labor').value = pac.services?.labor || 0;
+                }
                 pacCard.querySelector('.service-refrigerant').value = pac.services?.refrigerant || 0;
                 pacCard.querySelector('.service-disposal').value = pac.services?.disposal || 0;
 
@@ -9727,8 +9736,13 @@ function addPACToRepairQuote() {
                 <h5>${t('services')}</h5>
                 <div class="services-grid">
                     <div class="form-group">
-                        <label>${t('laborHours')}</label>
-                        <input type="number" class="service-labor" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <label>Čištění / Nettoyage</label>
+                        <input type="number" class="service-cleaning" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <span class="component-price-display">30 EUR/hod</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Oprava / Réparation</label>
+                        <input type="number" class="service-repair" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">30 EUR/hod</span>
                     </div>
                     <div class="form-group">
@@ -9955,12 +9969,16 @@ function calculatePACSubtotal(pacIndex) {
     });
 
     // ALWAYS calculate services total (even under warranty, to show what was done)
-    const labor = parseFloat(pacCard.querySelector('.service-labor').value) || 0;
+    const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
+    const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
+    const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0; // Keep for backwards compatibility
     const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
     const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
 
     const serviceRates = getServiceRates();
-    subtotal += labor * serviceRates.labor.price;
+    subtotal += cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
+    subtotal += repair * (serviceRates.repair?.price || serviceRates.labor.price);
+    subtotal += labor * serviceRates.labor.price; // Backwards compatibility
     subtotal += refrigerant * serviceRates.refrigerantR134a.price;
     subtotal += disposal * serviceRates.disposal.price;
 
@@ -10010,11 +10028,15 @@ function calculateRepairQuoteTotal() {
             });
 
             // Services
-            const labor = parseFloat(pacCard.querySelector('.service-labor').value) || 0;
+            const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
+            const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
+            const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0;
             const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
             const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
 
             const serviceRates = getServiceRates();
+            pacSubtotal += cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
+            pacSubtotal += repair * (serviceRates.repair?.price || serviceRates.labor.price);
             pacSubtotal += labor * serviceRates.labor.price;
             pacSubtotal += refrigerant * serviceRates.refrigerantR134a.price;
             pacSubtotal += disposal * serviceRates.disposal.price;
@@ -10083,7 +10105,9 @@ async function saveRepairQuote() {
             underWarranty: pacCard.querySelector('.pac-under-warranty')?.checked || false,
             components: [],
             services: {
-                labor: parseFloat(pacCard.querySelector('.service-labor').value) || 0,
+                cleaning: parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0,
+                repair: parseFloat(pacCard.querySelector('.service-repair')?.value) || 0,
+                labor: parseFloat(pacCard.querySelector('.service-labor')?.value) || 0, // Keep for backwards compatibility
                 refrigerant: parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0,
                 disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0
             },
@@ -10346,7 +10370,37 @@ function showRepairQuotePreview(quote) {
 
         // Services (show even if under warranty)
         const services = pac.services || {};
-        if (services.labor > 0) {
+
+        // Show cleaning hours
+        if (services.cleaning > 0) {
+            const cleaningRate = serviceRates.cleaning || serviceRates.labor;
+            pacsTableHtml += `
+                <tr>
+                    <td>Čištění / Nettoyage</td>
+                    <td>SERVICE</td>
+                    <td style="text-align:center">${services.cleaning} h</td>
+                    <td style="text-align:right">${cleaningRate.price} EUR/h</td>
+                    <td style="text-align:right">${(services.cleaning * cleaningRate.price).toFixed(2)} EUR</td>
+                </tr>
+            `;
+        }
+
+        // Show repair hours
+        if (services.repair > 0) {
+            const repairRate = serviceRates.repair || serviceRates.labor;
+            pacsTableHtml += `
+                <tr>
+                    <td>Oprava / Réparation</td>
+                    <td>SERVICE</td>
+                    <td style="text-align:center">${services.repair} h</td>
+                    <td style="text-align:right">${repairRate.price} EUR/h</td>
+                    <td style="text-align:right">${(services.repair * repairRate.price).toFixed(2)} EUR</td>
+                </tr>
+            `;
+        }
+
+        // Show old "labor" field for backwards compatibility with old quotes
+        if (services.labor > 0 && !services.cleaning && !services.repair) {
             pacsTableHtml += `
                 <tr>
                     <td>${t('laborHours')}</td>
@@ -10389,7 +10443,9 @@ function showRepairQuotePreview(quote) {
             if (pac.components) {
                 calculatedTotal += pac.components.reduce((sum, comp) => sum + comp.total, 0);
             }
-            calculatedTotal += (pac.services.labor || 0) * serviceRates.labor.price;
+            calculatedTotal += (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
+            calculatedTotal += (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
+            calculatedTotal += (pac.services.labor || 0) * serviceRates.labor.price; // Backwards compatibility
             calculatedTotal += (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
             calculatedTotal += (pac.services.disposal || 0) * serviceRates.disposal.price;
 
@@ -10699,7 +10755,16 @@ async function convertRepairQuoteToInvoice(quoteId) {
                 const serviceRates = getServiceRates();
                 if (pac.services) {
                     console.log('Services:', pac.services);
-                    if (pac.services.labor > 0) {
+                    if (pac.services.cleaning > 0) {
+                        const cleaningRate = serviceRates.cleaning || serviceRates.labor;
+                        addInvoiceItemRow('Čištění / Nettoyage', pac.services.cleaning, cleaningRate.price);
+                    }
+                    if (pac.services.repair > 0) {
+                        const repairRate = serviceRates.repair || serviceRates.labor;
+                        addInvoiceItemRow('Oprava / Réparation', pac.services.repair, repairRate.price);
+                    }
+                    // Backwards compatibility for old quotes with only "labor"
+                    if (pac.services.labor > 0 && !pac.services.cleaning && !pac.services.repair) {
                         addInvoiceItemRow(t('labor'), pac.services.labor, serviceRates.labor.price);
                     }
                     if (pac.services.refrigerant > 0) {
@@ -10884,7 +10949,28 @@ async function acceptRepairQuote(quoteId) {
 
                 // Add services with correct quantities and unit prices
                 if (pac.services) {
-                    if (pac.services.labor > 0) {
+                    if (pac.services.cleaning > 0) {
+                        const cleaningRate = serviceRates.cleaning || serviceRates.labor;
+                        items.push({
+                            name: 'Čištění / Nettoyage',
+                            description: 'Čištění / Nettoyage',
+                            qty: pac.services.cleaning,
+                            price: cleaningRate.price,
+                            pricePerUnit: cleaningRate.price
+                        });
+                    }
+                    if (pac.services.repair > 0) {
+                        const repairRate = serviceRates.repair || serviceRates.labor;
+                        items.push({
+                            name: 'Oprava / Réparation',
+                            description: 'Oprava / Réparation',
+                            qty: pac.services.repair,
+                            price: repairRate.price,
+                            pricePerUnit: repairRate.price
+                        });
+                    }
+                    // Backwards compatibility
+                    if (pac.services.labor > 0 && !pac.services.cleaning && !pac.services.repair) {
                         items.push({
                             name: t('labor'),
                             description: t('labor'),
@@ -12451,6 +12537,8 @@ function previewRepairQuoteBeforeSave() {
             underWarranty: container.querySelector('.pac-under-warranty')?.checked || false,
             components: [],
             services: {
+                cleaning: 0,
+                repair: 0,
                 labor: 0,
                 refrigerant: 0,
                 disposal: 0
@@ -12486,10 +12574,14 @@ function previewRepairQuoteBeforeSave() {
         });
 
         // Get services for this PAC
+        const cleaningInput = container.querySelector('.service-cleaning');
+        const repairInput = container.querySelector('.service-repair');
         const laborInput = container.querySelector('.service-labor');
         const refrigerantInput = container.querySelector('.service-refrigerant');
         const disposalInput = container.querySelector('.service-disposal');
 
+        pac.services.cleaning = parseFloat(cleaningInput?.value) || 0;
+        pac.services.repair = parseFloat(repairInput?.value) || 0;
         pac.services.labor = parseFloat(laborInput?.value) || 0;
         pac.services.refrigerant = parseFloat(refrigerantInput?.value) || 0;
         pac.services.disposal = parseFloat(disposalInput?.value) || 0;
@@ -12497,6 +12589,8 @@ function previewRepairQuoteBeforeSave() {
         // Calculate PAC subtotal (0 if under warranty)
         if (!pac.underWarranty) {
             pac.subtotal = pac.components.reduce((sum, comp) => sum + comp.total, 0);
+            pac.subtotal += pac.services.cleaning * ((serviceRates.cleaning || serviceRates.labor)?.price || 0);
+            pac.subtotal += pac.services.repair * ((serviceRates.repair || serviceRates.labor)?.price || 0);
             pac.subtotal += pac.services.labor * (serviceRates.labor?.price || 0);
             pac.subtotal += pac.services.refrigerant * (serviceRates.refrigerantR134a?.price || 0);
             pac.subtotal += pac.services.disposal * (serviceRates.disposal?.price || 0);
