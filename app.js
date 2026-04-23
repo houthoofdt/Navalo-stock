@@ -4539,12 +4539,24 @@ async function createPurchaseOrder() {
     
     const items = [];
     document.querySelectorAll('#poItems .item-row').forEach(row => {
-        const ref = row.querySelector('.item-ref').value;
         const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
         const price = parseFloat(row.querySelector('.item-price').value) || 0;
-        if (ref && qty > 0) {
-            const comp = currentStock[ref];
-            items.push({ ref, qty, price, name: comp?.name || ref });
+
+        if (qty > 0) {
+            // Check if this is a custom item
+            if (row.classList.contains('item-row-custom')) {
+                const name = row.querySelector('.item-custom-name')?.value || '';
+                if (name) {
+                    items.push({ ref: name, qty, price, name, isCustom: true });
+                }
+            } else {
+                // Regular component item
+                const ref = row.querySelector('.item-ref')?.value;
+                if (ref) {
+                    const comp = currentStock[ref];
+                    items.push({ ref, qty, price, name: comp?.name || ref, isCustom: false });
+                }
+            }
         }
     });
     
@@ -4598,18 +4610,25 @@ async function editPO(poId) {
     document.getElementById('poLanguage').value = po.language || 'fr';
     document.getElementById('poItems').innerHTML = '';
     (po.items || []).forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'item-row';
-        row.innerHTML = `
-            <select class="item-ref" required onchange="updatePOTotal()"><option value="">${t('refPlaceholder')}</option></select>
-            <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" value="${item.qty}" required onchange="updatePOTotal()">
-            <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${item.price || ''}" onchange="updatePOTotal()">
-            <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
-        document.getElementById('poItems').appendChild(row);
+        if (item.isCustom) {
+            // Add custom item row
+            addPOCustomItemRow(item.name, item.qty, item.price);
+        } else {
+            // Add regular component row
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML = `
+                <select class="item-ref" required onchange="updatePOTotal()"><option value="">${t('refPlaceholder')}</option></select>
+                <input type="number" class="item-qty" placeholder="${t('qtyPlaceholder')}" min="0.01" step="0.01" value="${item.qty}" required onchange="updatePOTotal()">
+                <input type="number" class="item-price" placeholder="${t('pricePlaceholder')}" min="0" step="0.01" value="${item.price || ''}" onchange="updatePOTotal()">
+                <button type="button" class="btn-icon btn-remove" onclick="this.closest('.item-row').remove(); updatePOTotal()">✕</button>`;
+            document.getElementById('poItems').appendChild(row);
+        }
     });
     populateComponentSelects();
-    const rows = document.querySelectorAll('#poItems .item-row');
-    (po.items || []).forEach((item, i) => { if (rows[i]) rows[i].querySelector('.item-ref').value = item.ref; });
+    const rows = document.querySelectorAll('#poItems .item-row:not(.item-row-custom)');
+    const regularItems = (po.items || []).filter(item => !item.isCustom);
+    regularItems.forEach((item, i) => { if (rows[i]) rows[i].querySelector('.item-ref').value = item.ref; });
     updatePOTotal();
     document.getElementById('poModalTitle').textContent = t('edit');
     document.getElementById('poModal').classList.add('active');
