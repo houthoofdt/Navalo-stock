@@ -3648,7 +3648,8 @@ function createRepairQuote(data) {
 
   const {
     id, quoteNumber, date, clientId, client, address, pacs,
-    notes, subtotal, vat, total, status, createdAt, clientOrderNumber
+    notes, subtotal, vat, total, status, createdAt, clientOrderNumber, ticketNumber,
+    linkedOrderId, linkedOrderNumber
   } = data;
 
   const rqId = id || Utilities.getUuid();
@@ -3670,7 +3671,12 @@ function createRepairQuote(data) {
     total || 0,
     createdAt || timestamp,
     timestamp,
-    clientOrderNumber || ''
+    clientOrderNumber || '',
+    ticketNumber || '',
+    '', // Invoice number (empty for new quotes)
+    '', // Invoice date (empty for new quotes)
+    linkedOrderId || '',
+    linkedOrderNumber || ''
   ]);
 
   return { success: true, rqId, rqNumber };
