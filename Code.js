@@ -1634,19 +1634,19 @@ function createPurchaseOrder(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const poSheet = ss.getSheetByName(SHEET_NAMES.PURCHASE_ORDERS);
   
-  const { supplier, items, notes, expectedDate, currency } = data;
+  const { supplier, items, notes, expectedDate, currency, language } = data;
   const poNumber = getNextDocNumber('po');
   const poId = Utilities.getUuid();
-  
+
   let totalValue = 0;
   items.forEach(item => {
     totalValue += (item.price || 0) * (item.qty || 0);
   });
-  
+
   poSheet.appendRow([
     poId, new Date(), poNumber, supplier, 'Brouillon',
     items.length, totalValue, currency || 'CZK', notes || '',
-    expectedDate || '', JSON.stringify(items)
+    expectedDate || '', JSON.stringify(items), language || 'fr'
   ]);
   
   return { success: true, poId, poNumber, totalValue, itemCount: items.length };
@@ -1666,7 +1666,8 @@ function getPurchaseOrders(limit) {
       id: data[i][0], date: normalizeDate(data[i][1]), poNumber: data[i][2],
       supplier: data[i][3], status: data[i][4], itemCount: data[i][5],
       totalValue: data[i][6], currency: data[i][7], notes: data[i][8],
-      expectedDate: normalizeDate(data[i][9]), items: items
+      expectedDate: normalizeDate(data[i][9]), items: items,
+      language: data[i][11] || 'fr'
     });
   }
   
@@ -1678,7 +1679,7 @@ function updatePurchaseOrder(data) {
   const poSheet = ss.getSheetByName(SHEET_NAMES.PURCHASE_ORDERS);
   const poData = poSheet.getDataRange().getValues();
   
-  const { poId, status, supplier, currency, expectedDate, items, itemCount, totalValue } = data;
+  const { poId, status, supplier, currency, expectedDate, items, itemCount, totalValue, language } = data;
   
   for (let i = 1; i < poData.length; i++) {
     if (poData[i][0] === poId) {
@@ -1689,6 +1690,7 @@ function updatePurchaseOrder(data) {
       if (itemCount !== undefined) poSheet.getRange(i + 1, 6).setValue(itemCount);
       if (totalValue !== undefined) poSheet.getRange(i + 1, 7).setValue(totalValue);
       if (items) poSheet.getRange(i + 1, 11).setValue(JSON.stringify(items));
+      if (language) poSheet.getRange(i + 1, 12).setValue(language);
       return { success: true };
     }
   }
