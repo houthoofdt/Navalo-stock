@@ -3800,8 +3800,12 @@ function setupNavigation() {
 function setupForms() {
     document.getElementById('entryForm')?.addEventListener('submit', async (e) => { e.preventDefault(); await processReceipt(); });
 
-    // Update varSymbol automatically when proforma checkbox changes
-    document.getElementById('invIsProforma')?.addEventListener('change', (e) => {
+    // Update invoice number and varSymbol when proforma checkbox changes
+    document.getElementById('invIsProforma')?.addEventListener('change', async (e) => {
+        // Update invoice number (PF vs FV)
+        await updateInvoiceNumber();
+
+        // Update varSymbol based on new invoice number
         const invNum = document.getElementById('invNumber')?.value;
         const varSymbolField = document.getElementById('invVarSymbol');
         if (invNum && varSymbolField) {
