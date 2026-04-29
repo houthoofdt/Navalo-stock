@@ -3799,6 +3799,15 @@ function setupNavigation() {
 
 function setupForms() {
     document.getElementById('entryForm')?.addEventListener('submit', async (e) => { e.preventDefault(); await processReceipt(); });
+
+    // Update varSymbol automatically when proforma checkbox changes
+    document.getElementById('invIsProforma')?.addEventListener('change', (e) => {
+        const invNum = document.getElementById('invNumber')?.value;
+        const varSymbolField = document.getElementById('invVarSymbol');
+        if (invNum && varSymbolField && !varSymbolField.value) {
+            varSymbolField.value = generateVarSymbol(invNum, e.target.checked);
+        }
+    });
 }
 
 function setupFilters() {
@@ -5263,8 +5272,8 @@ function viewInvoice(invNumber) {
     // Use saved vatRate, default to 21 if not set (but check for 0 properly)
     const vatRate = typeof inv.vatRate === 'number' ? inv.vatRate : 21;
 
-    // VS = just the numeric part of invoice number (FV2026005 -> 2026005)
-    const varSymbol = inv.varSymbol || inv.number.replace(/\D/g, '');
+    // VS: Proforma = 2600X, Invoice = 202600X
+    const varSymbol = inv.varSymbol || generateVarSymbol(inv.number, inv.isProforma);
 
     // Generate items HTML with full columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     const curr = inv.currency || 'CZK';
@@ -5450,6 +5459,12 @@ async function openFreeInvoiceModal() {
     document.getElementById('invClientOrderNum').value = '';
     document.getElementById('invItems').innerHTML = '';
     addInvoiceItemRow();
+
+    // Pre-fill varSymbol based on invoice number (standard invoice format)
+    const invNum = document.getElementById('invNumber').value;
+    if (invNum && !document.getElementById('invVarSymbol').value) {
+        document.getElementById('invVarSymbol').value = generateVarSymbol(invNum, false);
+    }
 
     document.getElementById('invoiceModal').classList.add('active');
 }
@@ -5999,6 +6014,19 @@ function calculateDepositAmount() {
     return depositAmount;
 }
 
+// Generate variable symbol based on invoice type
+// Proforma: 2600X (short year format)
+// Invoice: 202600X (full year format)
+function generateVarSymbol(invoiceNumber, isProforma) {
+    const numericPart = invoiceNumber.replace(/\D/g, ''); // Extract numbers only
+    if (isProforma) {
+        // Proforma: 2026001 -> 26001 (remove first 2 digits)
+        return numericPart.substring(2);
+    }
+    // Standard invoice: keep full number (2026001)
+    return numericPart;
+}
+
 async function convertProformaToInvoice(proformaNumber) {
     if (!confirm(t('confirmConvertProforma'))) return;
 
@@ -6016,7 +6044,7 @@ async function convertProformaToInvoice(proformaNumber) {
     const newInvoice = {
         ...proforma,
         number: newInvoiceNumber,
-        varSymbol: newInvoiceNumber.replace(/\D/g, ''),
+        varSymbol: generateVarSymbol(newInvoiceNumber, false), // Standard invoice VS
         isProforma: false,
         type: 'standard',
         vatRate: 21, // Restore VAT for final invoice
@@ -6934,7 +6962,7 @@ async function saveIssuedInvoice() {
         number: invNumber,
         isProforma: isProforma,
         type: isProforma ? 'proforma' : 'standard',
-        varSymbol: document.getElementById('invVarSymbol').value || invNumber.replace(/\D/g, ''),
+        varSymbol: document.getElementById('invVarSymbol').value || generateVarSymbol(invNumber, isProforma),
         client: document.getElementById('invClient').options[document.getElementById('invClient').selectedIndex]?.text || '',
         clientIco: document.getElementById('invClientIco').value,
         clientDic: document.getElementById('invClientDic').value,
@@ -11088,8 +11116,8 @@ async function acceptRepairQuote(quoteId) {
         // Create invoice object
         const subtotal = parseFloat(quote.subtotal) || 0;
 
-        // Use client order number as varSymbol if available, otherwise use invoice number
-        const varSymbol = quote.clientOrderNumber || invoiceNumber.replace(/\D/g, '');
+        // Use client order number as varSymbol if available, otherwise generate from invoice number
+        const varSymbol = quote.clientOrderNumber || generateVarSymbol(invoiceNumber, false);
 
         const invoice = {
             number: invoiceNumber,
@@ -12396,7 +12424,7 @@ function generateInvoicePreviewHTML(inv) {
     const company = config.COMPANY || {};
     const curr = inv.currency || 'CZK';
     const vatRate = inv.vatRate || 21;
-    const varSymbol = inv.varSymbol || inv.number.replace(/\D/g, '');
+    const varSymbol = inv.varSymbol || generateVarSymbol(inv.number, inv.isProforma);
 
     // Generate items HTML with full 7 columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     let isUnderPacHeader = false;
