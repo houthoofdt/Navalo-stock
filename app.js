@@ -3805,19 +3805,13 @@ function setupForms() {
         // Update invoice number (PF vs FV)
         await updateInvoiceNumber();
 
-        // Update varSymbol based on new invoice number
+        // Update varSymbol based on new invoice number and proforma state
         const invNum = document.getElementById('invNumber')?.value;
         const varSymbolField = document.getElementById('invVarSymbol');
         if (invNum && varSymbolField) {
-            // Always update VS when checkbox changes (unless user manually edited it)
-            const currentVS = varSymbolField.value;
-            const expectedVSFull = generateVarSymbol(invNum, false);
-            const expectedVSShort = generateVarSymbol(invNum, true);
-
-            // Only auto-update if current VS matches one of the expected formats
-            if (!currentVS || currentVS === expectedVSFull || currentVS === expectedVSShort) {
-                varSymbolField.value = generateVarSymbol(invNum, e.target.checked);
-            }
+            // Always regenerate VS based on current invoice number and proforma state
+            varSymbolField.value = generateVarSymbol(invNum, e.target.checked);
+            console.log('🔄 VS updated:', invNum, '→', varSymbolField.value, '(proforma:', e.target.checked, ')');
         }
     });
 }
@@ -5977,6 +5971,7 @@ async function getNextProformaNumber(consume = false) {
 async function updateInvoiceNumber() {
     if (editingInvoiceNumber) return; // Don't change number when editing
     const isProforma = document.getElementById('invIsProforma')?.checked || false;
+    console.log('🔢 updateInvoiceNumber called, isProforma:', isProforma);
     const vatRateInput = document.getElementById('invVatRate');
     const exchangeRateGroup = document.getElementById('invExchangeRateGroup');
     const depositPercentGroup = document.getElementById('depositPercentGroup');
