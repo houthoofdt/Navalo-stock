@@ -59,6 +59,15 @@
                             <option value="low" data-i18n="filterLow">Stock bas</option>
                             <option value="critical" data-i18n="filterCritical">Rupture</option>
                         </select>
+                        <select id="stockModelFilter" class="filter-select">
+                            <option value="all" data-i18n="allComponents">Tous les composants</option>
+                            <option value="TX9">TX9</option>
+                            <option value="TX12-3PH">TX12-18 3ph</option>
+                            <option value="TX12-1PH">TX12-18 1ph</option>
+                            <option value="TH11">TH11</option>
+                            <option value="TIZ_TH11">TIZ_TH11</option>
+                            <option value="TIZ_TX9">TIZ_TX9</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -90,6 +99,7 @@
                         <thead>
                             <tr>
                                 <th data-i18n="reference">Référence</th>
+                                <th data-i18n="requiredPerPAC">Requis/PAC</th>
                                 <th data-i18n="designation">Désignation</th>
                                 <th data-i18n="manufacturer">Fabricant</th>
                                 <th data-i18n="category">Catégorie</th>

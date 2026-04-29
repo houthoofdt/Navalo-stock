@@ -132,6 +132,9 @@ const TRANSLATIONS = {
         onOrder: 'En Cmd', totalAvailable: 'Dispo Total', demand: 'Demande', shortage: 'Manque', min: 'Min',
         valueCZK: 'Valeur (CZK)', status: 'Statut', statusOk: 'OK',
         statusLow: 'Bas', statusCritical: 'Rupture',
+        modelFilter: 'Filtre modèle',
+        allComponents: 'Tous les composants',
+        requiredPerPAC: 'Requis/PAC',
         entryTitle: 'Réception Marchandises', newReceipt: 'Nouvelle réception',
         receiptsHistory: 'Historique des réceptions', cancelReceipt: 'Annuler réception',
         confirmCancelReceipt: 'Annuler cette réception? Les quantités seront retirées du stock.',
@@ -382,6 +385,9 @@ const TRANSLATIONS = {
         inStock: 'Na skladě', onOrder: 'Objednáno', totalAvailable: 'Celkem k disp.', demand: 'Poptávka', shortage: 'Chybí',
         min: 'Min', valueCZK: 'Hodnota (CZK)', status: 'Stav',
         statusOk: 'OK', statusLow: 'Nízký', statusCritical: 'Vyprodáno',
+        modelFilter: 'Filtr modelu',
+        allComponents: 'Všechny komponenty',
+        requiredPerPAC: 'Potřeba/TČ',
         entryTitle: 'Příjem zboží', newReceipt: 'Nová příjemka',
         receiptsHistory: 'Historie příjemek', cancelReceipt: 'Stornovat příjemku',
         confirmCancelReceipt: 'Stornovat tuto příjemku? Množství bude odebráno ze skladu.',
@@ -1061,9 +1067,19 @@ function updateStockDisplay() {
     const tbody = document.getElementById('stockTableBody');
     const search = (document.getElementById('stockSearch')?.value || '').toLowerCase();
     const filter = document.getElementById('stockFilter')?.value || 'all';
+    const modelFilter = document.getElementById('stockModelFilter')?.value || 'all';
+
+    // Get BOM for selected model
+    const selectedBOM = modelFilter !== 'all' ? (currentBom[modelFilter] || []) : [];
+    const bomMap = {};
+    if (selectedBOM.length > 0) {
+        selectedBOM.forEach(item => {
+            bomMap[item.ref] = item.qty;
+        });
+    }
 
     if (!currentStock) {
-        tbody.innerHTML = `<tr><td colspan="12" class="text-muted text-center">${t('noData')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
     }
 
@@ -1121,10 +1137,24 @@ function updateStockDisplay() {
         const shortage = componentDemand - totalAvail;
         const minQty = data.min || 0;
 
+        // Filter by PAC model if selected
+        if (modelFilter !== 'all') {
+            if (!bomMap[ref]) return false; // Skip if not in selected model's BOM
+        }
+
         if (filter === 'low') return matchSearch && shortage > 0;
         if (filter === 'critical') return matchSearch && (data.qty || 0) <= 0;
         return matchSearch;
     });
+
+    // Handle empty results
+    if (filtered.length === 0) {
+        const filterMsg = modelFilter !== 'all'
+            ? `Aucun composant pour ${modelFilter}`
+            : t('noData');
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center">${filterMsg}</td></tr>`;
+        return;
+    }
 
     tbody.innerHTML = filtered.map(([ref, data]) => {
         const qty = data.qty || 0;
@@ -1148,6 +1178,7 @@ function updateStockDisplay() {
 
         return `<tr class="${qty <= 0 ? 'row-error' : shortage > 0 ? 'row-warning' : ''}">
             <td><code style="cursor: pointer; color: #2563eb;" onclick="filterHistoryByComponent('${ref}')" title="Voir l'historique">${ref}</code></td>
+            <td class="text-center ${bomMap[ref] ? 'stock-bom-qty' : ''}">${bomMap[ref] ? `<strong>${bomMap[ref]}</strong>` : '-'}</td>
             <td>${data.name || ref}</td>
             <td class="text-muted">${manufacturerDisplay}</td>
             <td>${cat}</td>
@@ -3773,6 +3804,7 @@ function setupForms() {
 function setupFilters() {
     document.getElementById('stockSearch')?.addEventListener('input', updateStockDisplay);
     document.getElementById('stockFilter')?.addEventListener('change', updateStockDisplay);
+    document.getElementById('stockModelFilter')?.addEventListener('change', updateStockDisplay);
     document.getElementById('historyType')?.addEventListener('change', updateHistoryDisplay);
 }
 

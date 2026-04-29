@@ -1203,6 +1203,13 @@ body {
 .mb-1 { margin-bottom: 0.5rem; }
 .mb-2 { margin-bottom: 1rem; }
 
+/* Stock BOM quantity highlight */
+.stock-bom-qty {
+    background-color: #eff6ff;
+    font-weight: bold;
+    color: #1e40af;
+}
+
 /* ========================================
    DELIVERY CONTAINER
    ======================================== */
