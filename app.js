@@ -3804,8 +3804,16 @@ function setupForms() {
     document.getElementById('invIsProforma')?.addEventListener('change', (e) => {
         const invNum = document.getElementById('invNumber')?.value;
         const varSymbolField = document.getElementById('invVarSymbol');
-        if (invNum && varSymbolField && !varSymbolField.value) {
-            varSymbolField.value = generateVarSymbol(invNum, e.target.checked);
+        if (invNum && varSymbolField) {
+            // Always update VS when checkbox changes (unless user manually edited it)
+            const currentVS = varSymbolField.value;
+            const expectedVSFull = generateVarSymbol(invNum, false);
+            const expectedVSShort = generateVarSymbol(invNum, true);
+
+            // Only auto-update if current VS matches one of the expected formats
+            if (!currentVS || currentVS === expectedVSFull || currentVS === expectedVSShort) {
+                varSymbolField.value = generateVarSymbol(invNum, e.target.checked);
+            }
         }
     });
 }
