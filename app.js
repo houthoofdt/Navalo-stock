@@ -1070,11 +1070,28 @@ function updateStockDisplay() {
     const modelFilter = document.getElementById('stockModelFilter')?.value || 'all';
 
     // Get BOM for selected model
-    const selectedBOM = modelFilter !== 'all' ? (currentBom[modelFilter] || []) : [];
+    // Get BOM for selected model - combine production + kit for TX9/TH11
+    let selectedBOM = [];
+    if (modelFilter !== 'all') {
+        // For TX9 and TH11, include both production and subcontractor kit
+        if (modelFilter === 'TX9') {
+            selectedBOM = [...(currentBom['TX9'] || []), ...(currentBom['TIZ_TX9'] || [])];
+        } else if (modelFilter === 'TH11') {
+            selectedBOM = [...(currentBom['TH11'] || []), ...(currentBom['TIZ_TH11'] || [])];
+        } else {
+            selectedBOM = currentBom[modelFilter] || [];
+        }
+    }
+
     const bomMap = {};
     if (selectedBOM.length > 0) {
         selectedBOM.forEach(item => {
-            bomMap[item.ref] = item.qty;
+            // If same ref appears twice, use max qty
+            if (bomMap[item.ref]) {
+                bomMap[item.ref] = Math.max(bomMap[item.ref], item.qty);
+            } else {
+                bomMap[item.ref] = item.qty;
+            }
         });
     }
 
