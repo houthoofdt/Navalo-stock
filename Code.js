@@ -2248,9 +2248,15 @@ function getAllBom() {
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][0]) {
+        // Convert European decimal format (1,25) to JavaScript format (1.25)
+        const qtyValue = data[i][3];
+        const qty = typeof qtyValue === 'string'
+          ? parseFloat(qtyValue.replace(',', '.'))
+          : parseFloat(qtyValue) || 0;
+
         bom[model].push({
           ref: data[i][0], name: data[i][1], category: data[i][2],
-          qty: data[i][3], manufacturer: data[i][4]
+          qty: qty, manufacturer: data[i][4]
         });
       }
     }
