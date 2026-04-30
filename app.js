@@ -1882,11 +1882,16 @@ function addDeliveryComponentRow(ref = '', qty = '', componentName = '') {
     // Check if ref exists in current stock
     let refFoundInStock = false;
 
-    // Populate with current stock
-    Object.entries(currentStock || {}).forEach(([compRef, data]) => {
+    // Populate with current stock - sort by ref for better organization
+    const stockEntries = Object.entries(currentStock || {}).sort((a, b) => a[0].localeCompare(b[0]));
+    stockEntries.forEach(([compRef, data]) => {
         const opt = document.createElement('option');
         opt.value = compRef;
-        opt.textContent = `${data.name || compRef} (Stock: ${data.qty || 0})`;
+        // Show ref first, then name if different, then stock
+        const displayName = (data.name && data.name !== compRef)
+            ? `${compRef} - ${data.name}`
+            : compRef;
+        opt.textContent = `${displayName} (Stock: ${data.qty || 0})`;
         opt.dataset.available = data.qty || 0;
         select.appendChild(opt);
         if (compRef === ref) {
