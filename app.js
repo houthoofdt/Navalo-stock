@@ -1124,11 +1124,23 @@ function updateStockDisplay() {
         // Calculate demand from PAC quantities
         if (order.quantities && currentBom) {
             Object.entries(order.quantities).forEach(([model, qty]) => {
-                if (qty > 0 && currentBom[model]) {
-                    currentBom[model].forEach(bomItem => {
+                if (qty > 0) {
+                    // Get BOM for model - combine production + subcontractor kit for TX9/TH11
+                    let modelBom = [];
+                    if (model === 'TX9') {
+                        modelBom = [...(currentBom['TX9'] || []), ...(currentBom['TIZ_TX9'] || [])];
+                    } else if (model === 'TH11') {
+                        modelBom = [...(currentBom['TH11'] || []), ...(currentBom['TIZ_TH11'] || [])];
+                    } else {
+                        modelBom = currentBom[model] || [];
+                    }
+
+                    modelBom.forEach(bomItem => {
                         const ref = bomItem.ref;
-                        const qtyNeeded = bomItem.qty * qty;
-                        demand[ref] = (demand[ref] || 0) + qtyNeeded;
+                        const qtyNeeded = (bomItem.qty || 0) * qty;
+                        if (qtyNeeded > 0) {
+                            demand[ref] = (demand[ref] || 0) + qtyNeeded;
+                        }
                     });
                 }
             });
