@@ -402,7 +402,8 @@ body {
     background: white;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .data-table {
@@ -3547,7 +3548,8 @@ a.btn-icon[draggable="true"]:active {
 /* Table Container Enhancement */
 .table-container {
     border: 1px solid var(--border);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 /* Smooth scrollbar */
