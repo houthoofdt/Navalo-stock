@@ -1095,6 +1095,22 @@ function updateStockDisplay() {
         });
     }
 
+    // Create separate BOM maps for kit calculations
+    const tizTX9Map = {};
+    const tizTH11Map = {};
+    if (currentBom) {
+        if (currentBom['TIZ_TX9']) {
+            currentBom['TIZ_TX9'].forEach(item => {
+                tizTX9Map[item.ref] = item.qty;
+            });
+        }
+        if (currentBom['TIZ_TH11']) {
+            currentBom['TIZ_TH11'].forEach(item => {
+                tizTH11Map[item.ref] = item.qty;
+            });
+        }
+    }
+
     if (!currentStock) {
         tbody.innerHTML = `<tr><td colspan="13" class="text-muted text-center">${t('noData')}</td></tr>`;
         return;
@@ -1186,7 +1202,19 @@ function updateStockDisplay() {
     }
 
     tbody.innerHTML = filtered.map(([ref, data]) => {
-        const qty = data.qty || 0;
+        let qty = data.qty || 0;
+
+        // Add stock from assembled kits when filtering by TX9 or TH11
+        if (modelFilter === 'TX9' && currentStock['TIZ_TX9']) {
+            const tizStock = currentStock['TIZ_TX9'].qty || 0;
+            const qtyInTiz = tizTX9Map[ref] || 0;
+            qty += tizStock * qtyInTiz;
+        } else if (modelFilter === 'TH11' && currentStock['TIZ_TH11']) {
+            const tizStock = currentStock['TIZ_TH11'].qty || 0;
+            const qtyInTiz = tizTH11Map[ref] || 0;
+            qty += tizStock * qtyInTiz;
+        }
+
         const onOrder = pendingQty[ref] || 0;
         const componentDemand = demand[ref] || 0;
         const totalAvail = qty + onOrder;
