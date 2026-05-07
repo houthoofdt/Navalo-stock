@@ -26,55 +26,58 @@ let _updatingReceivedOrders = false;
 let autoRefreshInterval = null;
 let currentRepairQuotePreview = null;
 
-// Company configuration
-const CONFIG = {
-    COMPANY: {
-        name: 'NAVALO s.r.o.',
-        address: 'Průmyslová 1498, 294 71 Benátky nad Jizerou',
-        ico: '19396708',
-        dic: 'CZ19396708',
-        phone: '+420 777 227 119',
-        email: 'tomas.karas@hotjet.cz',
-        bank: {
-            CZK: {
-                iban: 'CZ65 2010 0000 0029 0172 8219',
-                bic: 'FIOBCZPPXXX',
-                bank: 'Fio banka, a.s.'
-            },
-            EUR: {
-                iban: 'CZ16 2010 0000 0029 0172 8227',
-                bic: 'FIOBCZPPXXX',
-                bank: 'Fio banka, a.s.'
+// Company configuration - check if already exists to avoid conflicts
+if (typeof window.CONFIG === 'undefined') {
+    window.CONFIG = {
+        COMPANY: {
+            name: 'NAVALO s.r.o.',
+            address: 'Průmyslová 1498, 294 71 Benátky nad Jizerou',
+            ico: '19396708',
+            dic: 'CZ19396708',
+            phone: '+420 777 227 119',
+            email: 'tomas.karas@hotjet.cz',
+            bank: {
+                CZK: {
+                    iban: 'CZ65 2010 0000 0029 0172 8219',
+                    bic: 'FIOBCZPPXXX',
+                    bank: 'Fio banka, a.s.'
+                },
+                EUR: {
+                    iban: 'CZ16 2010 0000 0029 0172 8227',
+                    bic: 'FIOBCZPPXXX',
+                    bank: 'Fio banka, a.s.'
+                }
             }
+        },
+        PAC_MODELS: [
+            { id: 'TX9', name: 'TX9' },
+            { id: 'TX12-3PH', name: 'TX12-18 3ph' },
+            { id: 'TX12-1PH', name: 'TX12-18 1ph' },
+            { id: 'TH11', name: 'TH11' },
+            { id: 'TIZ_TX9', name: 'TIZ_TX9' },
+            { id: 'TIZ_TH11', name: 'TIZ_TH11' }
+        ],
+        CATEGORIES: {
+            'Composants électriques': 'Composants électriques',
+            'Composants frigorifiques': 'Composants frigorifiques',
+            'Composants hydrauliques': 'Composants hydrauliques',
+            'Consommables': 'Consommables',
+            'Tôlerie': 'Tôlerie',
+            'Visserie': 'Visserie',
+            'Équipement': 'Équipement'
+        },
+        CATEGORIES_CZ: {
+            'Composants électriques': 'Elektrické součástky',
+            'Composants frigorifiques': 'Chladicí součástky',
+            'Composants hydrauliques': 'Hydraulické součástky',
+            'Consommables': 'Spotřební materiál',
+            'Tôlerie': 'Plechové díly',
+            'Visserie': 'Spojovací materiál',
+            'Équipement': 'Vybavení'
         }
-    },
-    PAC_MODELS: [
-        { id: 'TX9', name: 'TX9' },
-        { id: 'TX12-3PH', name: 'TX12-18 3ph' },
-        { id: 'TX12-1PH', name: 'TX12-18 1ph' },
-        { id: 'TH11', name: 'TH11' },
-        { id: 'TIZ_TX9', name: 'TIZ_TX9' },
-        { id: 'TIZ_TH11', name: 'TIZ_TH11' }
-    ],
-    CATEGORIES: {
-        'Composants électriques': 'Composants électriques',
-        'Composants frigorifiques': 'Composants frigorifiques',
-        'Composants hydrauliques': 'Composants hydrauliques',
-        'Consommables': 'Consommables',
-        'Tôlerie': 'Tôlerie',
-        'Visserie': 'Visserie',
-        'Équipement': 'Équipement'
-    },
-    CATEGORIES_CZ: {
-        'Composants électriques': 'Elektrické součástky',
-        'Composants frigorifiques': 'Chladicí součástky',
-        'Composants hydrauliques': 'Hydraulické součástky',
-        'Consommables': 'Spotřební materiál',
-        'Tôlerie': 'Plechové díly',
-        'Visserie': 'Spojovací materiál',
-        'Équipement': 'Vybavení'
-    }
-};
+    };
+}
+const CONFIG = window.CONFIG; // Alias for backward compatibility
 
 // ========================================
 // BOM (Bill of Materials) - ASSEMBLY DEFINITIONS
