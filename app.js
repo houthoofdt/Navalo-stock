@@ -26,6 +26,56 @@ let _updatingReceivedOrders = false;
 let autoRefreshInterval = null;
 let currentRepairQuotePreview = null;
 
+// Company configuration
+const CONFIG = {
+    COMPANY: {
+        name: 'NAVALO s.r.o.',
+        address: 'Průmyslová 1498, 294 71 Benátky nad Jizerou',
+        ico: '19396708',
+        dic: 'CZ19396708',
+        phone: '+420 777 227 119',
+        email: 'tomas.karas@hotjet.cz',
+        bank: {
+            CZK: {
+                iban: 'CZ65 2010 0000 0029 0172 8219',
+                bic: 'FIOBCZPPXXX',
+                bank: 'Fio banka, a.s.'
+            },
+            EUR: {
+                iban: 'CZ16 2010 0000 0029 0172 8227',
+                bic: 'FIOBCZPPXXX',
+                bank: 'Fio banka, a.s.'
+            }
+        }
+    },
+    PAC_MODELS: [
+        { id: 'TX9', name: 'TX9' },
+        { id: 'TX12-3PH', name: 'TX12-18 3ph' },
+        { id: 'TX12-1PH', name: 'TX12-18 1ph' },
+        { id: 'TH11', name: 'TH11' },
+        { id: 'TIZ_TX9', name: 'TIZ_TX9' },
+        { id: 'TIZ_TH11', name: 'TIZ_TH11' }
+    ],
+    CATEGORIES: {
+        'Composants électriques': 'Composants électriques',
+        'Composants frigorifiques': 'Composants frigorifiques',
+        'Composants hydrauliques': 'Composants hydrauliques',
+        'Consommables': 'Consommables',
+        'Tôlerie': 'Tôlerie',
+        'Visserie': 'Visserie',
+        'Équipement': 'Équipement'
+    },
+    CATEGORIES_CZ: {
+        'Composants électriques': 'Elektrické součástky',
+        'Composants frigorifiques': 'Chladicí součástky',
+        'Composants hydrauliques': 'Hydraulické součástky',
+        'Consommables': 'Spotřební materiál',
+        'Tôlerie': 'Plechové díly',
+        'Visserie': 'Spojovací materiál',
+        'Équipement': 'Vybavení'
+    }
+};
+
 // ========================================
 // BOM (Bill of Materials) - ASSEMBLY DEFINITIONS
 // ========================================
@@ -4888,10 +4938,20 @@ function showPOPreview(po) {
         if (supplierContact.phone) supplierHtml += `<br>${supplierContact.phone}`;
     }
 
+    // Build Navalo company info with ICO/DIC
+    let navaloInfo = `<strong>${config.COMPANY.name}</strong><br>${config.COMPANY.address}`;
+    if (config.COMPANY?.ico) navaloInfo += `<br>IČO: ${config.COMPANY.ico}`;
+    if (config.COMPANY?.dic) navaloInfo += `<br>DIČ: ${config.COMPANY.dic}`;
+
     document.getElementById('poPreview').innerHTML = `
         <div class="delivery-note po-note">
             <div class="dn-header">
-                <div class="dn-company"><h2>${config.COMPANY.name}</h2><p>${config.COMPANY.address}</p></div>
+                <div class="dn-company">
+                    <h2>${config.COMPANY.name}</h2>
+                    <p>${config.COMPANY.address}</p>
+                    ${config.COMPANY?.ico ? `<p style="font-size: 0.9em; margin: 2px 0;">IČO: ${config.COMPANY.ico}</p>` : ''}
+                    ${config.COMPANY?.dic ? `<p style="font-size: 0.9em; margin: 2px 0;">DIČ: ${config.COMPANY.dic}</p>` : ''}
+                </div>
                 <div class="dn-info">
                     <h1>${t('purchaseOrder', poLang)}</h1>
                     <h2>${po.poNumber}</h2>
@@ -4900,7 +4960,7 @@ function showPOPreview(po) {
                 </div>
             </div>
             <div class="dn-addresses">
-                <div class="dn-address"><h4>${t('from', poLang)}</h4><div class="dn-address-box"><strong>${config.COMPANY.name}</strong><br>${config.COMPANY.address}</div></div>
+                <div class="dn-address"><h4>${t('from', poLang)}</h4><div class="dn-address-box">${navaloInfo}</div></div>
                 <div class="dn-address"><h4>${t('to', poLang)}</h4><div class="dn-address-box">${supplierHtml}</div></div>
             </div>
             <table class="dn-table">
