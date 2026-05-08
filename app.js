@@ -7004,6 +7004,29 @@ async function saveIssuedInvoice() {
         return;
     }
 
+    // Check if there's a linked proforma and add deduction item
+    const proformaSelect = document.getElementById('invLinkedProforma');
+    if (proformaSelect && proformaSelect.value) {
+        const opt = proformaSelect.options[proformaSelect.selectedIndex];
+        const proformaTotal = parseFloat(opt.dataset.total) || 0;
+        const proformaSubtotal = parseFloat(opt.dataset.subtotal) || 0;
+        const proformaVat = parseFloat(opt.dataset.vat) || 0;
+        const proformaNumber = proformaSelect.value;
+        const ddNumber = opt.dataset.ddNumber || proformaNumber.replace(/^(ZL|PI|PF)-?/, 'DD-');
+
+        // Add deduction line item (negative amount)
+        const linkedOrderNum = document.getElementById('invClientOrderNum')?.value || '';
+        const deductionText = `Záloha záloze složení přijaté platbě ${ddNumber} na objednávku ${linkedOrderNum}`;
+
+        items.push({
+            name: deductionText,
+            qty: 1,
+            price: -proformaTotal,
+            total: -proformaTotal,
+            isProformaDeduction: true
+        });
+    }
+
     // Get proforma state and invoice number from form
     const proformaCheckbox = document.getElementById('invIsProforma');
     const isProforma = proformaCheckbox ? proformaCheckbox.checked : false;
