@@ -7115,8 +7115,7 @@ async function saveIssuedInvoice() {
     console.log('  - Valeur du champ:', document.getElementById('invClientOrderNum')?.value);
     console.log('  - clientOrderNumber dans invoice:', invoice.clientOrderNumber);
 
-    // Get linked proforma for deduction
-    const proformaSelect = document.getElementById('invLinkedProforma');
+    // Get linked proforma for invoice metadata (already fetched above for items)
     if (proformaSelect && proformaSelect.value) {
         const opt = proformaSelect.options[proformaSelect.selectedIndex];
         invoice.linkedProforma = {
