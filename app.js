@@ -7070,8 +7070,16 @@ async function saveIssuedInvoice() {
     console.log('Final isProforma:', isProforma);
 
     const currency = document.getElementById('invCurrency').value;
-    const subtotal = parseFloat(document.getElementById('invSubtotal').value) || 0;
-    const total = parseFloat(document.getElementById('invTotal').value) || 0;
+    const vatRate = typeof parseFloat(document.getElementById('invVatRate').value) === 'number' ? parseFloat(document.getElementById('invVatRate').value) : 21;
+
+    // Recalculate totals from items (including deduction line if present)
+    const calculatedSubtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const calculatedVat = calculatedSubtotal * (vatRate / 100);
+    const calculatedTotal = calculatedSubtotal + calculatedVat;
+
+    const subtotal = calculatedSubtotal;
+    const vat = calculatedVat;
+    const total = calculatedTotal;
 
     // Deposit info for proformas - deposit is % of total WITH VAT
     const depositPercent = isProforma ? (parseFloat(document.getElementById('invDepositPercent')?.value) || 100) : 100;
@@ -7091,9 +7099,9 @@ async function saveIssuedInvoice() {
         taxDate: document.getElementById('invTaxDate').value,
         items: items,
         subtotal: subtotal,
-        vatRate: typeof parseFloat(document.getElementById('invVatRate').value) === 'number' ? parseFloat(document.getElementById('invVatRate').value) : 21,
-        vat: parseFloat(document.getElementById('invVat').value) || 0,
-        total: parseFloat(document.getElementById('invTotal').value) || 0,
+        vatRate: vatRate,
+        vat: vat,
+        total: total,
         currency: currency,
         exchangeRate: (currency === 'EUR' && !isProforma) ? parseFloat(document.getElementById('invExchangeRate').value) || exchangeRate : null,
         paymentMethod: document.getElementById('invPaymentMethod').value,
