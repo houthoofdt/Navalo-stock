@@ -5160,15 +5160,22 @@ async function updateInvoicesDisplay() {
         const depositInfo = inv.isProforma && inv.depositPercent && inv.depositPercent < 100 ? ` ${inv.depositPercent}%` : '';
         const proformaBadge = inv.isProforma ? `<span class="badge badge-proforma" style="margin-left: 4px;">ZÁLOHA${depositInfo}</span>` : '';
         const emailIcon = inv.emailSentAt ? ` <span title="Email envoyé le ${formatDate(inv.emailSentAt)} à ${inv.emailSentTo || 'destinataire'}" style="color: #10b981; cursor: help;">📧</span>` : '';
+
+        // For proformas with deposit %, show deposit amount instead of full amount
+        const depositPercent = inv.isProforma && inv.depositPercent ? inv.depositPercent : 100;
+        const displaySubtotal = (inv.subtotal || 0) * (depositPercent / 100);
+        const displayVat = (inv.vat || 0) * (depositPercent / 100);
+        const displayTotal = (inv.total || 0) * (depositPercent / 100);
+
         return `<tr class="${isOverdue && !inv.paid ? 'row-warning' : ''}">
             <td><strong>${inv.number}</strong>${proformaBadge}${emailIcon}</td>
             <td>${formatDate(inv.date)}</td>
             <td>${inv.client}</td>
             <td>${inv.clientOrderNumber || inv.linkedOrderNumber || '-'}</td>
             <td>${formatDate(inv.dueDate)}</td>
-            <td class="text-right">${formatCurrency(inv.subtotal || 0)}</td>
-            <td class="text-right">${formatCurrency(inv.vat || 0)}</td>
-            <td class="text-right font-bold">${formatCurrency(inv.total)} ${inv.currency}</td>
+            <td class="text-right">${formatCurrency(displaySubtotal)}</td>
+            <td class="text-right">${formatCurrency(displayVat)}</td>
+            <td class="text-right font-bold">${formatCurrency(displayTotal)} ${inv.currency}</td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
             <td>
                 <button class="btn btn-outline btn-small" onclick="viewInvoice('${inv.number}')" title="${t('view')}">👁️</button>
@@ -5188,16 +5195,19 @@ function updateInvoiceStats(invoices) {
     const overdue = unpaid.filter(inv => inv.dueDate && new Date(inv.dueDate) < new Date());
     const rate = exchangeRate || 24.25;
     const unpaidTotal = unpaid.reduce((sum, inv) => {
-        let total = inv.total || 0;
+        // For proformas with deposit %, use deposit amount instead of full amount
+        const depositPercent = inv.isProforma && inv.depositPercent ? inv.depositPercent : 100;
+        let total = (inv.total || 0) * (depositPercent / 100);
 
         // Deduct paid proforma amount if linked
         if (inv.linkedProformaId || inv.linkedProforma) {
             const proformaId = inv.linkedProformaId || inv.linkedProforma?.id;
             const linkedProforma = invoices.find(i => i.id === proformaId);
 
-            // If proforma exists and is paid, deduct its amount from the remaining total
+            // If proforma exists and is paid, deduct its deposit amount from the remaining total
             if (linkedProforma && linkedProforma.paid) {
-                const proformaAmount = linkedProforma.total || 0;
+                const proformaDepositPercent = linkedProforma.depositPercent || 100;
+                const proformaAmount = (linkedProforma.total || 0) * (proformaDepositPercent / 100);
                 total = total - proformaAmount;
 
                 // Don't count negative totals (in case of overpayment)
