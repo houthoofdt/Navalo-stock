@@ -5188,7 +5188,23 @@ function updateInvoiceStats(invoices) {
     const overdue = unpaid.filter(inv => inv.dueDate && new Date(inv.dueDate) < new Date());
     const rate = exchangeRate || 24.25;
     const unpaidTotal = unpaid.reduce((sum, inv) => {
-        const total = inv.total || 0;
+        let total = inv.total || 0;
+
+        // Deduct paid proforma amount if linked
+        if (inv.linkedProformaId || inv.linkedProforma) {
+            const proformaId = inv.linkedProformaId || inv.linkedProforma?.id;
+            const linkedProforma = invoices.find(i => i.id === proformaId);
+
+            // If proforma exists and is paid, deduct its amount from the remaining total
+            if (linkedProforma && linkedProforma.paid) {
+                const proformaAmount = linkedProforma.total || 0;
+                total = total - proformaAmount;
+
+                // Don't count negative totals (in case of overpayment)
+                if (total < 0) total = 0;
+            }
+        }
+
         // Convert EUR invoices to CZK for the summary
         if (inv.currency === 'EUR') {
             const invRate = inv.exchangeRate || rate;
