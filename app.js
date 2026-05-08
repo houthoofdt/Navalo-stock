@@ -7015,14 +7015,15 @@ async function saveIssuedInvoice() {
         const ddNumber = opt.dataset.ddNumber || proformaNumber.replace(/^(ZL|PI|PF)-?/, 'DD-');
 
         // Add deduction line item (negative amount)
+        // Use SUBTOTAL (before VAT) because invoice will add VAT automatically
         const linkedOrderNum = document.getElementById('invClientOrderNum')?.value || '';
         const deductionText = `Záloha záloze složení přijaté platbě ${ddNumber} na objednávku ${linkedOrderNum}`;
 
         items.push({
             name: deductionText,
             qty: 1,
-            price: -proformaTotal,
-            total: -proformaTotal,
+            price: -proformaSubtotal,
+            total: -proformaSubtotal,
             isProformaDeduction: true
         });
     }
