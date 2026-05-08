@@ -5371,6 +5371,11 @@ function viewInvoice(invNumber) {
     if (!inv) return;
     currentInvoice = inv;
 
+    // Ensure EUR invoices have an exchange rate for display purposes
+    if (inv.currency === 'EUR' && !inv.exchangeRate) {
+        inv.exchangeRate = exchangeRate || 24.5;
+    }
+
     const config = CONFIG || {};
     const company = config.COMPANY || {};
     // Use saved vatRate, default to 21 if not set (but check for 0 properly)
@@ -7113,7 +7118,7 @@ async function saveIssuedInvoice() {
         vat: vat,
         total: total,
         currency: currency,
-        exchangeRate: (currency === 'EUR' && !isProforma) ? parseFloat(document.getElementById('invExchangeRate').value) || exchangeRate : null,
+        exchangeRate: currency === 'EUR' ? (parseFloat(document.getElementById('invExchangeRate').value) || exchangeRate || 24.5) : null,
         paymentMethod: document.getElementById('invPaymentMethod').value,
         notes: document.getElementById('invNotes').value,
         linkedOrder: document.getElementById('invLinkedOrder').value,
