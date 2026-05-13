@@ -194,6 +194,11 @@ class StorageAdapter {
             localStorage.setItem('navalo_subcontracting_orders', JSON.stringify([]));
         }
 
+        // Monthly costs for financial management
+        if (!localStorage.getItem('navalo_monthly_costs')) {
+            localStorage.setItem('navalo_monthly_costs', JSON.stringify([]));
+        }
+
         // Always update BOM from code (config data, not user data)
         if (typeof SAMPLE_BOM !== 'undefined') {
             localStorage.setItem('navalo_bom', JSON.stringify(SAMPLE_BOM));
@@ -554,6 +559,11 @@ class StorageAdapter {
     }
 
     async apiPost(action, data) {
+        // Charges mensuelles : toujours traiter localement (pas de support Google Sheets)
+        if (action === 'saveMonthlyCosts' || action === 'getMonthlyCosts') {
+            return this.localPost(action, data);
+        }
+
         // Mode local : traiter localement uniquement
         if (this.mode === 'local') {
             return this.localPost(action, data);
@@ -720,6 +730,10 @@ class StorageAdapter {
                 return this.localSaveContact(data);
             case 'updateComponentPrice':
                 return { success: true, message: 'Saved locally' };
+            case 'saveMonthlyCosts':
+                return this.localSaveMonthlyCosts(data);
+            case 'getMonthlyCosts':
+                return { success: true, data: this.localGetMonthlyCosts() };
             default:
                 return { error: 'Action non supportée' };
         }
@@ -740,6 +754,46 @@ class StorageAdapter {
         }
         localStorage.setItem('navalo_contacts', JSON.stringify(contacts));
         return { success: true, id: data.id };
+    }
+
+    localSaveMonthlyCosts(data) {
+        const { month, salaries, electricity, leasing, fuel, taxes, misc } = data;
+        let costs = JSON.parse(localStorage.getItem('navalo_monthly_costs') || '[]');
+
+        // Chercher si le mois existe déjà
+        const existingIndex = costs.findIndex(c => c.month === month);
+
+        const costEntry = {
+            month,                        // Format: "2026-01"
+            salaries: parseFloat(salaries) || 0,
+            electricity: parseFloat(electricity) || 0,
+            leasing: parseFloat(leasing) || 0,
+            fuel: parseFloat(fuel) || 0,
+            taxes: parseFloat(taxes) || 0,
+            misc: parseFloat(misc) || 0,
+            total: 0,  // Calculé
+            updatedAt: new Date().toISOString()
+        };
+
+        // Calculer le total
+        costEntry.total = costEntry.salaries + costEntry.electricity +
+                          costEntry.leasing + costEntry.fuel + costEntry.taxes + costEntry.misc;
+
+        if (existingIndex >= 0) {
+            costs[existingIndex] = costEntry;
+        } else {
+            costs.push(costEntry);
+        }
+
+        // Trier par mois décroissant
+        costs.sort((a, b) => b.month.localeCompare(a.month));
+
+        localStorage.setItem('navalo_monthly_costs', JSON.stringify(costs));
+        return { success: true, costEntry };
+    }
+
+    localGetMonthlyCosts() {
+        return JSON.parse(localStorage.getItem('navalo_monthly_costs') || '[]');
     }
 
     localGetStockWithValue() {
@@ -1993,6 +2047,19 @@ class StorageAdapter {
         localStorage.setItem('navalo_subcontracting_orders', JSON.stringify(orders));
 
         return { success: true };
+    }
+
+    // ========================================
+    // MONTHLY COSTS (Financial Management)
+    // ========================================
+
+    async saveMonthlyCosts(data) {
+        return await this.apiPost('saveMonthlyCosts', data);
+    }
+
+    async getMonthlyCosts() {
+        const result = await this.apiPost('getMonthlyCosts', {});
+        return result.success ? result.data : [];
     }
 }
 

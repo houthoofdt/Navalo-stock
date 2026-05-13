@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NAVALO - Gestion Stock PAC v4</title>
+    <title>NAVALO - Gestion Stock PAC v5.9</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -45,6 +45,7 @@
             <button class="nav-btn" data-tab="bom"><span>📋</span> <span data-i18n="navBom">BOM</span></button>
             <button class="nav-btn" data-tab="historique"><span>📊</span> <span data-i18n="navHistorique">Historique</span></button>
             <button class="nav-btn" data-tab="adjustments"><span>⚙️</span> <span data-i18n="navAdjustments">Ajustements</span></button>
+            <button class="nav-btn" data-tab="finances"><span>💰</span> <span data-i18n="navFinances">Finances</span></button>
         </nav>
 
         <main class="main-content">
@@ -922,6 +923,103 @@
                         </thead>
                         <tbody id="adjustmentsTableBody"></tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- ==================== FINANCES TAB ==================== -->
+            <section class="tab-content" id="tab-finances">
+                <div class="tab-header">
+                    <h2 data-i18n="finances">Gestion Financière</h2>
+                </div>
+
+                <!-- Section de saisie des charges mensuelles -->
+                <div class="card">
+                    <h3 data-i18n="monthlyCosts">Charges Mensuelles</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="selectMonth">Mois</label>
+                            <input type="month" id="costMonth" class="form-control" min="2026-01">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="salaries">Salaires (CZK)</label>
+                            <input type="number" id="costSalaries" class="form-control" step="1000" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="electricity">Électricité (CZK)</label>
+                            <input type="number" id="costElectricity" class="form-control" step="100" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="leasing">Leasing (CZK)</label>
+                            <input type="number" id="costLeasing" class="form-control" step="100" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="fuel">Essence/Axigon (CZK)</label>
+                            <input type="number" id="costFuel" class="form-control" step="100" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="buildingTax">Impôts bâtiment (CZK)</label>
+                            <input type="number" id="costTaxes" class="form-control" step="100" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="miscExpenses">Frais Divers (CZK)</label>
+                            <input type="number" id="costMisc" class="form-control" step="100" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button onclick="saveMonthlyCosts()" class="btn-primary">
+                            <span data-i18n="save">Enregistrer</span>
+                        </button>
+                        <button onclick="loadMonthlyCosts()" class="btn-secondary">
+                            <span data-i18n="load">Charger</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tableau de bord des bénéfices -->
+                <div class="card">
+                    <h3 data-i18n="profitDashboard">Tableau de Bord des Bénéfices</h3>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="month">Mois</th>
+                                    <th data-i18n="revenue">Revenus</th>
+                                    <th data-i18n="purchases">Achats</th>
+                                    <th data-i18n="salaries">Salaires</th>
+                                    <th data-i18n="fixedCosts">Charges Fixes</th>
+                                    <th data-i18n="totalCosts">Total Charges</th>
+                                    <th data-i18n="profit">Bénéfice</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profitTableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        <span data-i18n="loading">Chargement...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot id="profitTableFoot" style="display:none;">
+                                <tr style="font-weight: bold; background: #f3f4f6;">
+                                    <td data-i18n="totalYear">Total Année</td>
+                                    <td id="yearRevenue">0 CZK</td>
+                                    <td id="yearPurchases">0 CZK</td>
+                                    <td id="yearSalaries">0 CZK</td>
+                                    <td id="yearFixed">0 CZK</td>
+                                    <td id="yearTotalCosts">0 CZK</td>
+                                    <td id="yearProfit">0 CZK</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </section>
         </main>
@@ -1919,10 +2017,10 @@
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="config.js?v=5.3"></script>
-    <script src="data.js?v=5.3"></script>
-    <script src="sync-manager.js?v=5.3"></script>
-    <script src="storage.js?v=5.3"></script>
-    <script src="app.js?v=5.3"></script>
+    <script src="config.js?v=5.9"></script>
+    <script src="data.js?v=5.9"></script>
+    <script src="sync-manager.js?v=5.9"></script>
+    <script src="storage.js?v=5.9"></script>
+    <script src="app.js?v=5.9"></script>
 </body>
 </html>

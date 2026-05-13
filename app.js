@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v4.7
-   Complete with i18n, Contacts, History PAC only
+   NAVALO Stock PAC - Application v5.9
+   Complete with i18n, Contacts, History PAC only, Financial Management
    ======================================== */
-console.log('=== APP.JS VERSION 4.7 LOADED - FIX SUBCONTRACTING ===');
+console.log('=== APP.JS VERSION 5.9 LOADED - 35% PROFIT MARGIN ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -369,7 +369,27 @@ const TRANSLATIONS = {
         poEmailGreeting: 'Bonjour',
         poEmailBody: 'Veuillez trouver ci-joint notre commande',
         poEmailContact: 'Pour toute question, veuillez contacter',
-        poEmailClosing: 'Cordialement'
+        poEmailClosing: 'Cordialement',
+        // Finances
+        navFinances: 'Finances',
+        finances: 'Gestion Financière',
+        monthlyCosts: 'Charges Mensuelles',
+        selectMonth: 'Mois',
+        salaries: 'Salaires',
+        electricity: 'Électricité',
+        leasing: 'Leasing',
+        fuel: 'Essence/Carburant',
+        buildingTax: 'Impôts Bâtiment',
+        miscExpenses: 'Frais Divers',
+        profitDashboard: 'Tableau de Bord des Bénéfices',
+        revenue: 'Revenus',
+        purchases: 'Achats',
+        fixedCosts: 'Charges Fixes',
+        totalCosts: 'Total Charges',
+        profit: 'Bénéfice',
+        totalYear: 'Total Année',
+        load: 'Charger',
+        loaded: 'Données chargées'
     },
     cz: {
         appTitle: 'NAVALO Skladové hospodářství', stockValue: 'Hodnota',
@@ -622,7 +642,27 @@ const TRANSLATIONS = {
         poEmailGreeting: 'Dobrý den',
         poEmailBody: 'V příloze naleznete naši objednávku',
         poEmailContact: 'Pro odpověď kontaktujte',
-        poEmailClosing: 'S pozdravem'
+        poEmailClosing: 'S pozdravem',
+        // Finances
+        navFinances: 'Finance',
+        finances: 'Finanční Řízení',
+        monthlyCosts: 'Měsíční Náklady',
+        selectMonth: 'Měsíc',
+        salaries: 'Mzdy',
+        electricity: 'Elektřina',
+        leasing: 'Leasing',
+        fuel: 'Pohonné hmoty',
+        buildingTax: 'Daň z nemovitosti',
+        miscExpenses: 'Různé výdaje',
+        profitDashboard: 'Přehled Zisku',
+        revenue: 'Příjmy',
+        purchases: 'Nákupy',
+        fixedCosts: 'Fixní Náklady',
+        totalCosts: 'Celkové Náklady',
+        profit: 'Zisk',
+        totalYear: 'Celkem za Rok',
+        load: 'Načíst',
+        loaded: 'Data načtena'
     },
     en: {
         // Purchase Order specific translations
@@ -3854,9 +3894,32 @@ function setupNavigation() {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`)?.classList.add('active');
+            const tabId = `tab-${btn.dataset.tab}`;
+            document.getElementById(tabId)?.classList.add('active');
+
+            // Charger les données si on ouvre l'onglet Finances
+            if (btn.dataset.tab === 'finances') {
+                updateProfitDashboard();
+                // Définir le mois actuel par défaut
+                const now = new Date();
+                const currentMonth = now.toISOString().substring(0, 7);
+                const costMonthField = document.getElementById('costMonth');
+                if (costMonthField) {
+                    costMonthField.value = currentMonth;
+                    // Charger les données du mois actuel
+                    loadMonthlyCosts();
+                }
+            }
         });
     });
+
+    // Ajouter un écouteur sur le champ de sélection du mois pour charger automatiquement
+    const costMonthField = document.getElementById('costMonth');
+    if (costMonthField) {
+        costMonthField.addEventListener('change', function() {
+            loadMonthlyCosts();
+        });
+    }
 }
 
 function setupForms() {
@@ -14173,6 +14236,235 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// ========================================
+// FINANCIAL MANAGEMENT
+// ========================================
+
+async function saveMonthlyCosts() {
+    const month = document.getElementById('costMonth').value;
+
+    if (!month) {
+        showToast(t('selectMonth'), 'warning');
+        return;
+    }
+
+    const data = {
+        month,
+        salaries: parseFloat(document.getElementById('costSalaries').value) || 0,
+        electricity: parseFloat(document.getElementById('costElectricity').value) || 0,
+        leasing: parseFloat(document.getElementById('costLeasing').value) || 0,
+        fuel: parseFloat(document.getElementById('costFuel').value) || 0,
+        taxes: parseFloat(document.getElementById('costTaxes').value) || 0,
+        misc: parseFloat(document.getElementById('costMisc').value) || 0
+    };
+
+    console.log('💰 Saving monthly costs for', month, ':', data);
+
+    try {
+        const result = await storage.saveMonthlyCosts(data);
+        console.log('💾 Save result:', result);
+
+        if (result.success) {
+            showToast(t('saved'), 'success');
+            updateProfitDashboard();  // Rafraîchir le tableau de bord
+        } else {
+            throw new Error(result.error || 'Failed to save');
+        }
+    } catch (error) {
+        console.error('❌ Error saving monthly costs:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+async function loadMonthlyCosts() {
+    const month = document.getElementById('costMonth').value;
+
+    if (!month) {
+        showToast(t('selectMonth'), 'warning');
+        return;
+    }
+
+    try {
+        const costs = await storage.getMonthlyCosts();
+        const monthData = costs.find(c => c.month === month);
+
+        if (monthData) {
+            document.getElementById('costSalaries').value = monthData.salaries || 0;
+            document.getElementById('costElectricity').value = monthData.electricity || 0;
+            document.getElementById('costLeasing').value = monthData.leasing || 0;
+            document.getElementById('costFuel').value = monthData.fuel || 0;
+            document.getElementById('costTaxes').value = monthData.taxes || 0;
+            document.getElementById('costMisc').value = monthData.misc || 0;
+
+            showToast(t('loaded') || 'Données chargées', 'success');
+        } else {
+            // Réinitialiser les champs
+            document.getElementById('costSalaries').value = 0;
+            document.getElementById('costElectricity').value = 0;
+            document.getElementById('costLeasing').value = 0;
+            document.getElementById('costFuel').value = 0;
+            document.getElementById('costTaxes').value = 0;
+            document.getElementById('costMisc').value = 0;
+
+            showToast('Aucune donnée pour ce mois', 'info');
+        }
+    } catch (error) {
+        console.error('Error loading monthly costs:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+function calculateMonthlyRevenue(month, invoices) {
+    // month format: "2026-01"
+    // Filtrer UNIQUEMENT les factures définitives (FV) du mois, EXCLURE les proformas
+    const monthInvoices = invoices.filter(inv => {
+        return inv.date &&
+               inv.date.substring(0, 7) === month &&
+               !inv.isProforma;  // Exclure les proformas
+    });
+
+    let totalRevenueCZK = 0;
+
+    monthInvoices.forEach(inv => {
+        let amount = inv.total || 0;
+
+        // Convertir en CZK si nécessaire
+        if (inv.currency === 'EUR') {
+            const rate = inv.exchangeRate || 24.5;
+            amount = amount * rate;
+        }
+
+        totalRevenueCZK += amount;
+    });
+
+    return totalRevenueCZK;
+}
+
+function calculateMonthlyPurchases(revenue) {
+    // Calculer les coûts basés sur une marge bénéficiaire théorique
+    // Formule : Coûts = Revenus × (1 - Marge%)
+
+    const PROFIT_MARGIN = 0.35; // 35% de marge bénéficiaire sur le prix de vente
+    const costs = revenue * (1 - PROFIT_MARGIN); // 65% du revenu = coûts
+
+    return costs;
+}
+
+async function updateProfitDashboard() {
+    try {
+        // Récupérer toutes les données
+        const invoices = await storage.getInvoices(1000);
+        const purchaseOrders = await storage.getPurchaseOrders(1000);
+        const monthlyCosts = await storage.getMonthlyCosts();
+
+        console.log('📊 Financial Dashboard - Data loaded:');
+        console.log('  - Invoices:', invoices?.length || 0);
+        console.log('  - Purchase Orders:', purchaseOrders?.length || 0);
+        console.log('  - Monthly Costs:', monthlyCosts);
+
+        // Générer les mois depuis janvier 2026 jusqu'à maintenant
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const months = [];
+
+        // Générer tous les mois depuis janvier 2026 jusqu'au mois actuel
+        for (let year = 2026; year <= currentYear; year++) {
+            const startMonth = (year === 2026) ? 1 : 1;
+            const endMonth = (year === currentYear) ? currentMonth : 12;
+
+            for (let month = startMonth; month <= endMonth; month++) {
+                const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+                months.push(monthStr);
+            }
+        }
+
+        // Inverser pour avoir les plus récents en premier
+        months.reverse();
+
+        // Calculer les données pour chaque mois
+        let html = '';
+        let yearRevenue = 0, yearPurchases = 0, yearSalaries = 0, yearFixed = 0, yearTotalCosts = 0, yearProfit = 0;
+
+        for (const month of months) {
+            const revenue = calculateMonthlyRevenue(month, invoices);
+            const purchases = calculateMonthlyPurchases(revenue);
+
+            // Trouver les charges du mois
+            const costs = monthlyCosts.find(c => c.month === month);
+            const salaries = costs?.salaries || 0;
+            const fixedCosts = (costs?.electricity || 0) + (costs?.leasing || 0) +
+                               (costs?.fuel || 0) + (costs?.taxes || 0) + (costs?.misc || 0);
+            const totalCosts = purchases + salaries + fixedCosts;
+            const profit = revenue - totalCosts;
+
+            if (costs) {
+                console.log(`📅 ${month}:`, {
+                    revenue,
+                    purchases,
+                    salaries,
+                    fixedCosts,
+                    totalCosts,
+                    profit,
+                    costsData: costs
+                });
+            }
+
+            // Accumuler pour le total annuel
+            yearRevenue += revenue;
+            yearPurchases += purchases;
+            yearSalaries += salaries;
+            yearFixed += fixedCosts;
+            yearTotalCosts += totalCosts;
+            yearProfit += profit;
+
+            // Style de la ligne selon le profit
+            const profitClass = profit >= 0 ? 'text-success' : 'text-danger';
+            const profitIcon = profit >= 0 ? '✅' : '❌';
+
+            // Formater le mois
+            const monthDate = new Date(month + '-01');
+            const monthName = monthDate.toLocaleDateString(currentLang, { month: 'long', year: 'numeric' });
+
+            html += `
+                <tr>
+                    <td><strong>${monthName}</strong></td>
+                    <td>${formatCurrency(revenue)} CZK</td>
+                    <td>${formatCurrency(purchases)} CZK</td>
+                    <td>${formatCurrency(salaries)} CZK</td>
+                    <td>${formatCurrency(fixedCosts)} CZK</td>
+                    <td>${formatCurrency(totalCosts)} CZK</td>
+                    <td class="${profitClass}">
+                        ${profitIcon} <strong>${formatCurrency(profit)} CZK</strong>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Afficher le tableau
+        document.getElementById('profitTableBody').innerHTML = html;
+
+        // Mettre à jour le pied de tableau (total année)
+        document.getElementById('yearRevenue').textContent = formatCurrency(yearRevenue) + ' CZK';
+        document.getElementById('yearPurchases').textContent = formatCurrency(yearPurchases) + ' CZK';
+        document.getElementById('yearSalaries').textContent = formatCurrency(yearSalaries) + ' CZK';
+        document.getElementById('yearFixed').textContent = formatCurrency(yearFixed) + ' CZK';
+        document.getElementById('yearTotalCosts').textContent = formatCurrency(yearTotalCosts) + ' CZK';
+
+        const yearProfitEl = document.getElementById('yearProfit');
+        yearProfitEl.textContent = formatCurrency(yearProfit) + ' CZK';
+        yearProfitEl.className = yearProfit >= 0 ? 'text-success' : 'text-danger';
+
+        document.getElementById('profitTableFoot').style.display = '';
+
+    } catch (error) {
+        console.error('Error updating profit dashboard:', error);
+        document.getElementById('profitTableBody').innerHTML = `
+            <tr><td colspan="7" class="text-center text-danger">Erreur de chargement</td></tr>
+        `;
+    }
+}
+
 // Export functions to window
 window.openSubcontractingOrderModal = openSubcontractingOrderModal;
 window.closeSubcontractingOrderModal = closeSubcontractingOrderModal;
@@ -14185,3 +14477,7 @@ window.deleteSubcontractingOrder = deleteSubcontractingOrder;
 window.generateSubcontractingPO = generateSubcontractingPO;
 window.generateSubcontractingBL = generateSubcontractingBL;
 window.sendSubcontractingOrderByEmail = sendSubcontractingOrderByEmail;
+// Financial management exports
+window.saveMonthlyCosts = saveMonthlyCosts;
+window.loadMonthlyCosts = loadMonthlyCosts;
+window.updateProfitDashboard = updateProfitDashboard;
