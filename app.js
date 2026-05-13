@@ -9786,16 +9786,35 @@ async function loadRepairQuoteData(quoteId) {
                 pacCard.querySelector('.service-refrigerant').value = pac.services?.refrigerant || 0;
                 pacCard.querySelector('.service-disposal').value = pac.services?.disposal || 0;
 
+                // Load service "customer pays" checkboxes
+                if (pacCard.querySelector('.service-cleaning-pays')) {
+                    pacCard.querySelector('.service-cleaning-pays').checked = pac.services?.cleaningPays || false;
+                }
+                if (pacCard.querySelector('.service-repair-pays')) {
+                    pacCard.querySelector('.service-repair-pays').checked = pac.services?.repairPays || false;
+                }
+                if (pacCard.querySelector('.service-refrigerant-pays')) {
+                    pacCard.querySelector('.service-refrigerant-pays').checked = pac.services?.refrigerantPays || false;
+                }
+                if (pacCard.querySelector('.service-disposal-pays')) {
+                    pacCard.querySelector('.service-disposal-pays').checked = pac.services?.disposalPays || false;
+                }
+
                 // Load components
                 if (pac.components && pac.components.length > 0) {
                     pac.components.forEach(comp => {
                         addComponentToPACWithRef(pacCounter, comp.ref);
 
-                        // Find the just-added component row and set quantity
+                        // Find the just-added component row and set quantity and customer pays
                         const componentsList = pacCard.querySelector('.pac-components-list');
                         const lastRow = componentsList.lastElementChild;
                         if (lastRow) {
                             lastRow.querySelector('.component-qty').value = comp.qty || 1;
+                            // Restore "customer pays" checkbox
+                            const customerPaysCheckbox = lastRow.querySelector('.component-customer-pays');
+                            if (customerPaysCheckbox) {
+                                customerPaysCheckbox.checked = comp.customerPays || false;
+                            }
                             // Trigger calculation
                             const event = new Event('change', { bubbles: true });
                             lastRow.querySelector('.component-qty').dispatchEvent(event);
@@ -9959,21 +9978,37 @@ function addPACToRepairQuote() {
                         <label>Čištění / Nettoyage</label>
                         <input type="number" class="service-cleaning" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">30 EUR/hod</span>
+                        <div style="margin-top: 5px;">
+                            <input type="checkbox" class="service-cleaning-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <label style="font-size: 0.85em; display: inline;">Client paie</label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Oprava / Réparation</label>
                         <input type="number" class="service-repair" min="0" step="0.5" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">30 EUR/hod</span>
+                        <div style="margin-top: 5px;">
+                            <input type="checkbox" class="service-repair-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <label style="font-size: 0.85em; display: inline;">Client paie</label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>${t('refrigerantKg')}</label>
                         <input type="number" class="service-refrigerant" min="0" step="0.01" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">25 EUR/kg</span>
+                        <div style="margin-top: 5px;">
+                            <input type="checkbox" class="service-refrigerant-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <label style="font-size: 0.85em; display: inline;">Client paie</label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>${t('disposalKg')}</label>
                         <input type="number" class="service-disposal" min="0" step="0.1" value="0" onchange="calculatePACSubtotal(${pacCounter})">
                         <span class="component-price-display">17 EUR/kg</span>
+                        <div style="margin-top: 5px;">
+                            <input type="checkbox" class="service-disposal-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <label style="font-size: 0.85em; display: inline;">Client paie</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -10084,6 +10119,10 @@ function addComponentToPACWithRef(pacIndex, componentRef) {
             <label>${t('lineTotal')}</label>
             <input type="number" class="component-total" step="0.01" value="${component.price}" readonly class="input-readonly">
         </div>
+        <div class="form-group" style="flex: 0 0 auto; min-width: 100px;">
+            <label style="font-size: 0.85em;">Client paie</label>
+            <input type="checkbox" class="component-customer-pays" onchange="calculatePACSubtotal(${pacIndex})" style="width: 20px; height: 20px; margin-top: 5px;">
+        </div>
         <button type="button" class="btn-remove-component" onclick="removeComponentFromPAC(${pacIndex}, ${componentIndex})" title="${t('removeComponent')}">✕</button>
     `;
 
@@ -10141,6 +10180,10 @@ function addComponentToPAC(pacIndex) {
             <label>${t('lineTotal')}</label>
             <input type="number" class="component-total" step="0.01" value="0" readonly class="input-readonly">
         </div>
+        <div class="form-group" style="flex: 0 0 auto; min-width: 100px;">
+            <label style="font-size: 0.85em;">Client paie</label>
+            <input type="checkbox" class="component-customer-pays" onchange="calculatePACSubtotal(${pacIndex})" style="width: 20px; height: 20px; margin-top: 5px;">
+        </div>
         <button type="button" class="btn-remove-component" onclick="removeComponentFromPAC(${pacIndex}, ${componentIndex})" title="${t('removeComponent')}">
             ✕
         </button>
@@ -10177,18 +10220,26 @@ function calculatePACSubtotal(pacIndex) {
     const underWarranty = pacCard.querySelector('.pac-under-warranty').checked;
 
     let subtotal = 0;
+    let subtotalBeforeWarranty = 0; // Track original total for display
 
-    // ALWAYS calculate components total (even under warranty, to show what was done)
+    // Calculate components total
     const componentsList = pacCard.querySelector('.pac-components-list');
     componentsList.querySelectorAll('.component-row').forEach(row => {
         const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
         const price = parseFloat(row.querySelector('.component-price').value) || 0;
         const total = qty * price;
         row.querySelector('.component-total').value = total.toFixed(2);
-        subtotal += total;
+
+        subtotalBeforeWarranty += total;
+
+        // Only add to subtotal if customer pays (checkbox checked) OR not under warranty
+        const customerPays = row.querySelector('.component-customer-pays')?.checked || false;
+        if (!underWarranty || customerPays) {
+            subtotal += total;
+        }
     });
 
-    // ALWAYS calculate services total (even under warranty, to show what was done)
+    // Calculate services total
     const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
     const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
     const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0; // Keep for backwards compatibility
@@ -10196,18 +10247,41 @@ function calculatePACSubtotal(pacIndex) {
     const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
 
     const serviceRates = getServiceRates();
-    subtotal += cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
-    subtotal += repair * (serviceRates.repair?.price || serviceRates.labor.price);
-    subtotal += labor * serviceRates.labor.price; // Backwards compatibility
-    subtotal += refrigerant * serviceRates.refrigerantR134a.price;
-    subtotal += disposal * serviceRates.disposal.price;
+    const cleaningTotal = cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
+    const repairTotal = repair * (serviceRates.repair?.price || serviceRates.labor.price);
+    const laborTotal = labor * serviceRates.labor.price; // Backwards compatibility
+    const refrigerantTotal = refrigerant * serviceRates.refrigerantR134a.price;
+    const disposalTotal = disposal * serviceRates.disposal.price;
+
+    subtotalBeforeWarranty += cleaningTotal + repairTotal + laborTotal + refrigerantTotal + disposalTotal;
+
+    // Check "customer pays" for each service
+    const cleaningPays = pacCard.querySelector('.service-cleaning-pays')?.checked || false;
+    const repairPays = pacCard.querySelector('.service-repair-pays')?.checked || false;
+    const refrigerantPays = pacCard.querySelector('.service-refrigerant-pays')?.checked || false;
+    const disposalPays = pacCard.querySelector('.service-disposal-pays')?.checked || false;
+
+    // Add to subtotal only if customer pays OR not under warranty
+    if (!underWarranty || cleaningPays) subtotal += cleaningTotal;
+    if (!underWarranty || repairPays) subtotal += repairTotal;
+    if (!underWarranty) subtotal += laborTotal; // Labor always charged if not under warranty
+    if (!underWarranty || refrigerantPays) subtotal += refrigerantTotal;
+    if (!underWarranty || disposalPays) subtotal += disposalTotal;
 
     // Update PAC subtotal display
     const subtotalElement = document.getElementById(`pacSubtotal${pacIndex}`);
     if (subtotalElement) {
         if (underWarranty) {
-            // Show calculated total crossed out, then 0.00
-            subtotalElement.innerHTML = `<span style="text-decoration: line-through; color: #999;">${subtotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">0.00 EUR (pod zárukou)</strong>`;
+            if (subtotal === 0) {
+                // Everything is free under warranty
+                subtotalElement.innerHTML = `<span style="text-decoration: line-through; color: #999;">${subtotalBeforeWarranty.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">0.00 EUR (pod zárukou)</strong>`;
+            } else if (subtotal < subtotalBeforeWarranty) {
+                // Some items charged, some free
+                subtotalElement.innerHTML = `<span style="text-decoration: line-through; color: #999;">${subtotalBeforeWarranty.toFixed(2)} EUR</span> → <strong style="color: #f59e0b;">${subtotal.toFixed(2)} EUR (částečně pod zárukou)</strong>`;
+            } else {
+                // Everything charged
+                subtotalElement.innerHTML = `<strong>${subtotal.toFixed(2)} EUR</strong>`;
+            }
         } else {
             subtotalElement.textContent = `${subtotal.toFixed(2)} EUR`;
         }
@@ -10232,36 +10306,51 @@ function calculateRepairQuoteTotal() {
     document.querySelectorAll('.pac-card').forEach(pacCard => {
         const underWarranty = pacCard.querySelector('.pac-under-warranty')?.checked || false;
 
-        if (underWarranty) {
-            // Under warranty = 0
-            totalHT += 0;
-        } else {
-            // Calculate PAC subtotal
-            let pacSubtotal = 0;
+        // Calculate PAC subtotal
+        let pacSubtotal = 0;
 
-            // Components
-            const componentsList = pacCard.querySelector('.pac-components-list');
-            componentsList.querySelectorAll('.component-row').forEach(row => {
-                const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
-                const price = parseFloat(row.querySelector('.component-price').value) || 0;
-                pacSubtotal += qty * price;
-            });
+        // Components
+        const componentsList = pacCard.querySelector('.pac-components-list');
+        componentsList.querySelectorAll('.component-row').forEach(row => {
+            const qty = parseFloat(row.querySelector('.component-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.component-price').value) || 0;
+            const total = qty * price;
 
-            // Services
-            const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
-            const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
-            const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0;
-            const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
-            const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
+            // Only add if customer pays (checkbox checked) OR not under warranty
+            const customerPays = row.querySelector('.component-customer-pays')?.checked || false;
+            if (!underWarranty || customerPays) {
+                pacSubtotal += total;
+            }
+        });
 
-            const serviceRates = getServiceRates();
-            pacSubtotal += cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
-            pacSubtotal += repair * (serviceRates.repair?.price || serviceRates.labor.price);
-            pacSubtotal += labor * serviceRates.labor.price;
-            pacSubtotal += refrigerant * serviceRates.refrigerantR134a.price;
-            pacSubtotal += disposal * serviceRates.disposal.price;
+        // Services
+        const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
+        const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
+        const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0;
+        const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
+        const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
 
-            totalHT += pacSubtotal;
+        const serviceRates = getServiceRates();
+        const cleaningTotal = cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
+        const repairTotal = repair * (serviceRates.repair?.price || serviceRates.labor.price);
+        const laborTotal = labor * serviceRates.labor.price;
+        const refrigerantTotal = refrigerant * serviceRates.refrigerantR134a.price;
+        const disposalTotal = disposal * serviceRates.disposal.price;
+
+        // Check "customer pays" for each service
+        const cleaningPays = pacCard.querySelector('.service-cleaning-pays')?.checked || false;
+        const repairPays = pacCard.querySelector('.service-repair-pays')?.checked || false;
+        const refrigerantPays = pacCard.querySelector('.service-refrigerant-pays')?.checked || false;
+        const disposalPays = pacCard.querySelector('.service-disposal-pays')?.checked || false;
+
+        // Add to subtotal only if customer pays OR not under warranty
+        if (!underWarranty || cleaningPays) pacSubtotal += cleaningTotal;
+        if (!underWarranty || repairPays) pacSubtotal += repairTotal;
+        if (!underWarranty) pacSubtotal += laborTotal; // Labor always charged if not under warranty
+        if (!underWarranty || refrigerantPays) pacSubtotal += refrigerantTotal;
+        if (!underWarranty || disposalPays) pacSubtotal += disposalTotal;
+
+        totalHT += pacSubtotal;
         }
     });
 
@@ -10329,7 +10418,12 @@ async function saveRepairQuote() {
                 repair: parseFloat(pacCard.querySelector('.service-repair')?.value) || 0,
                 labor: parseFloat(pacCard.querySelector('.service-labor')?.value) || 0, // Keep for backwards compatibility
                 refrigerant: parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0,
-                disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0
+                disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0,
+                // Save "customer pays" checkbox states
+                cleaningPays: pacCard.querySelector('.service-cleaning-pays')?.checked || false,
+                repairPays: pacCard.querySelector('.service-repair-pays')?.checked || false,
+                refrigerantPays: pacCard.querySelector('.service-refrigerant-pays')?.checked || false,
+                disposalPays: pacCard.querySelector('.service-disposal-pays')?.checked || false
             },
             subtotal: parseFloat(document.getElementById(`pacSubtotal${pacIndex}`).textContent.replace(' EUR', '').replace(' (pod zárukou)', '')) || 0
         };
@@ -10345,7 +10439,8 @@ async function saveRepairQuote() {
                     name: selectedOption.textContent.split(' (')[0],
                     qty: parseFloat(row.querySelector('.component-qty').value) || 0,
                     priceUnit: parseFloat(row.querySelector('.component-price').value) || 0,
-                    total: parseFloat(row.querySelector('.component-total').value) || 0
+                    total: parseFloat(row.querySelector('.component-total').value) || 0,
+                    customerPays: row.querySelector('.component-customer-pays')?.checked || false
                 });
             }
         });
@@ -10576,13 +10671,18 @@ function showRepairQuotePreview(quote) {
         // Components (show even if under warranty)
         if (pac.components && pac.components.length > 0) {
             pac.components.forEach(comp => {
+                // Check if item is free (under warranty and customer doesn't pay)
+                const isFree = pac.underWarranty && !comp.customerPays;
+                const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+                const priceDisplay = isFree ? `<span style="${rowStyle}">${comp.total.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${comp.total.toFixed(2)} EUR`;
+
                 pacsTableHtml += `
                     <tr>
-                        <td>${comp.name}</td>
-                        <td>${comp.ref}</td>
-                        <td style="text-align:center">${comp.qty}</td>
-                        <td style="text-align:right">${comp.priceUnit.toFixed(2)} EUR</td>
-                        <td style="text-align:right">${comp.total.toFixed(2)} EUR</td>
+                        <td style="${rowStyle}">${comp.name}</td>
+                        <td style="${rowStyle}">${comp.ref}</td>
+                        <td style="text-align:center; ${rowStyle}">${comp.qty}</td>
+                        <td style="text-align:right; ${rowStyle}">${comp.priceUnit.toFixed(2)} EUR</td>
+                        <td style="text-align:right">${priceDisplay}</td>
                     </tr>
                 `;
             });
@@ -10594,13 +10694,18 @@ function showRepairQuotePreview(quote) {
         // Show cleaning hours
         if (services.cleaning > 0) {
             const cleaningRate = serviceRates.cleaning || serviceRates.labor;
+            const cleaningTotal = services.cleaning * cleaningRate.price;
+            const isFree = pac.underWarranty && !services.cleaningPays;
+            const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+            const priceDisplay = isFree ? `<span style="${rowStyle}">${cleaningTotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${cleaningTotal.toFixed(2)} EUR`;
+
             pacsTableHtml += `
                 <tr>
-                    <td>Čištění / Nettoyage</td>
-                    <td>SERVICE</td>
-                    <td style="text-align:center">${services.cleaning} h</td>
-                    <td style="text-align:right">${cleaningRate.price} EUR/h</td>
-                    <td style="text-align:right">${(services.cleaning * cleaningRate.price).toFixed(2)} EUR</td>
+                    <td style="${rowStyle}">Čištění / Nettoyage</td>
+                    <td style="${rowStyle}">SERVICE</td>
+                    <td style="text-align:center; ${rowStyle}">${services.cleaning} h</td>
+                    <td style="text-align:right; ${rowStyle}">${cleaningRate.price} EUR/h</td>
+                    <td style="text-align:right">${priceDisplay}</td>
                 </tr>
             `;
         }
@@ -10608,13 +10713,18 @@ function showRepairQuotePreview(quote) {
         // Show repair hours
         if (services.repair > 0) {
             const repairRate = serviceRates.repair || serviceRates.labor;
+            const repairTotal = services.repair * repairRate.price;
+            const isFree = pac.underWarranty && !services.repairPays;
+            const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+            const priceDisplay = isFree ? `<span style="${rowStyle}">${repairTotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${repairTotal.toFixed(2)} EUR`;
+
             pacsTableHtml += `
                 <tr>
-                    <td>Oprava / Réparation</td>
-                    <td>SERVICE</td>
-                    <td style="text-align:center">${services.repair} h</td>
-                    <td style="text-align:right">${repairRate.price} EUR/h</td>
-                    <td style="text-align:right">${(services.repair * repairRate.price).toFixed(2)} EUR</td>
+                    <td style="${rowStyle}">Oprava / Réparation</td>
+                    <td style="${rowStyle}">SERVICE</td>
+                    <td style="text-align:center; ${rowStyle}">${services.repair} h</td>
+                    <td style="text-align:right; ${rowStyle}">${repairRate.price} EUR/h</td>
+                    <td style="text-align:right">${priceDisplay}</td>
                 </tr>
             `;
         }
@@ -10633,51 +10743,103 @@ function showRepairQuotePreview(quote) {
         }
 
         if (services.refrigerant > 0) {
+            const refrigerantTotal = services.refrigerant * serviceRates.refrigerantR134a.price;
+            const isFree = pac.underWarranty && !services.refrigerantPays;
+            const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+            const priceDisplay = isFree ? `<span style="${rowStyle}">${refrigerantTotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${refrigerantTotal.toFixed(2)} EUR`;
+
             pacsTableHtml += `
                 <tr>
-                    <td>${t('refrigerantKg')}</td>
-                    <td>R134a</td>
-                    <td style="text-align:center">${services.refrigerant.toFixed(2)} kg</td>
-                    <td style="text-align:right">${serviceRates.refrigerantR134a.price} EUR/kg</td>
-                    <td style="text-align:right">${(services.refrigerant * serviceRates.refrigerantR134a.price).toFixed(2)} EUR</td>
+                    <td style="${rowStyle}">${t('refrigerantKg')}</td>
+                    <td style="${rowStyle}">R134a</td>
+                    <td style="text-align:center; ${rowStyle}">${services.refrigerant.toFixed(2)} kg</td>
+                    <td style="text-align:right; ${rowStyle}">${serviceRates.refrigerantR134a.price} EUR/kg</td>
+                    <td style="text-align:right">${priceDisplay}</td>
                 </tr>
             `;
         }
 
         if (services.disposal > 0) {
+            const disposalTotal = services.disposal * serviceRates.disposal.price;
+            const isFree = pac.underWarranty && !services.disposalPays;
+            const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+            const priceDisplay = isFree ? `<span style="${rowStyle}">${disposalTotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${disposalTotal.toFixed(2)} EUR`;
+
             pacsTableHtml += `
                 <tr>
-                    <td>${t('disposalKg')}</td>
-                    <td>SERVICE</td>
-                    <td style="text-align:center">${services.disposal} kg</td>
-                    <td style="text-align:right">${serviceRates.disposal.price} EUR/kg</td>
-                    <td style="text-align:right">${(services.disposal * serviceRates.disposal.price).toFixed(2)} EUR</td>
+                    <td style="${rowStyle}">${t('disposalKg')}</td>
+                    <td style="${rowStyle}">SERVICE</td>
+                    <td style="text-align:center; ${rowStyle}">${services.disposal} kg</td>
+                    <td style="text-align:right; ${rowStyle}">${serviceRates.disposal.price} EUR/kg</td>
+                    <td style="text-align:right">${priceDisplay}</td>
                 </tr>
             `;
         }
 
-        // PAC subtotal (show crossed-out price if under warranty)
+        // PAC subtotal
         if (pac.underWarranty) {
-            // Calculate what the total would be without warranty
-            let calculatedTotal = 0;
+            // Calculate what the total would be without warranty (full amount)
+            let totalBeforeWarranty = 0;
             if (pac.components) {
-                calculatedTotal += pac.components.reduce((sum, comp) => sum + comp.total, 0);
+                totalBeforeWarranty += pac.components.reduce((sum, comp) => sum + comp.total, 0);
             }
-            calculatedTotal += (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
-            calculatedTotal += (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
-            calculatedTotal += (pac.services.labor || 0) * serviceRates.labor.price; // Backwards compatibility
-            calculatedTotal += (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
-            calculatedTotal += (pac.services.disposal || 0) * serviceRates.disposal.price;
+            totalBeforeWarranty += (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
+            totalBeforeWarranty += (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
+            totalBeforeWarranty += (pac.services.labor || 0) * serviceRates.labor.price; // Backwards compatibility
+            totalBeforeWarranty += (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
+            totalBeforeWarranty += (pac.services.disposal || 0) * serviceRates.disposal.price;
 
-            pacsTableHtml += `
-                <tr class="pac-subtotal">
-                    <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
-                    <td style="text-align:right">
-                        <span style="text-decoration: line-through; color: #999;">${calculatedTotal.toFixed(2)} EUR</span>
-                        → <strong style="color: #22c55e;">0.00 EUR</strong>
-                    </td>
-                </tr>
-            `;
+            // Calculate actual charged amount (only items where customer pays)
+            let chargedAmount = 0;
+            if (pac.components) {
+                pac.components.forEach(comp => {
+                    if (comp.customerPays) {
+                        chargedAmount += comp.total;
+                    }
+                });
+            }
+            const cleaningTotal = (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
+            const repairTotal = (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
+            const refrigerantTotal = (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
+            const disposalTotal = (pac.services.disposal || 0) * serviceRates.disposal.price;
+
+            if (pac.services.cleaningPays) chargedAmount += cleaningTotal;
+            if (pac.services.repairPays) chargedAmount += repairTotal;
+            if (pac.services.refrigerantPays) chargedAmount += refrigerantTotal;
+            if (pac.services.disposalPays) chargedAmount += disposalTotal;
+
+            // Display based on charged amount
+            if (chargedAmount === 0) {
+                // Everything is free
+                pacsTableHtml += `
+                    <tr class="pac-subtotal">
+                        <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                        <td style="text-align:right">
+                            <span style="text-decoration: line-through; color: #999;">${totalBeforeWarranty.toFixed(2)} EUR</span>
+                            → <strong style="color: #22c55e;">0.00 EUR</strong>
+                        </td>
+                    </tr>
+                `;
+            } else if (chargedAmount < totalBeforeWarranty) {
+                // Some items charged, some free
+                pacsTableHtml += `
+                    <tr class="pac-subtotal">
+                        <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                        <td style="text-align:right">
+                            <span style="text-decoration: line-through; color: #999;">${totalBeforeWarranty.toFixed(2)} EUR</span>
+                            → <strong style="color: #f59e0b;">${chargedAmount.toFixed(2)} EUR</strong>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                // Everything charged (customer pays for all)
+                pacsTableHtml += `
+                    <tr class="pac-subtotal">
+                        <td colspan="4" style="text-align:right"><strong>${t('pacSubtotal')}:</strong></td>
+                        <td style="text-align:right"><strong>${chargedAmount.toFixed(2)} EUR</strong></td>
+                    </tr>
+                `;
+            }
         } else {
             pacsTableHtml += `
                 <tr class="pac-subtotal">
