@@ -10351,7 +10351,6 @@ function calculateRepairQuoteTotal() {
         if (!underWarranty || disposalPays) pacSubtotal += disposalTotal;
 
         totalHT += pacSubtotal;
-        }
     });
 
     const vatRate = 0.21; // 21% VAT
