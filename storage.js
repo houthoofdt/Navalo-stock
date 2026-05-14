@@ -1069,13 +1069,29 @@ class StorageAdapter {
     }
 
     localProcessDelivery(data) {
-        const { client, clientAddress, notes, date, linkedOrderId } = data;
+        const { client, clientAddress, notes, date, clientOrderNumber } = data;
+        let { linkedOrderId } = data;
         const stock = JSON.parse(localStorage.getItem('navalo_stock') || '{}');
         const bom = JSON.parse(localStorage.getItem('navalo_bom') || '{}');
         let lots = JSON.parse(localStorage.getItem('navalo_stock_lots') || '[]');
         const history = JSON.parse(localStorage.getItem('navalo_history') || '[]');
         const deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
         let receivedOrders = JSON.parse(localStorage.getItem('navalo_received_orders') || '[]');
+
+        // ========================================
+        // AUTO-LINK: Find order by customer order number
+        // ========================================
+        if (!linkedOrderId && clientOrderNumber) {
+            const matchingOrder = receivedOrders.find(o =>
+                o.clientOrderNumber === clientOrderNumber &&
+                o.status !== 'invoiced' &&
+                o.status !== 'cancelled'
+            );
+            if (matchingOrder) {
+                linkedOrderId = matchingOrder.id;
+                console.log(`🔗 Auto-linked delivery to order ${matchingOrder.orderNumber} via customer order number ${clientOrderNumber}`);
+            }
+        }
 
         // Handle both old format (quantities) and new format (items)
         let items;
@@ -1311,6 +1327,7 @@ class StorageAdapter {
             blNumber,
             client,
             clientAddress,
+            clientOrderNumber: clientOrderNumber || '',
             tx9: quantities['TX9'] || 0,
             tx12_3ph: quantities['TX12-3PH'] || 0,
             tx12_1ph: quantities['TX12-1PH'] || 0,

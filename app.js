@@ -1,8 +1,8 @@
 /* ========================================
-   NAVALO Stock PAC - Application v5.9
-   Complete with i18n, Contacts, History PAC only, Financial Management
+   NAVALO Stock PAC - Application v6.1
+   Complete with i18n, Contacts, History PAC only, Financial Management, Auto-Link Deliveries
    ======================================== */
-console.log('=== APP.JS VERSION 5.9 LOADED - 35% PROFIT MARGIN ===');
+console.log('=== APP.JS VERSION 6.1 LOADED - AUTO-LINK DELIVERIES BY CLIENT ORDER NUMBER ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -1178,8 +1178,11 @@ function updateStockDisplay() {
 
     activeOrders.forEach(order => {
         // Calculate demand from PAC quantities
-        if (order.quantities && currentBom) {
-            Object.entries(order.quantities).forEach(([model, qty]) => {
+        // Use remainingQuantities if available (for partial deliveries), otherwise use quantities
+        const quantitiesToUse = order.remainingQuantities || order.quantities;
+
+        if (quantitiesToUse && currentBom) {
+            Object.entries(quantitiesToUse).forEach(([model, qty]) => {
                 if (qty > 0) {
                     // Get BOM for model - combine production + subcontractor kit for TX9/TH11
                     let modelBom = [];
