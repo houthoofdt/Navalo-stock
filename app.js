@@ -2,7 +2,7 @@
    NAVALO Stock PAC - Application v6.1
    Complete with i18n, Contacts, History PAC only, Financial Management, Auto-Link Deliveries
    ======================================== */
-console.log('=== APP.JS VERSION 6.1 LOADED - AUTO-LINK DELIVERIES BY CLIENT ORDER NUMBER ===');
+console.log('=== APP.JS VERSION 6.1 LOADED - 48% PROFIT MARGIN - AUTO-LINK DELIVERIES ===');
 
 let currentBomModel = null;
 let currentStock = null;
@@ -14347,8 +14347,8 @@ function calculateMonthlyPurchases(revenue) {
     // Calculer les coûts basés sur une marge bénéficiaire théorique
     // Formule : Coûts = Revenus × (1 - Marge%)
 
-    const PROFIT_MARGIN = 0.35; // 35% de marge bénéficiaire sur le prix de vente
-    const costs = revenue * (1 - PROFIT_MARGIN); // 65% du revenu = coûts
+    const PROFIT_MARGIN = 0.48; // 48% de marge bénéficiaire sur le prix de vente
+    const costs = revenue * (1 - PROFIT_MARGIN); // 52% du revenu = coûts
 
     return costs;
 }
