@@ -315,6 +315,9 @@
 
                 <div class="table-container mt-2">
                     <h3 data-i18n="deliveryHistory">Bons de Livraison récents</h3>
+                    <div class="filters-row" style="margin-bottom: 1rem;">
+                        <input type="text" id="deliverySearchInput" class="filter-input" placeholder="N° Cmd Client" oninput="updateDeliveriesDisplay()">
+                    </div>
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -429,6 +432,7 @@
                             <option value="paid">Payées</option>
                         </select>
                         <input type="month" id="invoiceMonthFilter" class="filter-input" onchange="updateInvoicesDisplay()">
+                        <input type="text" id="invoiceSearchInput" class="filter-input" placeholder="N° Cmd Client" oninput="updateInvoicesDisplay()">
                         <button class="btn btn-secondary" onclick="exportInvoices()">📥 Export</button>
                     </div>
                 </div>
@@ -762,6 +766,7 @@
                             <option value="invoiced" data-i18n="recOrdInvoiced">Fakturováno</option>
                         </select>
                         <input type="month" id="recOrderMonthFilter" class="filter-input" onchange="updateReceivedOrdersDisplay()">
+                        <input type="text" id="recOrderSearchInput" class="filter-input" placeholder="N° Cmd Client" oninput="updateReceivedOrdersDisplay()">
                         <button class="btn btn-secondary" onclick="exportReceivedOrders()">📥 Export</button>
                     </div>
                 </div>

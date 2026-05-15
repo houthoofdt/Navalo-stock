@@ -335,6 +335,10 @@ const TRANSLATIONS = {
         // Subcontracting
         subcontracting: 'Sous-Traitance',
         orderNotFound: 'Commande non trouvée',
+        searchClientOrder: 'Chercher N° Cmd Client',
+        viewDelivery: 'Voir BL',
+        viewOrder: 'Voir Commande',
+        deliveryNotFound: 'Livraison non trouvée',
         invalidKitType: 'Type de kit invalide',
         fillAllFields: 'Veuillez remplir tous les champs',
         orderUpdated: 'Commande mise à jour',
@@ -608,6 +612,10 @@ const TRANSLATIONS = {
         // Subcontracting
         subcontracting: 'Subdodávka',
         orderNotFound: 'Objednávka nenalezena',
+        searchClientOrder: 'Hledat Číslo obj. zákazníka',
+        viewDelivery: 'Zobrazit DL',
+        viewOrder: 'Zobrazit Objednávku',
+        deliveryNotFound: 'Dodací list nenalezen',
         invalidKitType: 'Neplatný typ sady',
         fillAllFields: 'Vyplňte všechna pole',
         orderUpdated: 'Objednávka aktualizována',
@@ -1282,7 +1290,7 @@ function updateStockDisplay() {
             <td>${data.name || ref}</td>
             <td class="text-muted">${manufacturerDisplay}</td>
             <td>${cat}</td>
-            <td class="text-right font-bold">${qty}</td>
+            <td class="text-right font-bold">${Math.round(qty * 100) / 100}</td>
             <td class="text-right ${onOrder > 0 ? 'text-info' : ''}">${onOrder > 0 ? '+' + onOrder : '-'}</td>
             <td class="text-right ${componentDemand > 0 ? 'text-primary font-bold' : ''}">${componentDemand > 0 ? componentDemand : '-'}</td>
             <td class="text-right ${shortageClass}">${shortageDisplay}</td>
@@ -3872,7 +3880,11 @@ function formatDateForInput(dateStr) {
     const day = String(d.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
-function formatCurrency(n) { return new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n || 0); }
+function formatCurrency(n) {
+    const num = parseFloat(n) || 0;
+    const rounded = Math.round(num * 100) / 100;
+    return new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(rounded);
+}
 
 function downloadCSV(content, filename) {
     const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8' });
@@ -4569,12 +4581,21 @@ async function updateDeliveriesDisplay() {
         const tbody = document.getElementById('blTableBody');
         if (!tbody) return;
 
-        if (!Array.isArray(deliveries) || deliveries.length === 0) {
+        // Apply search filter
+        const searchText = document.getElementById('deliverySearchInput')?.value.trim().toLowerCase() || '';
+        let deliveriesToShow = deliveries;
+        if (searchText) {
+            deliveriesToShow = deliveriesToShow.filter(d =>
+                d.clientOrderNumber && d.clientOrderNumber.toLowerCase().includes(searchText)
+            );
+        }
+
+        if (!Array.isArray(deliveriesToShow) || deliveriesToShow.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">${t('noData')}</td></tr>`;
             return;
         }
-        
-        tbody.innerHTML = deliveries.map(d => {
+
+        tbody.innerHTML = deliveriesToShow.map(d => {
             const invoiced = d.invoiceNumber ? true : false;
             const clientOrderNum = d.clientOrderNumber || d.linkedOrderNumber || '';
 
@@ -5206,6 +5227,7 @@ async function updateInvoicesDisplay() {
     const typeFilter = document.getElementById('invoiceTypeFilter')?.value || 'all';
     const statusFilter = document.getElementById('invoiceStatusFilter')?.value || 'all';
     const monthFilter = document.getElementById('invoiceMonthFilter')?.value || '';
+    const searchText = document.getElementById('invoiceSearchInput')?.value.trim().toLowerCase() || '';
 
     // Helper to check proforma status (handles boolean, string values, and ZL prefix for legacy data)
     const isProformaInv = (inv) => inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE' || (inv.number && inv.number.startsWith('ZL'));
@@ -5216,6 +5238,7 @@ async function updateInvoicesDisplay() {
     if (statusFilter === 'paid') filtered = filtered.filter(inv => inv.paid);
     else if (statusFilter === 'unpaid') filtered = filtered.filter(inv => !inv.paid);
     if (monthFilter) filtered = filtered.filter(inv => inv.date?.substring(0, 7) === monthFilter);
+    if (searchText) filtered = filtered.filter(inv => inv.clientOrderNumber && inv.clientOrderNumber.toLowerCase().includes(searchText));
     
     updateInvoiceStats(invoices);
     
@@ -5249,6 +5272,8 @@ async function updateInvoicesDisplay() {
                 ${inv.isProforma && inv.paid ? `<button class="btn btn-primary btn-small" onclick="generateTaxDocument('${inv.number}')" title="Daňový doklad">📄</button>` : ''}
                 ${inv.isProforma ? `<button class="btn btn-outline btn-small" onclick="convertProformaToInvoice('${inv.number}')" title="Convertir en facture">🔄</button>` : ''}
                 ${!inv.paid && !inv.isProforma ? `<button class="btn btn-primary btn-small" onclick="markInvoicePaid('${inv.number}')" title="${t('markPaid')}">💰</button>` : ''}
+                ${inv.clientOrderNumber ? `<button class="btn btn-outline btn-small" onclick="viewDeliveryFromInvoice('${inv.clientOrderNumber}', '${inv.number}')" title="${t('viewDelivery')}">📄</button>` : ''}
+                ${inv.linkedOrder || inv.clientOrderNumber ? `<button class="btn btn-outline btn-small" onclick="viewOrderFromInvoice('${inv.linkedOrder || ''}', '${inv.clientOrderNumber || ''}')" title="${t('viewOrder')}">📋</button>` : ''}
                 <button class="btn btn-outline btn-small" onclick="editInvoice('${inv.number}')" title="${t('edit')}">✏️</button>
                 <button class="btn btn-outline btn-small" onclick="deleteInvoice('${inv.number}')" title="${t('delete')}">🗑️</button>
             </td>
@@ -5872,6 +5897,56 @@ function exportInvoices() {
     let csv = 'Číslo;Datum;Zákazník;Splatnost;Základ;DPH;Celkem;Měna;Stav\n';
     invoices.forEach(inv => { csv += `${inv.number};${inv.date};${inv.client};${inv.dueDate};${inv.subtotal || 0};${inv.vat || 0};${inv.total};${inv.currency};${inv.paid ? 'Zaplaceno' : 'Nezaplaceno'}\n`; });
     downloadCSV(csv, `faktury_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+async function viewDeliveryFromInvoice(clientOrderNumber, invoiceNumber) {
+    try {
+        const deliveries = await storage.getDeliveries(100);
+
+        // Find delivery by clientOrderNumber and/or invoiceNumber
+        const delivery = deliveries.find(d =>
+            (d.clientOrderNumber === clientOrderNumber && d.invoiceNumber === invoiceNumber) ||
+            (d.clientOrderNumber === clientOrderNumber) ||
+            (d.invoiceNumber === invoiceNumber)
+        );
+
+        if (delivery) {
+            viewDelivery(delivery.id);
+        } else {
+            showToast(t('deliveryNotFound') || 'Livraison non trouvée pour ce N° commande', 'warning');
+        }
+    } catch (error) {
+        console.error('Error finding delivery:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+async function viewOrderFromInvoice(linkedOrderId, clientOrderNumber) {
+    try {
+        const orders = await storage.getReceivedOrders(100);
+
+        // Find order by ID or clientOrderNumber
+        const order = orders.find(o =>
+            (linkedOrderId && o.id === linkedOrderId) ||
+            (clientOrderNumber && o.clientOrderNumber === clientOrderNumber)
+        );
+
+        if (!order) {
+            showToast(t('orderNotFound') || 'Commande non trouvée', 'warning');
+            return;
+        }
+
+        // If order has Google Drive URL, open it
+        if (order.driveFileUrl) {
+            window.open(order.driveFileUrl, '_blank');
+        } else {
+            // Otherwise, show the order confirmation modal
+            viewOrderConfirmation(order.id);
+        }
+    } catch (error) {
+        console.error('Error finding order:', error);
+        showToast(t('error'), 'error');
+    }
 }
 
 // ========================================
@@ -8685,10 +8760,12 @@ async function updateReceivedOrdersDisplay() {
 
         const statusFilter = document.getElementById('recOrderStatusFilter')?.value || '';
         const monthFilter = document.getElementById('recOrderMonthFilter')?.value || '';
+        const searchText = document.getElementById('recOrderSearchInput')?.value.trim().toLowerCase() || '';
 
         let filtered = orders;
         if (statusFilter) filtered = filtered.filter(o => o.status === statusFilter);
         if (monthFilter) filtered = filtered.filter(o => o.date?.startsWith(monthFilter));
+        if (searchText) filtered = filtered.filter(o => o.clientOrderNumber && o.clientOrderNumber.toLowerCase().includes(searchText));
 
         // Update stats - normalize status for filtering
         const normalizeStatus = (s) => (s || 'new').toLowerCase().trim();
@@ -13076,6 +13153,8 @@ window.previewInvoiceBeforeSave = previewInvoiceBeforeSave;
 window.previewRepairQuoteBeforeSave = previewRepairQuoteBeforeSave;
 window.sendInvoiceByEmail = sendInvoiceByEmail;
 window.sendPurchaseOrderByEmail = sendPurchaseOrderByEmail;
+window.viewDeliveryFromInvoice = viewDeliveryFromInvoice;
+window.viewOrderFromInvoice = viewOrderFromInvoice;
 
 // ============================================================
 // SUBCONTRACTING ORDERS (Sous-Traitance)
