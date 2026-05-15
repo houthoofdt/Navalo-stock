@@ -14347,8 +14347,8 @@ function calculateMonthlyPurchases(revenue) {
     // Calculer les coûts basés sur une marge bénéficiaire théorique
     // Formule : Coûts = Revenus × (1 - Marge%)
 
-    const PROFIT_MARGIN = 0.48; // 48% de marge bénéficiaire sur le prix de vente
-    const costs = revenue * (1 - PROFIT_MARGIN); // 52% du revenu = coûts
+    const PROFIT_MARGIN = 0.42; // 42% de marge bénéficiaire sur le prix de vente
+    const costs = revenue * (1 - PROFIT_MARGIN); // 58% du revenu = coûts
 
     return costs;
 }
