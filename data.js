@@ -546,6 +546,15 @@ const REPAIR_PRICE_LIST = {
         { ref: '0712174', name: 'Koncovka - svorkovnice k elektromag. Ventilu', price: 3, currency: 'EUR' },
         { ref: 'R11780_AlMg3_1mm_A-04', name: 'Kryt pro rozběhový kondenzátor TX9 Hydra', price: 6, currency: 'EUR' },
         { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' },
+        // Tôlerie TX9 (Plechy)
+        { ref: 'R05493_AlMg3_1.5mm_A-02', name: 'Deska základová TX9', price: 44.10, currency: 'EUR' },
+        { ref: 'R05092_AlMg3_2mm_A-06', name: 'Držák deskového výměníku a elektra TX9', price: 4.10, currency: 'EUR' },
+        { ref: 'R05494_AlMg3_3mm_A-03', name: 'Držák TX9', price: 3.30, currency: 'EUR' },
+        { ref: 'R05495_AlMg3_1.5mm_A-02', name: 'Plech krycí náběhový TX9', price: 2.50, currency: 'EUR' },
+        { ref: '11778_n', name: 'Plech vypouštěcí DN18', price: 5.10, currency: 'EUR' },
+        { ref: '11779_n', name: 'Plech protikus vypouštěcího dílu DN18', price: 1.10, currency: 'EUR' },
+        { ref: 'R11892_AlMg3_2mm_A-02', name: 'Plech vodící TX9', price: 4.00, currency: 'EUR' },
+        { ref: '10052_n_A-04', name: 'Plech krycí vypouštěcí a přívod chladící vody', price: 3.20, currency: 'EUR' },
         { ref: 'SADA_REPASY_TX9', name: 'Sada na repasy stroju', price: 22, currency: 'EUR' }
     ]
 };
