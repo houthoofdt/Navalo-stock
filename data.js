@@ -547,7 +547,7 @@ const REPAIR_PRICE_LIST = {
         { ref: 'R11780_AlMg3_1mm_A-04', name: 'Kryt pro rozběhový kondenzátor TX9 Hydra', price: 6, currency: 'EUR' },
         { ref: 'R11869_AlMg3_1mm_A-04', name: 'Krytka prostupu kabelů TX9', price: 2, currency: 'EUR' },
         // Tôlerie TX9 (Plechy)
-        { ref: 'R05493_AlMg3_1.5mm_A-02', name: 'Deska základová TX9', price: 44.10, currency: 'EUR' },
+        { ref: 'R05493_AlMg3_1.5mm_A-02', name: 'Deska základová TX9', price: 10, currency: 'EUR' },
         { ref: 'R05092_AlMg3_2mm_A-06', name: 'Držák deskového výměníku a elektra TX9', price: 4.10, currency: 'EUR' },
         { ref: 'R05494_AlMg3_3mm_A-03', name: 'Držák TX9', price: 3.30, currency: 'EUR' },
         { ref: 'R05495_AlMg3_1.5mm_A-02', name: 'Plech krycí náběhový TX9', price: 2.50, currency: 'EUR' },
