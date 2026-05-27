@@ -8842,6 +8842,9 @@ async function updateReceivedOrdersDisplay() {
                     <button class="btn-icon" onclick="viewOrderConfirmation('${order.id}')" title="${t('view')}">👁️</button>
                     ${hasFile ? `<button class="btn-icon" onclick="viewReceivedOrderFile('${order.id}')" title="${t('viewFile')}">📄</button>` : ''}
                     ${driveButtons}
+                    <button class="btn-icon" onclick="viewLinkedProformaForOrder('${order.id}')" title="Záloha (Proforma)" style="font-size: 0.85em;">💰</button>
+                    <button class="btn-icon" onclick="viewLinkedTaxDocForOrder('${order.id}')" title="Daňový doklad" style="font-size: 0.85em;">📜</button>
+                    <button class="btn-icon" onclick="viewLinkedInvoiceForOrder('${order.id}')" title="Faktura" style="font-size: 0.85em;">🧾</button>
                     ${canConfirm ? `<button class="btn-icon" onclick="confirmReceivedOrder('${order.id}')" title="${t('confirmOrderStatus')}">✓</button>` : ''}
                     ${canDeliver ? `<button class="btn-icon" onclick="markOrderDelivered('${order.id}')" title="${t('markDelivered')}">📦</button>` : ''}
                     ${canInvoice ? `<button class="btn-icon" onclick="createInvoiceFromOrder('${order.id}')" title="${t('createInvoice')}">🧾</button>` : ''}
@@ -9060,6 +9063,9 @@ function updateReceivedOrdersDisplayLocal() {
                 <button class="btn-icon" onclick="viewOrderConfirmation('${order.id}')" title="${t('view')}">👁️</button>
                 ${hasFile ? `<button class="btn-icon" onclick="viewReceivedOrderFile('${order.id}')" title="${t('viewFile')}">📄</button>` : ''}
                 ${driveButtons}
+                <button class="btn-icon" onclick="viewLinkedProformaForOrder('${order.id}')" title="Záloha (Proforma)" style="font-size: 0.85em;">💰</button>
+                <button class="btn-icon" onclick="viewLinkedTaxDocForOrder('${order.id}')" title="Daňový doklad" style="font-size: 0.85em;">📜</button>
+                <button class="btn-icon" onclick="viewLinkedInvoiceForOrder('${order.id}')" title="Faktura" style="font-size: 0.85em;">🧾</button>
                 ${canConfirm ? `<button class="btn-icon" onclick="confirmReceivedOrder('${order.id}')" title="${t('confirmOrderStatus')}">✓</button>` : ''}
                 ${canDeliver ? `<button class="btn-icon" onclick="markOrderDelivered('${order.id}')" title="${t('markDelivered')}">📦</button>` : ''}
                 ${canInvoice ? `<button class="btn-icon" onclick="createInvoiceFromOrder('${order.id}')" title="${t('createInvoice')}">🧾</button>` : ''}
@@ -9106,6 +9112,80 @@ function exportReceivedOrders() {
         csv += `${o.orderNumber};${o.clientOrderNumber || ''};${o.date};${o.client};${o.deliveryDate};${modelQtys};${o.total};${o.currency};${o.status}\n`;
     });
     downloadCSV(csv, `objednavky_prijate_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+// View linked proforma (záloha) for received order
+async function viewLinkedProformaForOrder(orderId) {
+    try {
+        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const proforma = invoices.find(inv =>
+            inv.linkedOrder === orderId &&
+            (inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE')
+        );
+
+        if (proforma) {
+            viewInvoice(proforma.number);
+        } else {
+            showToast('Záloha (proforma) nenalezena', 'warning');
+        }
+    } catch (error) {
+        console.error('Error finding proforma:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+// View linked tax document (daňový doklad) for received order
+async function viewLinkedTaxDocForOrder(orderId) {
+    try {
+        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        // First find the proforma linked to this order
+        const proforma = invoices.find(inv =>
+            inv.linkedOrder === orderId &&
+            (inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE')
+        );
+
+        if (!proforma) {
+            showToast('Proforma nenalezena - daňový doklad nelze zobrazit', 'warning');
+            return;
+        }
+
+        // Tax document number is usually based on proforma number
+        // Format: DD-YYYY-XXX (e.g., DD-2026-001 for proforma ZL2026001)
+        const proformaNum = proforma.number.replace('ZL', '');
+        const taxDocNumber = `DD-${proformaNum}`;
+
+        // Try to find tax document
+        const taxDoc = invoices.find(inv => inv.number === taxDocNumber);
+
+        if (taxDoc) {
+            viewInvoice(taxDoc.number);
+        } else {
+            showToast('Daňový doklad ' + taxDocNumber + ' nenalezen', 'warning');
+        }
+    } catch (error) {
+        console.error('Error finding tax document:', error);
+        showToast(t('error'), 'error');
+    }
+}
+
+// View linked final invoice for received order
+async function viewLinkedInvoiceForOrder(orderId) {
+    try {
+        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const invoice = invoices.find(inv =>
+            inv.linkedOrder === orderId &&
+            !inv.isProforma
+        );
+
+        if (invoice) {
+            viewInvoice(invoice.number);
+        } else {
+            showToast('Faktura nenalezena', 'warning');
+        }
+    } catch (error) {
+        console.error('Error finding invoice:', error);
+        showToast(t('error'), 'error');
+    }
 }
 
 function viewOrderFromDelivery(orderId) {
@@ -9462,6 +9542,9 @@ window.editReceivedOrder = editReceivedOrder;
 window.viewReceivedOrderFile = viewReceivedOrderFile;
 window.uploadReceivedOrderToDrive = uploadReceivedOrderToDrive;
 window.addRecOrdCustomItem = addRecOrdCustomItem;
+window.viewLinkedProformaForOrder = viewLinkedProformaForOrder;
+window.viewLinkedTaxDocForOrder = viewLinkedTaxDocForOrder;
+window.viewLinkedInvoiceForOrder = viewLinkedInvoiceForOrder;
 window.onRecOrdFileSelect = onRecOrdFileSelect;
 window.calculateRecOrdTotal = calculateRecOrdTotal;
 window.onRecOrdClientChange = onRecOrdClientChange;
