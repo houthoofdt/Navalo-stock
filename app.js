@@ -5301,8 +5301,9 @@ function updateInvoiceStats(invoices) {
 
         // Deduct paid proforma amount if linked
         if (inv.linkedProformaId || inv.linkedProforma) {
-            const proformaId = inv.linkedProformaId || inv.linkedProforma?.id;
-            const linkedProforma = invoices.find(i => i.id === proformaId);
+            // linkedProformaId contains the proforma NUMBER (e.g., "ZL2026001"), not the ID
+            const proformaNumber = inv.linkedProformaId || inv.linkedProforma?.number;
+            const linkedProforma = invoices.find(i => i.number === proformaNumber);
 
             // If proforma exists and is paid, deduct its deposit amount from the remaining total
             if (linkedProforma && linkedProforma.paid) {
@@ -5469,6 +5470,12 @@ function viewInvoice(invNumber) {
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) return;
+
+    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
+    if (!inv.linkedProforma && inv.linkedProformaData) {
+        inv.linkedProforma = inv.linkedProformaData;
+    }
+
     currentInvoice = inv;
 
     // Ensure EUR invoices have an exchange rate for display purposes
@@ -12944,6 +12951,11 @@ function previewInvoiceBeforeSave() {
 }
 
 function generateInvoicePreviewHTML(inv) {
+    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
+    if (!inv.linkedProforma && inv.linkedProformaData) {
+        inv.linkedProforma = inv.linkedProformaData;
+    }
+
     const config = CONFIG || {};
     const company = config.COMPANY || {};
     const curr = inv.currency || 'CZK';
