@@ -7283,7 +7283,7 @@ async function saveIssuedInvoice() {
     // Get linked proforma for invoice metadata (already fetched above for items)
     if (proformaSelect && proformaSelect.value) {
         const opt = proformaSelect.options[proformaSelect.selectedIndex];
-        invoice.linkedProforma = {
+        const linkedProformaData = {
             number: proformaSelect.value,
             ddNumber: opt.dataset.ddNumber || proformaSelect.value.replace(/^(ZL|PI|PF)-?/, 'DD-'),
             total: parseFloat(opt.dataset.total) || 0,
@@ -7295,6 +7295,10 @@ async function saveIssuedInvoice() {
             paidSubtotalCZK: parseFloat(opt.dataset.paidSubtotalCZK) || null,
             paidVatCZK: parseFloat(opt.dataset.paidVatCZK) || null
         };
+        // Store in multiple formats for compatibility
+        invoice.linkedProforma = linkedProformaData;
+        invoice.linkedProformaId = proformaSelect.value;
+        invoice.linkedProformaData = linkedProformaData;
     }
 
     // Get order details if linked - use cached data from localStorage (synced from GS)
