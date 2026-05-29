@@ -5487,7 +5487,8 @@ function viewInvoice(invNumber) {
     // Generate items HTML with full columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     const curr = inv.currency || 'CZK';
     let isUnderPacHeader = false;
-    let itemsHtml = (inv.items || []).map(item => {
+    // Filter out proforma deduction items (legacy) - they are generated dynamically now
+    let itemsHtml = (inv.items || []).filter(item => !item.isProformaDeduction).map(item => {
         // Special formatting for PAC headers (like in repair quote)
         if (item.isPacHeader) {
             isUnderPacHeader = true;
@@ -7169,29 +7170,9 @@ async function saveIssuedInvoice() {
         return;
     }
 
-    // Check if there's a linked proforma and add deduction item
-    const proformaSelect = document.getElementById('invLinkedProforma');
-    if (proformaSelect && proformaSelect.value) {
-        const opt = proformaSelect.options[proformaSelect.selectedIndex];
-        const proformaTotal = parseFloat(opt.dataset.total) || 0;
-        const proformaSubtotal = parseFloat(opt.dataset.subtotal) || 0;
-        const proformaVat = parseFloat(opt.dataset.vat) || 0;
-        const proformaNumber = proformaSelect.value;
-        const ddNumber = opt.dataset.ddNumber || proformaNumber.replace(/^(ZL|PI|PF)-?/, 'DD-');
-
-        // Add deduction line item (negative amount)
-        // Use SUBTOTAL (before VAT) because invoice will add VAT automatically
-        const linkedOrderNum = document.getElementById('invClientOrderNum')?.value || '';
-        const deductionText = `Záloha záloze složení přijaté platbě ${ddNumber} na objednávku ${linkedOrderNum}`;
-
-        items.push({
-            name: deductionText,
-            qty: 1,
-            price: -proformaSubtotal,
-            total: -proformaSubtotal,
-            isProformaDeduction: true
-        });
-    }
+    // Note: We do NOT add the deduction line to items here
+    // The deduction line is generated dynamically in viewInvoice() and generateInvoicePreviewHTML()
+    // based on linkedProforma data. This avoids duplication and ensures consistency.
 
     // Get proforma state and invoice number from form
     const proformaCheckbox = document.getElementById('invIsProforma');
@@ -12969,7 +12950,8 @@ function generateInvoicePreviewHTML(inv) {
 
     // Generate items HTML with full 7 columns: Popis | Množství | MJ | Cena za MJ | Celkem bez DPH | DPH | Celkem s DPH
     let isUnderPacHeader = false;
-    let itemsHtml = (inv.items || []).map(item => {
+    // Filter out proforma deduction items (legacy) - they are generated dynamically now
+    let itemsHtml = (inv.items || []).filter(item => !item.isProformaDeduction).map(item => {
         // Special formatting for PAC headers (like in repair quote)
         if (item.isPacHeader) {
             isUnderPacHeader = true;
