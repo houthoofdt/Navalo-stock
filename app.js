@@ -7170,9 +7170,11 @@ async function saveIssuedInvoice() {
         return;
     }
 
+    // Get linked proforma select element (needed later for metadata)
     // Note: We do NOT add the deduction line to items here
     // The deduction line is generated dynamically in viewInvoice() and generateInvoicePreviewHTML()
     // based on linkedProforma data. This avoids duplication and ensures consistency.
+    const proformaSelect = document.getElementById('invLinkedProforma');
 
     // Get proforma state and invoice number from form
     const proformaCheckbox = document.getElementById('invIsProforma');
