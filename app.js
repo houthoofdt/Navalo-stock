@@ -7509,9 +7509,9 @@ function editInvoice(invNumber) {
         }
     }
 
-    // Load items
+    // Load items (exclude proforma deduction line - it will be recreated on save)
     document.getElementById('invItems').innerHTML = '';
-    (inv.items || []).forEach(item => {
+    (inv.items || []).filter(item => !item.isProformaDeduction).forEach(item => {
         addInvoiceItemRow(item.name, item.qty, item.price);
     });
 
