@@ -5206,11 +5206,20 @@ async function updateInvoicesDisplay() {
         }
     }
 
-    // Normalize isProforma field for all invoices
-    invoices = invoices.map(inv => ({
-        ...inv,
-        isProforma: inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'))
-    }));
+    // Normalize isProforma field and linkedProforma data for all invoices
+    invoices = invoices.map(inv => {
+        const normalized = {
+            ...inv,
+            isProforma: inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'))
+        };
+
+        // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
+        if (!normalized.linkedProforma && normalized.linkedProformaData) {
+            normalized.linkedProforma = normalized.linkedProformaData;
+        }
+
+        return normalized;
+    });
 
     // Update localStorage with normalized data
     localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
