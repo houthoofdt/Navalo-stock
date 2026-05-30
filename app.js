@@ -9273,7 +9273,11 @@ async function viewLinkedTaxDocForOrder(orderId) {
             console.log('✅ Found tax document');
             viewInvoice(taxDoc.number);
         } else {
-            console.log('❌ Tax document not found. Is the proforma marked as paid?');
+            console.log('❌ Tax document not found');
+            console.log('  - Total invoices loaded:', invoices.length);
+            console.log('  - Looking for:', taxDocNumber);
+            console.log('  - Available tax documents:', invoices.filter(inv => inv.number && inv.number.startsWith('DD-')).map(inv => inv.number));
+
             if (!proforma.paid) {
                 showToast('Proforma ' + proforma.number + ' není zaplacena. Nejprve označte jako zaplacenou pomocí 💰📄', 'warning');
             } else {
