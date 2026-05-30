@@ -5577,7 +5577,9 @@ function viewInvoice(invNumber) {
     itemsHtml += generateProformaDeductionItemHtml(inv);
 
     // Calculate net totals (after proforma deduction)
-    const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0;
+    // Check if deduction is already in items (old method) - if so, don't subtract again
+    const deductionAlreadyInItems = (inv.items || []).some(item => item.isProformaDeduction);
+    const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0 && !deductionAlreadyInItems;
     const netSubtotal = hasProformaDeduction ? inv.subtotal - inv.linkedProforma.subtotal : inv.subtotal;
     const netVat = hasProformaDeduction ? inv.vat - inv.linkedProforma.vat : inv.vat;
     const netTotal = hasProformaDeduction ? inv.total - inv.linkedProforma.total : inv.total;
@@ -13107,8 +13109,11 @@ function generateInvoicePreviewHTML(inv) {
     itemsHtml += deductionHtml;
 
     // Calculate net totals (after proforma deduction)
-    const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0;
+    // Check if deduction is already in items (old method) - if so, don't subtract again
+    const deductionAlreadyInItems = (inv.items || []).some(item => item.isProformaDeduction);
+    const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0 && !deductionAlreadyInItems;
     console.log('generateInvoicePreviewHTML - hasProformaDeduction:', hasProformaDeduction);
+    console.log('generateInvoicePreviewHTML - deductionAlreadyInItems:', deductionAlreadyInItems);
     const netSubtotal = hasProformaDeduction ? inv.subtotal - inv.linkedProforma.subtotal : inv.subtotal;
     const netVat = hasProformaDeduction ? inv.vat - inv.linkedProforma.vat : inv.vat;
     const netTotal = hasProformaDeduction ? inv.total - inv.linkedProforma.total : inv.total;
