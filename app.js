@@ -9244,6 +9244,8 @@ async function viewLinkedProformaForOrder(orderId) {
 async function viewLinkedTaxDocForOrder(orderId) {
     try {
         const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        console.log('🔍 Looking for tax document for order:', orderId);
+
         // First find the proforma linked to this order
         const proforma = invoices.find(inv =>
             inv.linkedOrder === orderId &&
@@ -9251,22 +9253,32 @@ async function viewLinkedTaxDocForOrder(orderId) {
         );
 
         if (!proforma) {
+            console.log('❌ No proforma found for this order');
             showToast('Proforma nenalezena - daňový doklad nelze zobrazit', 'warning');
             return;
         }
+
+        console.log('✅ Found proforma:', proforma.number, '- Paid:', proforma.paid);
 
         // Tax document number is usually based on proforma number
         // Format: DD-YYYY-XXX (e.g., DD-2026-001 for proforma ZL2026001 or PF2026001)
         const proformaNum = proforma.number.replace(/^(ZL|PF|PI)-?/, '');
         const taxDocNumber = `DD-${proformaNum}`;
+        console.log('🔍 Looking for tax document:', taxDocNumber);
 
         // Try to find tax document
         const taxDoc = invoices.find(inv => inv.number === taxDocNumber);
 
         if (taxDoc) {
+            console.log('✅ Found tax document');
             viewInvoice(taxDoc.number);
         } else {
-            showToast('Daňový doklad ' + taxDocNumber + ' nenalezen', 'warning');
+            console.log('❌ Tax document not found. Is the proforma marked as paid?');
+            if (!proforma.paid) {
+                showToast('Proforma ' + proforma.number + ' není zaplacena. Nejprve označte jako zaplacenou pomocí 💰📄', 'warning');
+            } else {
+                showToast('Daňový doklad ' + taxDocNumber + ' nenalezen. Vytvořte ho pomocí tlačítka 💰📄 u proformy v záložce Faktury.', 'warning');
+            }
         }
     } catch (error) {
         console.error('Error finding tax document:', error);
