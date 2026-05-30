@@ -5580,9 +5580,21 @@ function viewInvoice(invNumber) {
     // Check if deduction is already in items (old method) - if so, don't subtract again
     const deductionAlreadyInItems = (inv.items || []).some(item => item.isProformaDeduction);
     const hasProformaDeduction = inv.linkedProforma && inv.linkedProforma.total > 0 && !deductionAlreadyInItems;
+    console.log('🔍 TOTAL CALCULATION:');
+    console.log('  - deductionAlreadyInItems:', deductionAlreadyInItems);
+    console.log('  - hasProformaDeduction:', hasProformaDeduction);
+    console.log('  - inv.subtotal:', inv.subtotal);
+    console.log('  - inv.vat:', inv.vat);
+    console.log('  - inv.total:', inv.total);
+    console.log('  - linkedProforma.subtotal:', inv.linkedProforma?.subtotal);
+    console.log('  - linkedProforma.vat:', inv.linkedProforma?.vat);
+    console.log('  - linkedProforma.total:', inv.linkedProforma?.total);
     const netSubtotal = hasProformaDeduction ? inv.subtotal - inv.linkedProforma.subtotal : inv.subtotal;
     const netVat = hasProformaDeduction ? inv.vat - inv.linkedProforma.vat : inv.vat;
     const netTotal = hasProformaDeduction ? inv.total - inv.linkedProforma.total : inv.total;
+    console.log('  - NET subtotal:', netSubtotal);
+    console.log('  - NET vat:', netVat);
+    console.log('  - NET total:', netTotal);
 
     const bankInfo = inv.currency === 'EUR' ? company.bank?.EUR : company.bank?.CZK;
     
