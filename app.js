@@ -5213,9 +5213,27 @@ async function updateInvoicesDisplay() {
             isProforma: inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'))
         };
 
-        // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
-        if (!normalized.linkedProforma && normalized.linkedProformaData) {
-            normalized.linkedProforma = normalized.linkedProformaData;
+        // Restore linkedProforma from various possible sources (for Google Sheets compatibility)
+        if (!normalized.linkedProforma) {
+            // Try linkedProformaData first
+            if (normalized.linkedProformaData) {
+                normalized.linkedProforma = normalized.linkedProformaData;
+            }
+            // Otherwise, rebuild from individual fields
+            else if (normalized.linkedProformaNumber) {
+                normalized.linkedProforma = {
+                    number: normalized.linkedProformaNumber,
+                    ddNumber: normalized.linkedProformaDdNumber,
+                    total: normalized.linkedProformaTotal || 0,
+                    subtotal: normalized.linkedProformaSubtotal || 0,
+                    vat: normalized.linkedProformaVat || 0,
+                    currency: normalized.linkedProformaCurrency || 'CZK',
+                    paidExchangeRate: normalized.linkedProformaPaidExchangeRate || null,
+                    paidAmountCZK: normalized.linkedProformaPaidAmountCZK || null,
+                    paidSubtotalCZK: normalized.linkedProformaPaidSubtotalCZK || null,
+                    paidVatCZK: normalized.linkedProformaPaidVatCZK || null
+                };
+            }
         }
 
         return normalized;
@@ -5478,15 +5496,29 @@ function viewInvoice(invNumber) {
 
     console.log('🔍 VIEW INVOICE DEBUG:', invNumber);
     console.log('  - inv.linkedProforma:', inv.linkedProforma);
-    console.log('  - inv.linkedProformaId:', inv.linkedProformaId);
+    console.log('  - inv.linkedProformaNumber:', inv.linkedProformaNumber);
     console.log('  - inv.linkedProformaData:', inv.linkedProformaData);
 
-    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
-    if (!inv.linkedProforma && inv.linkedProformaData) {
-        console.log('  - Restoring linkedProforma from linkedProformaData');
-        inv.linkedProforma = inv.linkedProformaData;
-    } else if (!inv.linkedProforma && inv.linkedProformaId) {
-        console.log('  - WARNING: linkedProformaId exists but no linkedProformaData!');
+    // Restore linkedProforma from various possible sources (for Google Sheets compatibility)
+    if (!inv.linkedProforma) {
+        if (inv.linkedProformaData) {
+            console.log('  - Restoring linkedProforma from linkedProformaData');
+            inv.linkedProforma = inv.linkedProformaData;
+        } else if (inv.linkedProformaNumber) {
+            console.log('  - Restoring linkedProforma from individual fields');
+            inv.linkedProforma = {
+                number: inv.linkedProformaNumber,
+                ddNumber: inv.linkedProformaDdNumber,
+                total: inv.linkedProformaTotal || 0,
+                subtotal: inv.linkedProformaSubtotal || 0,
+                vat: inv.linkedProformaVat || 0,
+                currency: inv.linkedProformaCurrency || 'CZK',
+                paidExchangeRate: inv.linkedProformaPaidExchangeRate || null,
+                paidAmountCZK: inv.linkedProformaPaidAmountCZK || null,
+                paidSubtotalCZK: inv.linkedProformaPaidSubtotalCZK || null,
+                paidVatCZK: inv.linkedProformaPaidVatCZK || null
+            };
+        }
     }
 
     console.log('  - AFTER restoration, inv.linkedProforma:', inv.linkedProforma);
@@ -7315,8 +7347,22 @@ async function saveIssuedInvoice() {
         invoice.linkedProforma = linkedProformaData;
         invoice.linkedProformaId = proformaSelect.value;
         invoice.linkedProformaData = linkedProformaData;
+
+        // ALSO store as individual fields for Google Sheets compatibility (primitive types work better)
+        invoice.linkedProformaNumber = linkedProformaData.number;
+        invoice.linkedProformaDdNumber = linkedProformaData.ddNumber;
+        invoice.linkedProformaTotal = linkedProformaData.total;
+        invoice.linkedProformaSubtotal = linkedProformaData.subtotal;
+        invoice.linkedProformaVat = linkedProformaData.vat;
+        invoice.linkedProformaCurrency = linkedProformaData.currency;
+        invoice.linkedProformaPaidExchangeRate = linkedProformaData.paidExchangeRate;
+        invoice.linkedProformaPaidAmountCZK = linkedProformaData.paidAmountCZK;
+        invoice.linkedProformaPaidSubtotalCZK = linkedProformaData.paidSubtotalCZK;
+        invoice.linkedProformaPaidVatCZK = linkedProformaData.paidVatCZK;
+
         console.log('✅ SAVED linkedProforma data:', {
             linkedProformaId: invoice.linkedProformaId,
+            linkedProformaNumber: invoice.linkedProformaNumber,
             linkedProforma: invoice.linkedProforma,
             linkedProformaData: invoice.linkedProformaData
         });
@@ -7464,9 +7510,24 @@ function editInvoice(invNumber) {
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) return;
 
-    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
-    if (!inv.linkedProforma && inv.linkedProformaData) {
-        inv.linkedProforma = inv.linkedProformaData;
+    // Restore linkedProforma from various possible sources (for Google Sheets compatibility)
+    if (!inv.linkedProforma) {
+        if (inv.linkedProformaData) {
+            inv.linkedProforma = inv.linkedProformaData;
+        } else if (inv.linkedProformaNumber) {
+            inv.linkedProforma = {
+                number: inv.linkedProformaNumber,
+                ddNumber: inv.linkedProformaDdNumber,
+                total: inv.linkedProformaTotal || 0,
+                subtotal: inv.linkedProformaSubtotal || 0,
+                vat: inv.linkedProformaVat || 0,
+                currency: inv.linkedProformaCurrency || 'CZK',
+                paidExchangeRate: inv.linkedProformaPaidExchangeRate || null,
+                paidAmountCZK: inv.linkedProformaPaidAmountCZK || null,
+                paidSubtotalCZK: inv.linkedProformaPaidSubtotalCZK || null,
+                paidVatCZK: inv.linkedProformaPaidVatCZK || null
+            };
+        }
     }
 
     editingInvoiceNumber = invNumber;
@@ -12979,9 +13040,24 @@ function previewInvoiceBeforeSave() {
 }
 
 function generateInvoicePreviewHTML(inv) {
-    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
-    if (!inv.linkedProforma && inv.linkedProformaData) {
-        inv.linkedProforma = inv.linkedProformaData;
+    // Restore linkedProforma from various possible sources (for Google Sheets compatibility)
+    if (!inv.linkedProforma) {
+        if (inv.linkedProformaData) {
+            inv.linkedProforma = inv.linkedProformaData;
+        } else if (inv.linkedProformaNumber) {
+            inv.linkedProforma = {
+                number: inv.linkedProformaNumber,
+                ddNumber: inv.linkedProformaDdNumber,
+                total: inv.linkedProformaTotal || 0,
+                subtotal: inv.linkedProformaSubtotal || 0,
+                vat: inv.linkedProformaVat || 0,
+                currency: inv.linkedProformaCurrency || 'CZK',
+                paidExchangeRate: inv.linkedProformaPaidExchangeRate || null,
+                paidAmountCZK: inv.linkedProformaPaidAmountCZK || null,
+                paidSubtotalCZK: inv.linkedProformaPaidSubtotalCZK || null,
+                paidVatCZK: inv.linkedProformaPaidVatCZK || null
+            };
+        }
     }
 
     const config = CONFIG || {};
