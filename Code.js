@@ -2048,7 +2048,7 @@ function getInvoices(limit) {
     try { items = JSON.parse(data[i][13] || '[]'); } catch(e) {}
 
     let linkedProforma = null;
-    try { linkedProforma = JSON.parse(data[i][23] || 'null'); } catch(e) {}
+    try { linkedProforma = JSON.parse(data[i][24] || 'null'); } catch(e) {} // FIX: Column Y is index 24, not 23
 
     const type = data[i][14] || 'standard';
 
