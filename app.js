@@ -5702,7 +5702,7 @@ async function openFreeInvoiceModal() {
 }
 
 // Populate dropdown with paid proformas for deduction
-function populatePaidProformaSelect() {
+function populatePaidProformaSelect(currentInvoiceNumber = null) {
     const select = document.getElementById('invLinkedProforma');
     if (!select) return;
 
@@ -5710,10 +5710,12 @@ function populatePaidProformaSelect() {
 
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     // Filter: proformas that are paid and not already used in another invoice
+    // EXCEPT if they are used by the current invoice being edited
     // Check both isProforma flag and type === 'proforma' (from Google Sheets)
     const paidProformas = invoices.filter(inv => {
         const isProformaDoc = inv.isProforma || inv.type === 'proforma' || (inv.number && String(inv.number).startsWith('PF'));
-        return isProformaDoc && inv.paid && !inv.usedInInvoice;
+        const isAvailable = !inv.usedInInvoice || inv.usedInInvoice === currentInvoiceNumber;
+        return isProformaDoc && inv.paid && isAvailable;
     });
 
     paidProformas.forEach(pf => {
@@ -7505,10 +7507,10 @@ function editInvoice(invNumber) {
     } else {
         document.getElementById('invExchangeRateGroup').style.display = 'none';
     }
-    
+
     populateClientSelect('invClient');
     populateRecOrderSelect();
-    populatePaidProformaSelect();
+    populatePaidProformaSelect(inv.number);
 
     // Select the client (find by name since inv.client contains the name, not ID)
     if (inv.client) {
