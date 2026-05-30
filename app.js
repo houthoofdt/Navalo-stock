@@ -5333,9 +5333,14 @@ function updateInvoiceStats(invoices) {
 
 // Generate deduction line item HTML for invoice table (7-column format)
 function generateProformaDeductionItemHtml(inv) {
-    if (!inv.linkedProforma) return '';
+    console.log('🔍 GENERATE DEDUCTION HTML - inv.linkedProforma:', inv.linkedProforma);
+    if (!inv.linkedProforma) {
+        console.log('  - NO linkedProforma, returning empty string');
+        return '';
+    }
 
     const pf = inv.linkedProforma;
+    console.log('  - Generating deduction line for proforma:', pf.number);
     const vatRate = inv.vatRate || 21;
     const curr = inv.currency || 'CZK';
     // DD number from stored data or derive from proforma number
@@ -5471,10 +5476,20 @@ function viewInvoice(invNumber) {
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) return;
 
+    console.log('🔍 VIEW INVOICE DEBUG:', invNumber);
+    console.log('  - inv.linkedProforma:', inv.linkedProforma);
+    console.log('  - inv.linkedProformaId:', inv.linkedProformaId);
+    console.log('  - inv.linkedProformaData:', inv.linkedProformaData);
+
     // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
     if (!inv.linkedProforma && inv.linkedProformaData) {
+        console.log('  - Restoring linkedProforma from linkedProformaData');
         inv.linkedProforma = inv.linkedProformaData;
+    } else if (!inv.linkedProforma && inv.linkedProformaId) {
+        console.log('  - WARNING: linkedProformaId exists but no linkedProformaData!');
     }
+
+    console.log('  - AFTER restoration, inv.linkedProforma:', inv.linkedProforma);
 
     currentInvoice = inv;
 
@@ -7298,6 +7313,11 @@ async function saveIssuedInvoice() {
         invoice.linkedProforma = linkedProformaData;
         invoice.linkedProformaId = proformaSelect.value;
         invoice.linkedProformaData = linkedProformaData;
+        console.log('✅ SAVED linkedProforma data:', {
+            linkedProformaId: invoice.linkedProformaId,
+            linkedProforma: invoice.linkedProforma,
+            linkedProformaData: invoice.linkedProformaData
+        });
     }
 
     // Get order details if linked - use cached data from localStorage (synced from GS)
