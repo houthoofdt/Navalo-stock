@@ -7441,7 +7441,12 @@ function editInvoice(invNumber) {
     const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
     const inv = invoices.find(i => i.number === invNumber);
     if (!inv) return;
-    
+
+    // Restore linkedProforma from linkedProformaData if needed (for Google Sheets compatibility)
+    if (!inv.linkedProforma && inv.linkedProformaData) {
+        inv.linkedProforma = inv.linkedProformaData;
+    }
+
     editingInvoiceNumber = invNumber;
     document.getElementById('invoiceModalTitle').textContent = t('edit');
     document.getElementById('invNumber').value = inv.number;
@@ -7505,10 +7510,11 @@ function editInvoice(invNumber) {
     }
 
     // Select linked proforma if exists
-    if (inv.linkedProforma && inv.linkedProforma.number) {
+    const linkedProformaNumber = inv.linkedProformaId || inv.linkedProforma?.number;
+    if (linkedProformaNumber) {
         const proformaSelect = document.getElementById('invLinkedProforma');
         if (proformaSelect) {
-            proformaSelect.value = inv.linkedProforma.number;
+            proformaSelect.value = linkedProformaNumber;
         }
     }
 
