@@ -5194,7 +5194,7 @@ async function updateInvoicesDisplay() {
     // Load from Google Sheets if connected
     if (storage.getMode() === 'googlesheets') {
         try {
-            const remoteInvoices = await storage.getInvoices(200);
+            const remoteInvoices = await storage.getInvoices(500);
             if (Array.isArray(remoteInvoices) && remoteInvoices.length > 0) {
                 invoices = remoteInvoices;
                 localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
