@@ -9256,8 +9256,8 @@ async function viewLinkedTaxDocForOrder(orderId) {
         }
 
         // Tax document number is usually based on proforma number
-        // Format: DD-YYYY-XXX (e.g., DD-2026-001 for proforma ZL2026001)
-        const proformaNum = proforma.number.replace('ZL', '');
+        // Format: DD-YYYY-XXX (e.g., DD-2026-001 for proforma ZL2026001 or PF2026001)
+        const proformaNum = proforma.number.replace(/^(ZL|PF|PI)-?/, '');
         const taxDocNumber = `DD-${proformaNum}`;
 
         // Try to find tax document
