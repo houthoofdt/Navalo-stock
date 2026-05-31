@@ -988,6 +988,298 @@ function validateStockLotsReferences() {
   }
 }
 
+/**
+ * Audits and recalculates stock based on Historique movements
+ * Compares calculated stock with actual Stock and Stock_Lots
+ * @param {boolean} applyFix - If true, updates Stock and Stock_Lots with calculated values
+ * @returns {Object} Audit report with discrepancies and statistics
+ */
+function auditAndRecalculateStock(applyFix = false) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+
+  if (!historySheet || !stockSheet || !lotsSheet) {
+    return { success: false, message: 'Required sheets not found' };
+  }
+
+  Logger.log('=== AUDIT AND RECALCULATE STOCK ===');
+  Logger.log('Apply fix: ' + applyFix);
+
+  // Read all history movements
+  const historyData = historySheet.getDataRange().getValues();
+  const movements = [];
+  for (let i = 1; i < historyData.length; i++) {
+    const type = String(historyData[i][1] || '').trim().toUpperCase();
+    const ref = String(historyData[i][4] || '').trim();
+    const qty = Number(historyData[i][5]) || 0;
+
+    if (ref && qty > 0 && (type === 'ENTREE' || type === 'SORTIE')) {
+      movements.push({
+        row: i + 1,
+        date: historyData[i][0],
+        type: type,
+        docNum: historyData[i][2],
+        supplier: historyData[i][3],
+        ref: ref,
+        qty: qty,
+        priceUnit: Number(historyData[i][6]) || 0,
+        currency: historyData[i][7],
+        priceCZK: Number(historyData[i][8]) || 0,
+        totalValue: Number(historyData[i][9]) || 0
+      });
+    }
+  }
+
+  Logger.log('Found ' + movements.length + ' movements in Historique');
+
+  // Sort movements by date
+  movements.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Build calculated stock and lots
+  const calculatedStock = {}; // ref -> { qty, value, lots: [] }
+
+  for (const mv of movements) {
+    if (!calculatedStock[mv.ref]) {
+      calculatedStock[mv.ref] = { qty: 0, value: 0, lots: [] };
+    }
+
+    if (mv.type === 'ENTREE') {
+      // Add to stock
+      calculatedStock[mv.ref].qty += mv.qty;
+      calculatedStock[mv.ref].value += mv.totalValue;
+
+      // Create a new lot
+      calculatedStock[mv.ref].lots.push({
+        ref: mv.ref,
+        date: mv.date,
+        docNum: mv.docNum,
+        qtyInit: mv.qty,
+        qtyRemaining: mv.qty,
+        priceUnit: mv.priceUnit,
+        currency: mv.currency,
+        priceCZK: mv.priceCZK,
+        supplier: mv.supplier
+      });
+
+    } else if (mv.type === 'SORTIE') {
+      // Deduct from stock using FIFO
+      calculatedStock[mv.ref].qty -= mv.qty;
+
+      let qtyToDeduct = mv.qty;
+      let deductedValue = 0;
+
+      // Sort lots by date (FIFO)
+      calculatedStock[mv.ref].lots.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      for (const lot of calculatedStock[mv.ref].lots) {
+        if (qtyToDeduct <= 0) break;
+
+        const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
+        lot.qtyRemaining -= deductFromLot;
+        deductedValue += deductFromLot * lot.priceCZK;
+        qtyToDeduct -= deductFromLot;
+      }
+
+      calculatedStock[mv.ref].value -= deductedValue;
+
+      if (qtyToDeduct > 0) {
+        Logger.log('WARNING: SORTIE at row ' + mv.row + ' could not fully deduct ' + mv.qty + ' units of ' + mv.ref + '. Missing: ' + qtyToDeduct);
+      }
+    }
+  }
+
+  Logger.log('Calculated stock for ' + Object.keys(calculatedStock).length + ' references');
+
+  // Read actual stock
+  const stockData = stockSheet.getDataRange().getValues();
+  const actualStock = {};
+  const stockRowMap = {}; // ref -> row index
+
+  for (let i = 1; i < stockData.length; i++) {
+    const ref = String(stockData[i][0] || '').trim();
+    if (ref) {
+      actualStock[ref] = {
+        qty: Number(stockData[i][4]) || 0,
+        value: Number(stockData[i][6]) || 0,
+        row: i + 1
+      };
+      stockRowMap[ref] = i + 1;
+    }
+  }
+
+  Logger.log('Found ' + Object.keys(actualStock).length + ' items in Stock sheet');
+
+  // Read actual lots
+  const lotsData = lotsSheet.getDataRange().getValues();
+  const actualLots = {}; // ref -> array of lots
+
+  for (let i = 1; i < lotsData.length; i++) {
+    const ref = String(lotsData[i][1] || '').trim();
+    if (ref) {
+      if (!actualLots[ref]) actualLots[ref] = [];
+      actualLots[ref].push({
+        row: i + 1,
+        id: lotsData[i][0],
+        ref: ref,
+        date: lotsData[i][2],
+        docNum: lotsData[i][3],
+        qtyInit: Number(lotsData[i][4]) || 0,
+        qtyRemaining: Number(lotsData[i][5]) || 0,
+        priceUnit: Number(lotsData[i][6]) || 0,
+        currency: lotsData[i][7],
+        priceCZK: Number(lotsData[i][8]) || 0,
+        supplier: lotsData[i][9]
+      });
+    }
+  }
+
+  Logger.log('Found lots for ' + Object.keys(actualLots).length + ' references in Stock_Lots');
+
+  // Compare and identify discrepancies
+  const discrepancies = [];
+  const allRefs = new Set([...Object.keys(calculatedStock), ...Object.keys(actualStock)]);
+
+  for (const ref of allRefs) {
+    const calc = calculatedStock[ref] || { qty: 0, value: 0, lots: [] };
+    const actual = actualStock[ref] || { qty: 0, value: 0 };
+
+    const qtyDiff = calc.qty - actual.qty;
+    const valueDiff = calc.value - actual.value;
+
+    // Calculate lots sum
+    const calcLotsQty = calc.lots.reduce((sum, lot) => sum + lot.qtyRemaining, 0);
+    const actualLotsQty = (actualLots[ref] || []).reduce((sum, lot) => sum + lot.qtyRemaining, 0);
+    const lotsQtyDiff = calcLotsQty - actualLotsQty;
+
+    if (Math.abs(qtyDiff) > 0.001 || Math.abs(lotsQtyDiff) > 0.001) {
+      discrepancies.push({
+        ref: ref,
+        calculatedQty: calc.qty,
+        actualQty: actual.qty,
+        qtyDiff: qtyDiff,
+        calculatedLotsQty: calcLotsQty,
+        actualLotsQty: actualLotsQty,
+        lotsQtyDiff: lotsQtyDiff,
+        calculatedValue: calc.value,
+        actualValue: actual.value,
+        valueDiff: valueDiff,
+        stockRow: actual.row
+      });
+    }
+  }
+
+  Logger.log('Found ' + discrepancies.length + ' discrepancies');
+
+  // Generate report
+  let report = '=== AUDIT DU STOCK ===\n\n';
+  report += 'Mouvements analysés: ' + movements.length + '\n';
+  report += 'Références calculées: ' + Object.keys(calculatedStock).length + '\n';
+  report += 'Références dans Stock: ' + Object.keys(actualStock).length + '\n';
+  report += 'Écarts trouvés: ' + discrepancies.length + '\n\n';
+
+  if (discrepancies.length === 0) {
+    report += '✅ AUCUN ÉCART DÉTECTÉ\n';
+    report += 'Le stock et Stock_Lots sont cohérents avec l\'Historique.\n';
+  } else {
+    report += '⚠️ ÉCARTS DÉTECTÉS:\n\n';
+
+    discrepancies.forEach(d => {
+      report += '─────────────────────────────────\n';
+      report += 'Référence: ' + d.ref + ' (Ligne Stock: ' + d.stockRow + ')\n';
+
+      if (Math.abs(d.qtyDiff) > 0.001) {
+        report += '  Stock Qty: Calculé=' + d.calculatedQty.toFixed(2) +
+                  ' | Actuel=' + d.actualQty.toFixed(2) +
+                  ' | Écart=' + d.qtyDiff.toFixed(2) + '\n';
+      }
+
+      if (Math.abs(d.lotsQtyDiff) > 0.001) {
+        report += '  Lots Qty: Calculé=' + d.calculatedLotsQty.toFixed(2) +
+                  ' | Actuel=' + d.actualLotsQty.toFixed(2) +
+                  ' | Écart=' + d.lotsQtyDiff.toFixed(2) + '\n';
+      }
+
+      if (Math.abs(d.valueDiff) > 0.01) {
+        report += '  Valeur: Calculé=' + d.calculatedValue.toFixed(2) + ' CZK' +
+                  ' | Actuel=' + d.actualValue.toFixed(2) + ' CZK' +
+                  ' | Écart=' + d.valueDiff.toFixed(2) + ' CZK\n';
+      }
+    });
+
+    report += '─────────────────────────────────\n\n';
+  }
+
+  // Apply fix if requested
+  if (applyFix && discrepancies.length > 0) {
+    report += '\n=== APPLICATION DES CORRECTIONS ===\n\n';
+
+    // Clear Stock_Lots sheet (except header)
+    if (lotsData.length > 1) {
+      lotsSheet.deleteRows(2, lotsData.length - 1);
+    }
+
+    let fixedCount = 0;
+    let lotsCreated = 0;
+
+    for (const ref in calculatedStock) {
+      const calc = calculatedStock[ref];
+
+      // Update Stock quantity and value
+      if (stockRowMap[ref]) {
+        stockSheet.getRange(stockRowMap[ref], 5).setValue(calc.qty); // Quantity
+        stockSheet.getRange(stockRowMap[ref], 7).setValue(calc.value); // Value
+        stockSheet.getRange(stockRowMap[ref], 8).setValue(new Date()); // Last update
+        fixedCount++;
+      }
+
+      // Recreate lots in Stock_Lots
+      for (const lot of calc.lots) {
+        if (lot.qtyRemaining > 0) {
+          lotsSheet.appendRow([
+            Utilities.getUuid(),
+            lot.ref,
+            lot.date,
+            lot.docNum,
+            lot.qtyInit,
+            lot.qtyRemaining,
+            lot.priceUnit,
+            lot.currency,
+            lot.priceCZK,
+            lot.supplier
+          ]);
+          lotsCreated++;
+        }
+      }
+    }
+
+    report += 'Stock mis à jour: ' + fixedCount + ' références\n';
+    report += 'Stock_Lots recréé: ' + lotsCreated + ' lots\n';
+    report += '\n✅ CORRECTIONS APPLIQUÉES\n';
+  } else if (applyFix) {
+    report += '\n✅ Aucune correction nécessaire\n';
+  } else {
+    report += '\nℹ️ Mode AUDIT uniquement (applyFix=false)\n';
+    report += 'Pour appliquer les corrections, exécutez: auditAndRecalculateStock(true)\n';
+  }
+
+  Logger.log(report);
+
+  return {
+    success: true,
+    report: report,
+    discrepancies: discrepancies,
+    statistics: {
+      movements: movements.length,
+      calculatedRefs: Object.keys(calculatedStock).length,
+      actualRefs: Object.keys(actualStock).length,
+      discrepanciesCount: discrepancies.length
+    },
+    calculatedStock: calculatedStock
+  };
+}
+
 function getStockValuation() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
