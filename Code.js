@@ -905,7 +905,7 @@ function getStockLots(ref) {
     const lotRef = String(data[i][1] || '').trim();
     const qtyRemaining = Number(data[i][5]) || 0;
 
-    if (lotRef === refStr && qtyRemaining > 0) {
+    if (lotRef === refStr) {
       lots.push({
         id: data[i][0],
         ref: lotRef,
@@ -924,6 +924,68 @@ function getStockLots(ref) {
 
   lots.sort((a, b) => new Date(a.date) - new Date(b.date));
   return lots;
+}
+
+/**
+ * Validates that all references in Stock_Lots exist in Stock sheet
+ * Returns a report of orphan lots (lots that reference non-existent items)
+ */
+function validateStockLotsReferences() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+
+  if (!lotsSheet || !stockSheet) {
+    return { valid: false, message: 'Stock or Stock_Lots sheet not found' };
+  }
+
+  // Get all valid references from Stock sheet
+  const stockData = stockSheet.getDataRange().getValues();
+  const validRefs = new Set();
+  for (let i = 1; i < stockData.length; i++) {
+    const ref = String(stockData[i][0] || '').trim();
+    if (ref) {
+      validRefs.add(ref);
+    }
+  }
+
+  // Check all lot references
+  const lotsData = lotsSheet.getDataRange().getValues();
+  const orphanLots = [];
+
+  for (let i = 1; i < lotsData.length; i++) {
+    const lotRef = String(lotsData[i][1] || '').trim();
+    if (lotRef && !validRefs.has(lotRef)) {
+      orphanLots.push({
+        row: i + 1,
+        id: lotsData[i][0],
+        ref: lotRef,
+        date: lotsData[i][2],
+        bonNum: lotsData[i][3],
+        qtyRemaining: lotsData[i][5]
+      });
+    }
+  }
+
+  if (orphanLots.length === 0) {
+    return {
+      valid: true,
+      message: 'All Stock_Lots references are valid. No orphan lots found.',
+      orphans: []
+    };
+  } else {
+    let report = 'Found ' + orphanLots.length + ' orphan lot(s) referencing non-existent items:\n\n';
+    orphanLots.forEach(lot => {
+      report += 'Row ' + lot.row + ': ' + lot.ref + ' (BL: ' + lot.bonNum + ', Qty: ' + lot.qtyRemaining + ')\n';
+    });
+    report += '\nThese lots should be checked and either corrected or removed.';
+
+    return {
+      valid: false,
+      message: report,
+      orphans: orphanLots
+    };
+  }
 }
 
 function getStockValuation() {
@@ -1401,9 +1463,14 @@ function processDelivery(data) {
       const deductFromLot = Math.min(qtyToDeduct, lotRemaining);
       const newRemaining = lotRemaining - deductFromLot;
 
-      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(Math.max(0, newRemaining));
       deductedValue += deductFromLot * (Number(lot.priceCZK) || 0);
       qtyToDeduct -= deductFromLot;
+    }
+
+    // Check if FIFO could not fully deduct the quantity
+    if (qtyToDeduct > 0) {
+      Logger.log('WARNING: FIFO could not fully deduct ' + itemQty + ' units of ' + itemRef + '. Remaining to deduct: ' + qtyToDeduct + '. All lots may be exhausted.');
     }
 
     // Fallback: if no lot value, use stock value / qty as unit price
@@ -1563,9 +1630,14 @@ function deductStockForComponents(components, docNumber, client, date) {
       const deductFromLot = Math.min(qtyToDeduct, lot.qtyRemaining);
       const newRemaining = lot.qtyRemaining - deductFromLot;
 
-      lotsSheet.getRange(lot.rowIndex, 6).setValue(newRemaining);
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(Math.max(0, newRemaining));
       deductedValue += deductFromLot * lot.priceCZK;
       qtyToDeduct -= deductFromLot;
+    }
+
+    // Check if FIFO could not fully deduct the quantity
+    if (qtyToDeduct > 0) {
+      Logger.log('WARNING: FIFO could not fully deduct ' + qty + ' units of ' + refStr + '. Remaining to deduct: ' + qtyToDeduct + '. All lots may be exhausted.');
     }
 
     totalValue += deductedValue;
