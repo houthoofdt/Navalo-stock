@@ -1008,12 +1008,14 @@ function auditAndRecalculateStock(applyFix = false) {
   Logger.log('Apply fix: ' + applyFix);
 
   // Read all history movements
+  // Structure: Date, Type, N° Doc, Référence, Désignation, Quantité, Prix Unit CZK, Valeur CZK, Partenaire
   const historyData = historySheet.getDataRange().getValues();
   const movements = [];
   for (let i = 1; i < historyData.length; i++) {
     const type = String(historyData[i][1] || '').trim().toUpperCase();
-    const ref = String(historyData[i][4] || '').trim();
-    const qty = Number(historyData[i][5]) || 0;
+    const ref = String(historyData[i][3] || '').trim(); // Column D (index 3)
+    const qtyRaw = Number(historyData[i][5]) || 0; // Column F (index 5)
+    const qty = Math.abs(qtyRaw); // Quantities are negative for SORTIE
 
     if (ref && qty > 0 && (type === 'ENTREE' || type === 'SORTIE')) {
       movements.push({
@@ -1021,13 +1023,13 @@ function auditAndRecalculateStock(applyFix = false) {
         date: historyData[i][0],
         type: type,
         docNum: historyData[i][2],
-        supplier: historyData[i][3],
         ref: ref,
+        designation: historyData[i][4],
         qty: qty,
-        priceUnit: Number(historyData[i][6]) || 0,
-        currency: historyData[i][7],
-        priceCZK: Number(historyData[i][8]) || 0,
-        totalValue: Number(historyData[i][9]) || 0
+        priceUnit: Number(historyData[i][6]) || 0, // Column G (index 6)
+        priceCZK: Number(historyData[i][6]) || 0,  // Same as priceUnit (already in CZK)
+        totalValue: Number(historyData[i][7]) || 0, // Column H (index 7)
+        partner: historyData[i][8] // Column I (index 8)
       });
     }
   }
@@ -1058,9 +1060,8 @@ function auditAndRecalculateStock(applyFix = false) {
         qtyInit: mv.qty,
         qtyRemaining: mv.qty,
         priceUnit: mv.priceUnit,
-        currency: mv.currency,
         priceCZK: mv.priceCZK,
-        supplier: mv.supplier
+        partner: mv.partner
       });
 
     } else if (mv.type === 'SORTIE') {
@@ -1245,9 +1246,9 @@ function auditAndRecalculateStock(applyFix = false) {
             lot.qtyInit,
             lot.qtyRemaining,
             lot.priceUnit,
-            lot.currency,
+            'CZK', // Currency (prices are in CZK in Historique)
             lot.priceCZK,
-            lot.supplier
+            lot.partner || '' // Partner (supplier/client)
           ]);
           lotsCreated++;
         }
