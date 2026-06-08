@@ -1281,6 +1281,440 @@ function auditAndRecalculateStock(applyFix = false) {
   };
 }
 
+/**
+ * DIAGNOSTIC: Vérifie le stock initial et les doublons dans l'Historique
+ * Identifie les problèmes avant correction
+ */
+function diagnosticStockInitial() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+
+  Logger.log('=== DIAGNOSTIC STOCK INITIAL ===\n');
+
+  // 1. Lire le stock actuel
+  const stockData = stockSheet.getDataRange().getValues();
+  const stockItems = {};
+  for (let i = 1; i < stockData.length; i++) {
+    const ref = String(stockData[i][0] || '').trim();
+    if (ref) {
+      stockItems[ref] = {
+        qty: Number(stockData[i][4]) || 0,
+        value: Number(stockData[i][6]) || 0,
+        name: stockData[i][1]
+      };
+    }
+  }
+
+  Logger.log('📦 Stock actuel: ' + Object.keys(stockItems).length + ' références\n');
+
+  // 2. Lire l'Historique
+  const historyData = historySheet.getDataRange().getValues();
+  const initEntrees = {}; // ENTREES INIT-2025
+  const allEntrees = {}; // Toutes les ENTREES
+  const allSorties = {}; // Toutes les SORTIES
+  const docNumbers = {}; // Pour détecter les doublons
+
+  for (let i = 1; i < historyData.length; i++) {
+    const type = String(historyData[i][1] || '').trim().toUpperCase();
+    const docNum = String(historyData[i][2] || '').trim();
+    const ref = String(historyData[i][3] || '').trim();
+    const qty = Math.abs(Number(historyData[i][5]) || 0);
+
+    if (!ref || qty === 0) continue;
+
+    // Compter les doublons de N° Doc
+    if (docNum) {
+      if (!docNumbers[docNum]) {
+        docNumbers[docNum] = [];
+      }
+      docNumbers[docNum].push({ row: i + 1, type, ref, qty });
+    }
+
+    if (type === 'ENTREE') {
+      // ENTREES INIT-2025
+      if (docNum === 'INIT-2025') {
+        initEntrees[ref] = (initEntrees[ref] || 0) + qty;
+      }
+      // Toutes les ENTREES
+      if (!allEntrees[ref]) allEntrees[ref] = 0;
+      allEntrees[ref] += qty;
+    } else if (type === 'SORTIE') {
+      // Toutes les SORTIES
+      if (!allSorties[ref]) allSorties[ref] = 0;
+      allSorties[ref] += qty;
+    }
+  }
+
+  Logger.log('📥 ENTREES INIT-2025: ' + Object.keys(initEntrees).length + ' références');
+  Logger.log('📥 Total ENTREES: ' + Object.keys(allEntrees).length + ' références');
+  Logger.log('📤 Total SORTIES: ' + Object.keys(allSorties).length + ' références\n');
+
+  // 3. Vérifier les articles sans ENTREE initiale
+  Logger.log('=== ARTICLES SANS ENTREE INITIALE ===');
+  const missingInit = [];
+  for (const ref in stockItems) {
+    if (stockItems[ref].qty > 0 && !initEntrees[ref]) {
+      missingInit.push({
+        ref: ref,
+        name: stockItems[ref].name,
+        stockQty: stockItems[ref].qty,
+        initQty: 0,
+        diff: stockItems[ref].qty
+      });
+    } else if (initEntrees[ref] && Math.abs(initEntrees[ref] - stockItems[ref].qty) > 0.01) {
+      // ENTREE initiale différente du stock actuel
+      missingInit.push({
+        ref: ref,
+        name: stockItems[ref].name,
+        stockQty: stockItems[ref].qty,
+        initQty: initEntrees[ref],
+        diff: stockItems[ref].qty - initEntrees[ref]
+      });
+    }
+  }
+
+  if (missingInit.length > 0) {
+    Logger.log('⚠️ ' + missingInit.length + ' articles avec problème d\'ENTREE initiale:\n');
+    missingInit.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    missingInit.slice(0, 20).forEach(item => {
+      Logger.log('  ' + item.ref + ' (' + item.name + ')');
+      Logger.log('    Stock actuel: ' + item.stockQty + ' | INIT-2025: ' + item.initQty + ' | Écart: ' + item.diff);
+    });
+    if (missingInit.length > 20) {
+      Logger.log('  ... et ' + (missingInit.length - 20) + ' autres');
+    }
+  } else {
+    Logger.log('✅ Tous les articles ont une ENTREE INIT-2025 correcte');
+  }
+
+  Logger.log('\n');
+
+  // 4. Chercher les doublons de N° Doc
+  Logger.log('=== DOUBLONS POTENTIELS (N° Doc) ===');
+  const duplicates = [];
+  for (const docNum in docNumbers) {
+    const entries = docNumbers[docNum];
+    if (entries.length > 1) {
+      // Compter combien de fois chaque ref apparaît avec le même N° Doc
+      const refCounts = {};
+      entries.forEach(entry => {
+        const key = entry.ref + '-' + entry.type;
+        refCounts[key] = (refCounts[key] || 0) + 1;
+      });
+
+      // Si une ref apparaît 2+ fois avec le même type et même N° Doc = doublon probable
+      for (const key in refCounts) {
+        if (refCounts[key] > 1) {
+          duplicates.push({
+            docNum: docNum,
+            key: key,
+            count: refCounts[key]
+          });
+        }
+      }
+    }
+  }
+
+  if (duplicates.length > 0) {
+    Logger.log('⚠️ ' + duplicates.length + ' doublons potentiels détectés:\n');
+    duplicates.slice(0, 10).forEach(dup => {
+      Logger.log('  N° Doc: ' + dup.docNum + ' | ' + dup.key + ' (x' + dup.count + ')');
+    });
+    if (duplicates.length > 10) {
+      Logger.log('  ... et ' + (duplicates.length - 10) + ' autres');
+    }
+  } else {
+    Logger.log('✅ Aucun doublon détecté');
+  }
+
+  Logger.log('\n');
+
+  // 5. Top 10 articles avec plus de SORTIES que d'ENTREES
+  Logger.log('=== TOP 10 ARTICLES AVEC SORTIES > ENTREES ===');
+  const negativeStock = [];
+  for (const ref in allSorties) {
+    const entrees = allEntrees[ref] || 0;
+    const sorties = allSorties[ref] || 0;
+    const diff = entrees - sorties;
+    if (diff < 0) {
+      negativeStock.push({
+        ref: ref,
+        name: stockItems[ref]?.name || 'N/A',
+        entrees: entrees,
+        sorties: sorties,
+        diff: diff
+      });
+    }
+  }
+
+  if (negativeStock.length > 0) {
+    Logger.log('⚠️ ' + negativeStock.length + ' articles avec SORTIES > ENTREES:\n');
+    negativeStock.sort((a, b) => a.diff - b.diff);
+    negativeStock.slice(0, 10).forEach(item => {
+      Logger.log('  ' + item.ref + ' (' + item.name + ')');
+      Logger.log('    ENTREES: ' + item.entrees + ' | SORTIES: ' + item.sorties + ' | Solde: ' + item.diff);
+    });
+  } else {
+    Logger.log('✅ Tous les articles ont ENTREES >= SORTIES');
+  }
+
+  Logger.log('\n=== FIN DIAGNOSTIC ===');
+
+  return {
+    success: true,
+    missingInitCount: missingInit.length,
+    duplicatesCount: duplicates.length,
+    negativeStockCount: negativeStock.length,
+    missingInit: missingInit,
+    duplicates: duplicates,
+    negativeStock: negativeStock
+  };
+}
+
+/**
+ * STEP 1: Verify stock consistency without making changes
+ * Compares calculated stock (from Historique movements) vs actual stock
+ */
+function etape1_VerifierStock() {
+  Logger.log('=== STEP 1: Verify Stock (Read-Only Audit) ===');
+  const result = auditAndRecalculateStock(false);
+
+  if (result.success) {
+    Logger.log('\nAUDIT RESULTS:');
+    Logger.log(`  Movements analyzed: ${result.statistics.movements}`);
+    Logger.log(`  References in calculated stock: ${result.statistics.calculatedRefs}`);
+    Logger.log(`  References in actual stock: ${result.statistics.actualRefs}`);
+    Logger.log(`  DISCREPANCIES: ${result.statistics.discrepanciesCount}`);
+
+    if (result.discrepancies.length > 0) {
+      Logger.log('\nTop 20 discrepancies:');
+      result.discrepancies.slice(0, 20).forEach(d => {
+        Logger.log(`  ${d.ref}: Calculated=${d.calculated}, Actual=${d.actual}, Diff=${d.difference}`);
+      });
+
+      Logger.log('\nTo fix these discrepancies, run: etape2_CorrigerStock(true)');
+    } else {
+      Logger.log('\n✓ NO DISCREPANCIES! Stock is consistent with Historique.');
+    }
+  }
+
+  return result;
+}
+
+/**
+ * STEP 2: Correct stock based on Historique
+ * WARNING: This will modify the Stock sheet to match calculated values
+ */
+function etape2_CorrigerStock(applyFix = false) {
+  if (!applyFix) {
+    Logger.log('WARNING: This function will modify the Stock sheet!');
+    Logger.log('To proceed, call: etape2_CorrigerStock(true)');
+    return { success: false, message: 'Must confirm with applyFix=true' };
+  }
+
+  Logger.log('=== STEP 2: Correct Stock (WRITING CHANGES) ===');
+  const result = auditAndRecalculateStock(true);
+
+  if (result.success) {
+    Logger.log('\nCORRECTION COMPLETED');
+    Logger.log(`  ${result.statistics.discrepanciesCount} references corrected`);
+  }
+
+  return result;
+}
+
+/**
+ * WORKFLOW: Import receipts and audit stock
+ * This is the main function to run after creating/updating the Prijemky sheet
+ */
+function etape3_ImporterEtAuditer() {
+  Logger.log('=== STEP 3: Import Receipts and Audit Stock ===');
+
+  // Step 1: Import receipts
+  Logger.log('\n1. Importing receipts from Prijemky sheet...');
+  const importResult = importerPrijemkyDansHistorique();
+
+  if (!importResult.success) {
+    Logger.log('ERROR: ' + importResult.message);
+    return importResult;
+  }
+
+  Logger.log(`SUCCESS: ${importResult.receiptsProcessed} receipts processed, ${importResult.itemsAdded} items added to Historique`);
+
+  if (importResult.errors && importResult.errors.length > 0) {
+    Logger.log('\nWarnings/Errors during import:');
+    importResult.errors.forEach(err => Logger.log('  - ' + err));
+  }
+
+  // Step 2: Re-run stock audit
+  Logger.log('\n2. Re-running stock audit...');
+  const auditResult = auditAndRecalculateStock(false);
+
+  if (auditResult.success) {
+    Logger.log('\nAUDIT RESULTS:');
+    Logger.log(`  Movements analyzed: ${auditResult.statistics.movements}`);
+    Logger.log(`  References in calculated stock: ${auditResult.statistics.calculatedRefs}`);
+    Logger.log(`  References in actual stock: ${auditResult.statistics.actualRefs}`);
+    Logger.log(`  DISCREPANCIES: ${auditResult.statistics.discrepanciesCount}`);
+
+    if (auditResult.discrepancies.length > 0) {
+      Logger.log('\nTop 10 discrepancies:');
+      auditResult.discrepancies.slice(0, 10).forEach(d => {
+        Logger.log(`  ${d.ref}: Calculated=${d.calculated}, Actual=${d.actual}, Diff=${d.difference}`);
+      });
+    } else {
+      Logger.log('\n✓ NO DISCREPANCIES FOUND! Stock is consistent with Historique.');
+    }
+  }
+
+  return {
+    importResult: importResult,
+    auditResult: auditResult
+  };
+}
+
+/**
+ * Import receipt (Prijemky) data into Historique as ENTREE movements
+ * Reads from a "Prijemky" sheet or accepts data as parameter
+ * Expected columns: ID, Date, N° Příjemky, Dodavatel, Nb Articles, Valeur, Devise, Obj. liée, Items JSON
+ * Items JSON format: [{"ref":"PE3300-16-06","qty":100,"price":61,"name":"..."}]
+ */
+function importerPrijemkyDansHistorique(receiptsData = null) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+
+  if (!historySheet) {
+    return {
+      success: false,
+      message: 'Sheet Historique not found'
+    };
+  }
+
+  // If no data provided, try to read from Prijemky sheet
+  if (!receiptsData) {
+    const receiptsSheet = ss.getSheetByName('Prijemky');
+    if (!receiptsSheet) {
+      return {
+        success: false,
+        message: 'No data provided and Prijemky sheet not found. Please provide receipt data or create a Prijemky sheet.'
+      };
+    }
+    receiptsData = receiptsSheet.getDataRange().getValues();
+  }
+
+  const report = [];
+  let entriesAdded = 0;
+  let itemsProcessed = 0;
+  const errors = [];
+
+  // Process each receipt (skip header row)
+  for (let i = 1; i < receiptsData.length; i++) {
+    const row = receiptsData[i];
+
+    // Extract receipt info
+    const dateRaw = row[1]; // Date column
+    const receiptNum = String(row[2] || '').trim(); // N° Příjemky
+    const supplier = String(row[3] || '').trim(); // Dodavatel
+    const currency = String(row[6] || '').trim().toUpperCase(); // Devise
+    const itemsJson = String(row[8] || '').trim(); // Items JSON
+
+    if (!receiptNum || !itemsJson) {
+      continue; // Skip rows without receipt number or items
+    }
+
+    // Parse date
+    let receiptDate;
+    if (dateRaw instanceof Date) {
+      receiptDate = dateRaw;
+    } else {
+      try {
+        receiptDate = new Date(dateRaw);
+      } catch (e) {
+        errors.push(`Receipt ${receiptNum}: Invalid date ${dateRaw}`);
+        continue;
+      }
+    }
+
+    // Parse items JSON
+    let items;
+    try {
+      items = JSON.parse(itemsJson);
+      if (!Array.isArray(items)) {
+        errors.push(`Receipt ${receiptNum}: Items is not an array`);
+        continue;
+      }
+    } catch (e) {
+      errors.push(`Receipt ${receiptNum}: Invalid JSON - ${e.message}`);
+      continue;
+    }
+
+    // Get exchange rate for this receipt date (if EUR)
+    let exchangeRate = 1.0;
+    if (currency === 'EUR') {
+      try {
+        const dateStr = Utilities.formatDate(receiptDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+        const rateInfo = getExchangeRateForDate('EUR', dateStr);
+        exchangeRate = rateInfo.rate || 25.0;
+      } catch (e) {
+        Logger.log(`Warning: Could not get exchange rate for ${receiptDate}, using 25.0`);
+        exchangeRate = 25.0;
+      }
+    }
+
+    // Process each item in the receipt
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j];
+      const ref = String(item.ref || '').trim();
+      const qty = Number(item.qty) || 0;
+      const pricePerUnit = Number(item.price) || 0;
+      const designation = String(item.name || item.designation || '').trim();
+
+      if (!ref || qty <= 0) {
+        continue; // Skip invalid items
+      }
+
+      // Convert price to CZK if needed
+      const priceUnitCZK = currency === 'EUR' ? pricePerUnit * exchangeRate : pricePerUnit;
+      const valueCZK = qty * priceUnitCZK;
+
+      // Add entry to Historique
+      // Structure: Date, Type, N° Doc, Référence, Désignation, Quantité, Prix Unit CZK, Valeur CZK, Partenaire
+      historySheet.appendRow([
+        receiptDate,
+        'ENTREE',
+        receiptNum,
+        ref,
+        designation,
+        qty,
+        priceUnitCZK,
+        valueCZK,
+        supplier
+      ]);
+
+      itemsProcessed++;
+    }
+
+    entriesAdded++;
+    report.push(`${receiptNum}: ${items.length} items processed (${supplier})`);
+  }
+
+  // Log summary
+  Logger.log(`Import completed: ${entriesAdded} receipts, ${itemsProcessed} items added to Historique`);
+  if (errors.length > 0) {
+    Logger.log('Errors encountered:');
+    errors.forEach(err => Logger.log('  - ' + err));
+  }
+
+  return {
+    success: true,
+    receiptsProcessed: entriesAdded,
+    itemsAdded: itemsProcessed,
+    errors: errors,
+    report: report
+  };
+}
+
 function getStockValuation() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
@@ -3995,6 +4429,269 @@ function processAdjustment(data) {
     docNum: adjNumber,
     qtyChange,
     valueImpact: Math.round(valueImpact * 100) / 100
+  };
+}
+
+// ========================================
+// INVENTORY FUNCTIONS
+// ========================================
+
+/**
+ * Inventorier un article - Compare stock actuel avec inventaire physique
+ * @param {string} ref - Référence de l'article
+ * @param {number} qtyReelle - Quantité réelle comptée physiquement
+ * @param {string} raison - Raison de l'ajustement (ex: "Inventaire physique 08.06.2026")
+ * @param {Date} date - Date de l'inventaire (optionnel, par défaut aujourd'hui)
+ * @returns {Object} Résultat de l'inventaire avec détails
+ */
+function inventaireArticle(ref, qtyReelle, raison, date) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockSheet = ss.getSheetByName(SHEET_NAMES.STOCK);
+  const lotsSheet = ss.getSheetByName(SHEET_NAMES.STOCK_LOTS);
+  const historySheet = ss.getSheetByName(SHEET_NAMES.HISTORY);
+  let adjSheet = ss.getSheetByName(SHEET_NAMES.ADJUSTMENTS);
+
+  // Create adjustments sheet if it doesn't exist
+  if (!adjSheet) {
+    adjSheet = ss.insertSheet(SHEET_NAMES.ADJUSTMENTS);
+    adjSheet.appendRow([
+      'ID', 'Date', 'Numéro Doc', 'Référence', 'Désignation',
+      'Qté Avant', 'Qté Après', 'Changement', 'Raison', 'Raison Détails',
+      'Utilisateur', 'Lots Affectés', 'Impact Valeur', 'Créé Le'
+    ]);
+    adjSheet.getRange(1, 1, 1, 14).setFontWeight('bold')
+      .setBackground('#ff6f00').setFontColor('white');
+  }
+
+  const refStr = String(ref).trim();
+  const inventoryDate = date || new Date();
+
+  // Find component in stock
+  const stockData = stockSheet.getDataRange().getValues();
+  let stockRowIndex = -1;
+  let currentQty = 0;
+  let componentName = '';
+
+  for (let i = 1; i < stockData.length; i++) {
+    const stockRef = String(stockData[i][0] || '').trim();
+    if (stockRef === refStr) {
+      stockRowIndex = i + 1;
+      currentQty = Number(stockData[i][4]) || 0;
+      componentName = stockData[i][1];
+      break;
+    }
+  }
+
+  if (stockRowIndex === -1) {
+    Logger.log('❌ Article non trouvé: ' + refStr);
+    return {
+      success: false,
+      error: 'Article non trouvé dans le stock: ' + refStr
+    };
+  }
+
+  const qtyChange = Number(qtyReelle) - currentQty;
+
+  if (qtyChange === 0) {
+    Logger.log('✅ ' + refStr + ': Pas de changement (qty = ' + currentQty + ')');
+    return {
+      success: true,
+      ref: refStr,
+      name: componentName,
+      qtyBefore: currentQty,
+      qtyAfter: qtyReelle,
+      qtyChange: 0,
+      valueImpact: 0,
+      message: 'Aucun changement'
+    };
+  }
+
+  // Generate adjustment number
+  const adjNumber = getNextDocNumber('adj');
+  const adjId = Utilities.getUuid();
+
+  let valueImpact = 0;
+  const lotsAffected = [];
+
+  if (qtyChange > 0) {
+    // INCREASE: Create new lot
+    const lots = getStockLots(refStr);
+    let avgPrice = 0;
+
+    // Calculate average price from existing lots
+    if (lots.length > 0) {
+      let totalValue = 0;
+      let totalQty = 0;
+      lots.forEach(lot => {
+        if (lot.qtyRemaining > 0) {
+          totalValue += lot.qtyRemaining * lot.priceCZK;
+          totalQty += lot.qtyRemaining;
+        }
+      });
+      avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
+    }
+
+    // If no lots or no price, try to get from Prix_Composants
+    if (avgPrice === 0) {
+      const prices = getComponentPrices();
+      if (prices[refStr]) {
+        // Use CZK price if available, otherwise EUR * 25
+        avgPrice = prices[refStr].czk > 0 ? prices[refStr].czk : (prices[refStr].eur * 25);
+      }
+    }
+
+    // Create new lot
+    const lotId = 'LOT-INV-' + Date.now();
+    lotsSheet.appendRow([
+      lotId, refStr, inventoryDate, adjNumber, qtyChange, qtyChange,
+      avgPrice, 'CZK', avgPrice, 'INVENTAIRE ' + raison
+    ]);
+
+    lotsAffected.push(lotId);
+    valueImpact = qtyChange * avgPrice;
+
+    Logger.log('📦 Nouveau lot créé: ' + lotId + ' (+' + qtyChange + ' @ ' + avgPrice.toFixed(2) + ' CZK)');
+
+  } else {
+    // DECREASE: Deduct using FIFO
+    const lots = getStockLots(refStr);
+    let qtyToDeduct = Math.abs(qtyChange);
+
+    for (const lot of lots) {
+      if (qtyToDeduct <= 0) break;
+
+      const deductFromLot = Math.min(qtyToDeduct, Number(lot.qtyRemaining) || 0);
+      const newRemaining = (Number(lot.qtyRemaining) || 0) - deductFromLot;
+      const lotPrice = Number(lot.priceCZK) || 0;
+
+      lotsSheet.getRange(lot.rowIndex, 6).setValue(Math.max(0, newRemaining));
+      valueImpact -= deductFromLot * lotPrice;
+      qtyToDeduct -= deductFromLot;
+
+      lotsAffected.push(lot.id);
+    }
+
+    if (qtyToDeduct > 0) {
+      Logger.log('⚠️ FIFO incomplet: ' + qtyToDeduct + ' unités non déduites (lots épuisés)');
+    }
+  }
+
+  // Ensure valueImpact is valid
+  if (isNaN(valueImpact)) {
+    valueImpact = 0;
+    Logger.log('⚠️ valueImpact was NaN, set to 0 for ref: ' + refStr);
+  }
+
+  // Update stock quantity
+  stockSheet.getRange(stockRowIndex, 5).setValue(qtyReelle);
+  stockSheet.getRange(stockRowIndex, 8).setValue(new Date());
+
+  // Add to history
+  const unitPrice = qtyChange !== 0 ? valueImpact / qtyChange : 0;
+  historySheet.appendRow([
+    inventoryDate, 'INVENTAIRE', adjNumber, refStr, componentName,
+    qtyChange, unitPrice, valueImpact,
+    'Inventaire: ' + raison
+  ]);
+
+  // Save adjustment record
+  const safeValueImpact = isNaN(valueImpact) ? 0 : Math.round(valueImpact * 100) / 100;
+  adjSheet.appendRow([
+    adjId, inventoryDate, adjNumber, refStr, componentName,
+    currentQty, qtyReelle, qtyChange, 'Inventaire', raison,
+    'Inventaire', JSON.stringify(lotsAffected),
+    safeValueImpact, new Date()
+  ]);
+
+  // Recalculate stock valuation
+  getStockValuation();
+
+  const result = {
+    success: true,
+    ref: refStr,
+    name: componentName,
+    qtyBefore: currentQty,
+    qtyAfter: qtyReelle,
+    qtyChange: qtyChange,
+    valueImpact: safeValueImpact,
+    adjNumber: adjNumber,
+    lotsAffected: lotsAffected.length
+  };
+
+  Logger.log('✅ ' + refStr + ' (' + componentName + ')');
+  Logger.log('   Quantité: ' + currentQty + ' → ' + qtyReelle + ' (' + (qtyChange > 0 ? '+' : '') + qtyChange + ')');
+  Logger.log('   Valeur: ' + (valueImpact > 0 ? '+' : '') + safeValueImpact.toFixed(2) + ' CZK');
+  Logger.log('   Ajustement: ' + adjNumber);
+
+  return result;
+}
+
+/**
+ * Inventorier plusieurs articles en une seule opération
+ * @param {Array} articles - Tableau d'objets {ref, qty}
+ * @param {string} raison - Raison globale de l'inventaire
+ * @param {Date} date - Date de l'inventaire (optionnel)
+ * @returns {Object} Résumé de l'inventaire batch
+ */
+function inventaireBatch(articles, raison, date) {
+  if (!articles || !Array.isArray(articles) || articles.length === 0) {
+    return {
+      success: false,
+      error: 'Tableau d\'articles requis'
+    };
+  }
+
+  Logger.log('=== INVENTAIRE BATCH ===');
+  Logger.log('Raison: ' + raison);
+  Logger.log('Articles: ' + articles.length + '\n');
+
+  const results = [];
+  let totalValueImpact = 0;
+  let successCount = 0;
+  let errorCount = 0;
+
+  articles.forEach(item => {
+    const { ref, qty } = item;
+
+    if (!ref || typeof qty !== 'number') {
+      Logger.log('⚠️ Article invalide ignoré: ' + JSON.stringify(item));
+      errorCount++;
+      return;
+    }
+
+    try {
+      const result = inventaireArticle(ref, qty, raison, date);
+      results.push(result);
+
+      if (result.success) {
+        totalValueImpact += result.valueImpact || 0;
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    } catch (e) {
+      Logger.log('❌ Erreur pour ' + ref + ': ' + e.message);
+      results.push({
+        success: false,
+        ref: ref,
+        error: e.message
+      });
+      errorCount++;
+    }
+  });
+
+  Logger.log('\n=== RÉSUMÉ INVENTAIRE BATCH ===');
+  Logger.log('✅ Succès: ' + successCount);
+  Logger.log('❌ Erreurs: ' + errorCount);
+  Logger.log('💰 Impact valeur total: ' + (totalValueImpact > 0 ? '+' : '') + totalValueImpact.toFixed(2) + ' CZK');
+
+  return {
+    success: true,
+    totalArticles: articles.length,
+    successCount: successCount,
+    errorCount: errorCount,
+    totalValueImpact: Math.round(totalValueImpact * 100) / 100,
+    results: results
   };
 }
 
