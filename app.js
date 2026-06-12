@@ -5106,7 +5106,7 @@ async function sendPurchaseOrderByEmail() {
 async function updatePurchaseOrdersDisplay() {
     try {
         let pos = JSON.parse(localStorage.getItem('navalo_purchase_orders') || '[]');
-        
+
         // Load from Google Sheets if connected
         if (storage.getMode() === 'googlesheets') {
             try {
@@ -5120,19 +5120,26 @@ async function updatePurchaseOrdersDisplay() {
                 console.warn('Failed to load purchase orders from Google Sheets:', e);
             }
         }
-        
+
         const tbody = document.getElementById('poTableBody');
         const statusFilter = document.getElementById('poStatusFilter')?.value || 'all';
-        
+        const supplierFilter = document.getElementById('poSupplierFilter')?.value || 'all';
+
         if (!tbody) return;
         if (!Array.isArray(pos) || pos.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center">${t('noData')}</td></tr>`;
             updatePOStats([]);
+            populatePOSupplierFilter([]);
             return;
         }
-        
+
+        // Populate supplier filter dropdown
+        populatePOSupplierFilter(pos);
+
+        // Apply filters
         let filtered = pos;
-        if (statusFilter !== 'all') filtered = pos.filter(po => po.status === statusFilter);
+        if (statusFilter !== 'all') filtered = filtered.filter(po => po.status === statusFilter);
+        if (supplierFilter !== 'all') filtered = filtered.filter(po => po.supplier === supplierFilter);
         updatePOStats(pos);
         
         if (filtered.length === 0) {
@@ -5168,11 +5175,35 @@ function updatePOStats(pos) {
     const sent = pos.filter(p => p.status === 'Envoyé');
     const received = pos.filter(p => p.status === 'Reçu');
     const pendingValue = [...drafts, ...sent].reduce((sum, po) => sum + (po.totalValue || 0), 0);
-    
+
     document.getElementById('poDraftCount').textContent = drafts.length;
     document.getElementById('poSentCount').textContent = sent.length;
     document.getElementById('poReceivedCount').textContent = received.length;
     document.getElementById('poPendingValue').textContent = formatCurrency(pendingValue);
+}
+
+function populatePOSupplierFilter(pos) {
+    const supplierFilterEl = document.getElementById('poSupplierFilter');
+    if (!supplierFilterEl) return;
+
+    // Get current selected value to preserve it
+    const currentValue = supplierFilterEl.value;
+
+    // Extract unique suppliers from purchase orders
+    const suppliers = [...new Set(pos.map(po => po.supplier).filter(s => s))].sort();
+
+    // Build options HTML
+    let optionsHTML = '<option value="all">Tous les fournisseurs</option>';
+    suppliers.forEach(supplier => {
+        optionsHTML += `<option value="${supplier}">${supplier}</option>`;
+    });
+
+    supplierFilterEl.innerHTML = optionsHTML;
+
+    // Restore previous selection if still valid
+    if (currentValue && suppliers.includes(currentValue)) {
+        supplierFilterEl.value = currentValue;
+    }
 }
 
 function onPOCurrencyChange() { updatePOTotal(); }
