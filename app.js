@@ -5394,6 +5394,7 @@ function generateProformaDeductionItemHtml(inv) {
 
     const pf = inv.linkedProforma;
     console.log('  - Generating deduction line for proforma:', pf.number);
+    console.log('  - linkedProforma object:', pf);
     const vatRate = inv.vatRate || 21;
     const curr = inv.currency || 'CZK';
     // DD number from stored data or derive from proforma number
@@ -5409,6 +5410,14 @@ function generateProformaDeductionItemHtml(inv) {
     const deductionSubtotal = pf.subtotal;
     const deductionVat = pf.vat;
     const deductionTotal = pf.total;
+
+    console.log('  - Deduction amounts:', {
+        deductionPercent: deductionPercent,
+        deductionSubtotal: deductionSubtotal,
+        deductionVat: deductionVat,
+        deductionTotal: deductionTotal,
+        fullTotal: pf.fullTotal
+    });
 
     return `
         <tr style="color: #dc2626;">
@@ -7455,6 +7464,14 @@ async function saveIssuedInvoice() {
             paidSubtotalCZK: parseFloat(opt.dataset.paidSubtotalCZK) || null,
             paidVatCZK: parseFloat(opt.dataset.paidVatCZK) || null
         };
+        console.log('🔍 SAVING PROPORTIONAL DEDUCTION:', {
+            deductionPercent: deductionPercent,
+            fullTotal: fullTotal,
+            deductionTotal: deductionTotal,
+            fullSubtotal: fullSubtotal,
+            deductionSubtotal: deductionSubtotal,
+            linkedProformaData: linkedProformaData
+        });
         // Store in multiple formats for compatibility
         invoice.linkedProforma = linkedProformaData;
         invoice.linkedProformaId = proformaSelect.value;
