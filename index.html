@@ -348,6 +348,9 @@
                             <option value="Reçu">Reçu</option>
                             <option value="Annulé">Annulé</option>
                         </select>
+                        <select id="poSupplierFilter" class="filter-select" onchange="updatePurchaseOrdersDisplay()">
+                            <option value="all">Tous les fournisseurs</option>
+                        </select>
                         <button class="btn btn-secondary" onclick="exportPurchaseOrders()">📥 Export</button>
                         <button class="btn btn-primary" onclick="openPOModal()">+ <span data-i18n="newPO">Nouvelle commande</span></button>
                     </div>
