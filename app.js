@@ -5227,6 +5227,10 @@ async function updateInvoicesDisplay() {
                     total: normalized.linkedProformaTotal || 0,
                     subtotal: normalized.linkedProformaSubtotal || 0,
                     vat: normalized.linkedProformaVat || 0,
+                    fullTotal: normalized.linkedProformaFullTotal || normalized.linkedProformaTotal || 0,
+                    fullSubtotal: normalized.linkedProformaFullSubtotal || normalized.linkedProformaSubtotal || 0,
+                    fullVat: normalized.linkedProformaFullVat || normalized.linkedProformaVat || 0,
+                    deductionPercent: normalized.linkedProformaDeductionPercent || 100,
                     currency: normalized.linkedProformaCurrency || 'CZK',
                     paidExchangeRate: normalized.linkedProformaPaidExchangeRate || null,
                     paidAmountCZK: normalized.linkedProformaPaidAmountCZK || null,
@@ -5365,15 +5369,19 @@ function generateProformaDeductionItemHtml(inv) {
     const ddNumber = pf.ddNumber || pf.number.replace(/^(ZL|PI|PF)-?/, 'DD-');
     const orderRef = inv.clientOrderNumber || inv.linkedOrderNumber || '';
 
-    // Calculate the unit price (per item) for the deduction line
-    // Total includes VAT, so we need subtotal and vat separately
+    // Get deduction percentage (default to 100% for backward compatibility)
+    const deductionPercent = pf.deductionPercent || 100;
+    const percentInfo = deductionPercent < 100 ? ` (${deductionPercent}%)` : '';
+
+    // The amounts in pf.subtotal, pf.vat, pf.total are already proportional
+    // (calculated during invoice creation based on deductionPercent)
     const deductionSubtotal = pf.subtotal;
     const deductionVat = pf.vat;
     const deductionTotal = pf.total;
 
     return `
         <tr style="color: #dc2626;">
-            <td>Záloha daňový doklad k přijaté platbě ${ddNumber}${orderRef ? ` na objednávku ${orderRef}` : ''}</td>
+            <td>Záloha daňový doklad k přijaté platbě ${ddNumber}${percentInfo}${orderRef ? ` na objednávku ${orderRef}` : ''}</td>
             <td class="text-center">1</td>
             <td class="text-center">ks</td>
             <td class="text-right">-${formatCurrency(deductionSubtotal)} ${curr}</td>
@@ -5417,6 +5425,8 @@ function generateProformaDeductionHtml(inv) {
     const pfRate = pf.paidExchangeRate;
     const invoiceRate = inv.exchangeRate;
     const ddNumber = pf.ddNumber || pf.number.replace(/^(ZL|PI|PF)-?/, 'DD-');
+    const deductionPercent = pf.deductionPercent || 100;
+    const percentInfo = deductionPercent < 100 ? ` (${deductionPercent}%)` : '';
 
     // Calculate net amounts (after deduction)
     const netSubtotal = inv.subtotal - pf.subtotal;
@@ -5461,7 +5471,7 @@ function generateProformaDeductionHtml(inv) {
                         <tr><td>Celková částka bez DPH:</td><td style="text-align: right;">${formatCurrency(netSubtotal)} EUR</td></tr>
                         <tr><td>DPH:</td><td style="text-align: right;">${formatCurrency(netVat)} EUR</td></tr>
                         <tr><td>Celková částka s DPH:</td><td style="text-align: right;">${formatCurrency(netTotal)} EUR</td></tr>
-                        <tr><td>Uhrazeno zálohami:</td><td style="text-align: right;">${formatCurrency(pf.total)} EUR</td></tr>
+                        <tr><td>Uhrazeno zálohami${percentInfo}:</td><td style="text-align: right;">${formatCurrency(pf.total)} EUR</td></tr>
                     </table>
                     <div style="margin-top: 5px; text-align: right; font-size: 11px; font-weight: bold; color: #000;">
                         K úhradě: <span style="font-size: 14px;">${formatCurrency(netTotal)} EUR</span>
@@ -5478,7 +5488,7 @@ function generateProformaDeductionHtml(inv) {
                         <tr><td>Celková částka bez DPH:</td><td style="text-align: right;">${formatCurrency(netSubtotal)} Kč</td></tr>
                         <tr><td>DPH:</td><td style="text-align: right;">${formatCurrency(netVat)} Kč</td></tr>
                         <tr><td>Celková částka s DPH:</td><td style="text-align: right;">${formatCurrency(netTotal)} Kč</td></tr>
-                        <tr><td>Uhrazeno zálohami (${ddNumber}):</td><td style="text-align: right;">${formatCurrency(pf.total)} Kč</td></tr>
+                        <tr><td>Uhrazeno zálohami${percentInfo} (${ddNumber}):</td><td style="text-align: right;">${formatCurrency(pf.total)} Kč</td></tr>
                     </table>
                     <div style="margin-top: 5px; text-align: right; font-size: 11px; font-weight: bold; color: #000;">
                         K úhradě: <span style="font-size: 14px;">${formatCurrency(netTotal)} Kč</span>
@@ -5798,11 +5808,24 @@ function populatePaidProformaSelect(currentInvoiceNumber = null) {
 // Handle proforma selection for deduction
 function onLinkedProformaChange() {
     const select = document.getElementById('invLinkedProforma');
-    if (!select || !select.value) return;
+    const percentGroup = document.getElementById('invProformaDeductionPercentGroup');
+
+    if (!select || !select.value) {
+        // Hide percentage field if no proforma selected
+        if (percentGroup) percentGroup.style.display = 'none';
+        return;
+    }
 
     const opt = select.options[select.selectedIndex];
     const proformaClient = opt.dataset.client;
     const proformaCurrency = opt.dataset.currency;
+
+    // Show percentage field
+    if (percentGroup) {
+        percentGroup.style.display = 'block';
+        // Reset to 100% when selecting a new proforma
+        document.getElementById('invProformaDeductionPercent').value = 100;
+    }
 
     // Auto-select same client if not selected
     const clientSelect = document.getElementById('invClient');
@@ -5820,6 +5843,26 @@ function onLinkedProformaChange() {
         document.getElementById('invCurrency').value = proformaCurrency;
         onInvCurrencyChange();
     }
+
+    // Update preview
+    updateProformaDeductionPreview();
+}
+
+// Update the preview of proforma deduction amount
+function updateProformaDeductionPreview() {
+    const select = document.getElementById('invLinkedProforma');
+    const percentInput = document.getElementById('invProformaDeductionPercent');
+    const previewSpan = document.getElementById('invProformaDeductionPreview');
+
+    if (!select || !select.value || !percentInput || !previewSpan) return;
+
+    const opt = select.options[select.selectedIndex];
+    const total = parseFloat(opt.dataset.total) || 0;
+    const currency = opt.dataset.currency || 'CZK';
+    const percent = parseFloat(percentInput.value) || 100;
+
+    const deductionAmount = (total * percent / 100);
+    previewSpan.textContent = `= -${formatCurrency(deductionAmount)} ${currency}`;
 }
 
 async function onInvTaxDateChange() {
@@ -6385,6 +6428,10 @@ async function convertProformaToInvoice(proformaNumber) {
             total: proforma.taxDocTotal || proforma.total,
             subtotal: proforma.taxDocSubtotal || proforma.subtotal,
             vat: proforma.taxDocVat || proforma.vat,
+            fullTotal: proforma.taxDocTotal || proforma.total,
+            fullSubtotal: proforma.taxDocSubtotal || proforma.subtotal,
+            fullVat: proforma.taxDocVat || proforma.vat,
+            deductionPercent: 100, // Default to 100% when converting
             currency: proforma.currency,
             paidExchangeRate: proforma.paidExchangeRate || null,
             paidAmountCZK: proforma.paidAmountCZK || null,
@@ -7345,12 +7392,32 @@ async function saveIssuedInvoice() {
     // Get linked proforma for invoice metadata (already fetched above for items)
     if (proformaSelect && proformaSelect.value) {
         const opt = proformaSelect.options[proformaSelect.selectedIndex];
+
+        // Get deduction percentage (default to 100% if not specified)
+        const deductionPercent = parseFloat(document.getElementById('invProformaDeductionPercent')?.value) || 100;
+
+        // Get full proforma amounts
+        const fullTotal = parseFloat(opt.dataset.total) || 0;
+        const fullSubtotal = parseFloat(opt.dataset.subtotal) || 0;
+        const fullVat = parseFloat(opt.dataset.vat) || 0;
+
+        // Calculate proportional amounts to deduct
+        const deductionTotal = fullTotal * (deductionPercent / 100);
+        const deductionSubtotal = fullSubtotal * (deductionPercent / 100);
+        const deductionVat = fullVat * (deductionPercent / 100);
+
         const linkedProformaData = {
             number: proformaSelect.value,
             ddNumber: opt.dataset.ddNumber || proformaSelect.value.replace(/^(ZL|PI|PF)-?/, 'DD-'),
-            total: parseFloat(opt.dataset.total) || 0,
-            subtotal: parseFloat(opt.dataset.subtotal) || 0,
-            vat: parseFloat(opt.dataset.vat) || 0,
+            // Store the proportional amounts to deduct
+            total: deductionTotal,
+            subtotal: deductionSubtotal,
+            vat: deductionVat,
+            // Store full amounts and percentage for reference
+            fullTotal: fullTotal,
+            fullSubtotal: fullSubtotal,
+            fullVat: fullVat,
+            deductionPercent: deductionPercent,
             currency: opt.dataset.currency || invoice.currency,
             paidExchangeRate: parseFloat(opt.dataset.paidExchangeRate) || null,
             paidAmountCZK: parseFloat(opt.dataset.paidAmountCZK) || null,
@@ -7368,6 +7435,10 @@ async function saveIssuedInvoice() {
         invoice.linkedProformaTotal = linkedProformaData.total;
         invoice.linkedProformaSubtotal = linkedProformaData.subtotal;
         invoice.linkedProformaVat = linkedProformaData.vat;
+        invoice.linkedProformaFullTotal = linkedProformaData.fullTotal;
+        invoice.linkedProformaFullSubtotal = linkedProformaData.fullSubtotal;
+        invoice.linkedProformaFullVat = linkedProformaData.fullVat;
+        invoice.linkedProformaDeductionPercent = linkedProformaData.deductionPercent;
         invoice.linkedProformaCurrency = linkedProformaData.currency;
         invoice.linkedProformaPaidExchangeRate = linkedProformaData.paidExchangeRate;
         invoice.linkedProformaPaidAmountCZK = linkedProformaData.paidAmountCZK;
@@ -7535,6 +7606,10 @@ function editInvoice(invNumber) {
                 total: inv.linkedProformaTotal || 0,
                 subtotal: inv.linkedProformaSubtotal || 0,
                 vat: inv.linkedProformaVat || 0,
+                fullTotal: inv.linkedProformaFullTotal || inv.linkedProformaTotal || 0,
+                fullSubtotal: inv.linkedProformaFullSubtotal || inv.linkedProformaSubtotal || 0,
+                fullVat: inv.linkedProformaFullVat || inv.linkedProformaVat || 0,
+                deductionPercent: inv.linkedProformaDeductionPercent || 100,
                 currency: inv.linkedProformaCurrency || 'CZK',
                 paidExchangeRate: inv.linkedProformaPaidExchangeRate || null,
                 paidAmountCZK: inv.linkedProformaPaidAmountCZK || null,
@@ -7612,6 +7687,14 @@ function editInvoice(invNumber) {
         const proformaSelect = document.getElementById('invLinkedProforma');
         if (proformaSelect) {
             proformaSelect.value = linkedProformaNumber;
+            // Show the percentage field and set its value
+            onLinkedProformaChange();
+            const deductionPercent = inv.linkedProforma?.deductionPercent || 100;
+            const percentInput = document.getElementById('invProformaDeductionPercent');
+            if (percentInput) {
+                percentInput.value = deductionPercent;
+            }
+            updateProformaDeductionPreview();
         }
     }
 
@@ -13081,6 +13164,10 @@ function generateInvoicePreviewHTML(inv) {
                 total: inv.linkedProformaTotal || 0,
                 subtotal: inv.linkedProformaSubtotal || 0,
                 vat: inv.linkedProformaVat || 0,
+                fullTotal: inv.linkedProformaFullTotal || inv.linkedProformaTotal || 0,
+                fullSubtotal: inv.linkedProformaFullSubtotal || inv.linkedProformaSubtotal || 0,
+                fullVat: inv.linkedProformaFullVat || inv.linkedProformaVat || 0,
+                deductionPercent: inv.linkedProformaDeductionPercent || 100,
                 currency: inv.linkedProformaCurrency || 'CZK',
                 paidExchangeRate: inv.linkedProformaPaidExchangeRate || null,
                 paidAmountCZK: inv.linkedProformaPaidAmountCZK || null,

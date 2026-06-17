@@ -1397,6 +1397,16 @@
                             <option value="">-- Žádná --</option>
                         </select>
                     </div>
+                    <div class="form-group" id="invProformaDeductionPercentGroup" style="display: none;">
+                        <label>% zálohy k odečtení</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="number" id="invProformaDeductionPercent" value="100" min="1" max="100" step="1" style="width: 80px;" onchange="updateProformaDeductionPreview()">
+                            <span>%</span>
+                            <span style="margin-left: 1rem; font-size: 0.9em; color: #666;">
+                                <span id="invProformaDeductionPreview"></span>
+                            </span>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label data-i18n="proforma">Proforma</label>
                         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
