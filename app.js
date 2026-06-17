@@ -5479,10 +5479,18 @@ function generateProformaDeductionHtml(inv) {
         const invVatCZK = inv.vat * invoiceRate;
         const invTotalCZK = inv.total * invoiceRate;
 
-        // CZK amounts for the DD/proforma (at payment rate)
-        const ddSubtotalCZK = pf.paidSubtotalCZK || (pf.subtotal * (pfRate || invoiceRate));
-        const ddVatCZK = pf.paidVatCZK || (pf.vat * (pfRate || invoiceRate));
-        const ddTotalCZK = pf.paidAmountCZK || (pf.total * (pfRate || invoiceRate));
+        // CZK amounts for the DD/proforma (at payment rate) - PROPORTIONAL
+        // If we have the full CZK amounts saved, multiply by deduction percentage
+        // Otherwise calculate from the proportional EUR amounts
+        const ddSubtotalCZK = pf.paidSubtotalCZK
+            ? (pf.paidSubtotalCZK * deductionPercent / 100)
+            : (pf.subtotal * (pfRate || invoiceRate));
+        const ddVatCZK = pf.paidVatCZK
+            ? (pf.paidVatCZK * deductionPercent / 100)
+            : (pf.vat * (pfRate || invoiceRate));
+        const ddTotalCZK = pf.paidAmountCZK
+            ? (pf.paidAmountCZK * deductionPercent / 100)
+            : (pf.total * (pfRate || invoiceRate));
 
         return `
             <div class="inv-czk-conversion" style="margin-top: 8px; padding: 6px; background: #fafafa; border: 1px solid #ccc; font-size: 8px; color: #555;">
