@@ -9230,7 +9230,8 @@ function updateReceivedOrdersDisplayLocal() {
     models.forEach(model => {
         const key = modelIdToKey(model.id);
         const toDeliverQty = toDeliver.reduce((sum, o) => {
-            const qty = Number(o.quantities?.[model.id]) || 0;
+            // Use remainingQuantities if available (for partial deliveries), otherwise use quantities
+            const qty = Number(o.remainingQuantities?.[model.id] ?? o.quantities?.[model.id]) || 0;
             return sum + (isNaN(qty) ? 0 : qty);
         }, 0);
         const el = document.getElementById(`recOrder-${key}`);
