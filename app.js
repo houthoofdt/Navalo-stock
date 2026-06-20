@@ -12517,6 +12517,135 @@ async function clearLocalCache() {
 window.clearLocalCache = clearLocalCache;
 
 // ========================================
+// MIGRATE DELIVERY DATA
+// ========================================
+
+async function migrateDeliveryData() {
+    const message = currentLang === 'cz'
+        ? 'Synchronizovat historii dodávek do objednávek?\n\nToto aktualizuje:\n- Dodané množství pro každou objednávku\n- Zbývající množství k dodání\n- Historie dodávek\n\nData budou uložena do Google Sheets.'
+        : 'Synchroniser l\'historique des livraisons dans les commandes ?\n\nCeci mettra à jour :\n- Quantités livrées pour chaque commande\n- Quantités restantes à livrer\n- Historique des livraisons\n\nLes données seront sauvegardées dans Google Sheets.';
+
+    if (!confirm(message)) return;
+
+    const progressMsg = currentLang === 'cz' ? 'Migrace dat...' : 'Migration des données...';
+    showToast(progressMsg, 'info');
+
+    try {
+        console.log('🔄 Starting delivery data migration...');
+
+        // Fetch all deliveries and orders from Google Sheets (not localStorage)
+        const deliveries = await storage.getDeliveries(500);
+        let orders = await storage.getReceivedOrders(500);
+
+        console.log(`📦 Loaded ${deliveries.length} deliveries`);
+        console.log(`📋 Loaded ${orders.length} orders`);
+
+        let updatedCount = 0;
+        let errorCount = 0;
+
+        // Process each order
+        for (const order of orders) {
+            // Skip if order has no clientOrderNumber
+            if (!order.clientOrderNumber) continue;
+
+            // Find all BL linked to this order
+            const orderBLs = deliveries.filter(bl =>
+                bl.clientOrderNumber === order.clientOrderNumber && order.clientOrderNumber
+            );
+
+            if (orderBLs.length === 0) continue;
+
+            console.log(`\n📦 Processing ${order.orderNumber} (${order.clientOrderNumber}): ${orderBLs.length} BL`);
+
+            // Initialize tracking fields
+            order.deliveredQuantities = order.deliveredQuantities || {};
+            order.remainingQuantities = order.remainingQuantities || {};
+            order.deliveries = order.deliveries || [];
+
+            // Reset to recalculate from scratch
+            order.deliveredQuantities = {};
+            order.deliveries = [];
+
+            // Process each BL
+            orderBLs.forEach(bl => {
+                const blQty = bl.quantities || {};
+
+                console.log(`  📄 ${bl.blNumber}:`, blQty);
+
+                // Add quantities from this BL
+                Object.entries(blQty).forEach(([model, amount]) => {
+                    if (amount > 0) {
+                        order.deliveredQuantities[model] = (order.deliveredQuantities[model] || 0) + amount;
+                    }
+                });
+
+                // Add to deliveries array
+                order.deliveries.push({
+                    deliveryId: bl.id,
+                    blNumber: bl.blNumber,
+                    date: bl.date || new Date().toISOString(),
+                    quantities: { ...blQty }
+                });
+            });
+
+            console.log(`  ✅ Livré:`, order.deliveredQuantities);
+
+            // Recalculate remaining quantities
+            Object.keys(order.quantities || {}).forEach(model => {
+                const ordered = order.quantities[model] || 0;
+                const delivered = order.deliveredQuantities[model] || 0;
+                order.remainingQuantities[model] = Math.max(0, ordered - delivered);
+            });
+
+            console.log(`  📊 Reste:`, order.remainingQuantities);
+
+            // Update status
+            const hasRemaining = Object.values(order.remainingQuantities).some(q => q > 0);
+            order.status = hasRemaining ? 'partial' : 'delivered';
+            console.log(`  📋 Statut:`, order.status);
+
+            // Save to Google Sheets
+            try {
+                await storage.updateReceivedOrder(order);
+                updatedCount++;
+                console.log(`  💾 Saved to Google Sheets`);
+            } catch (error) {
+                console.error(`  ❌ Error saving order ${order.orderNumber}:`, error);
+                errorCount++;
+            }
+        }
+
+        console.log(`\n✅ Migration complete: ${updatedCount} orders updated, ${errorCount} errors`);
+
+        const successMsg = currentLang === 'cz'
+            ? `✅ Migrace dokončena: ${updatedCount} objednávek aktualizováno${errorCount > 0 ? `, ${errorCount} chyb` : ''}`
+            : `✅ Migration terminée : ${updatedCount} commandes mises à jour${errorCount > 0 ? `, ${errorCount} erreurs` : ''}`;
+
+        showToast(successMsg, 'success');
+
+        // Clear cache and reload to show updated data
+        setTimeout(() => {
+            const reloadMsg = currentLang === 'cz' ? 'Načítám aktualizovaná data...' : 'Rechargement des données...';
+            showToast(reloadMsg, 'info');
+
+            // Clear only the orders cache to force reload
+            localStorage.removeItem('navalo_received_orders');
+
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+        }, 2000);
+
+    } catch (error) {
+        console.error('❌ Migration error:', error);
+        const errorMsg = currentLang === 'cz' ? '❌ Chyba při migraci' : '❌ Erreur lors de la migration';
+        showToast(errorMsg + ': ' + error.message, 'error');
+    }
+}
+
+window.migrateDeliveryData = migrateDeliveryData;
+
+// ========================================
 // PREVIEW FUNCTIONS FOR DOCUMENTS
 // ========================================
 
