@@ -12190,7 +12190,7 @@ function findRefrigerantRef() {
     const refrigerantKeywords = ['r134a', 'r410a', 'r32', 'refrigerant', 'frigorigene', 'fluide'];
     for (const [ref, data] of Object.entries(currentStock)) {
         const refLower = ref.toLowerCase();
-        const nameLower = (data.name || '').toLowerCase();
+        const nameLower = String(data.name || '').toLowerCase();
         for (const keyword of refrigerantKeywords) {
             if (refLower.includes(keyword) || nameLower.includes(keyword)) {
                 return ref;
