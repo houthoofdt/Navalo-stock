@@ -12073,10 +12073,8 @@ async function sendRepairQuoteByEmail() {
             return;
         }
 
-        // Get client email as default (if available)
-        const contacts = await storage.getContacts();
-        const client = contacts.find(c => c.id === quote.clientId);
-        const defaultEmail = client?.email || '';
+        // Default recipient for repair quotes
+        const defaultEmail = 'jana.tuley@alliancels.com';
 
         // Ask for recipient email
         const recipientEmail = prompt(
@@ -12102,6 +12100,14 @@ async function sendRepairQuoteByEmail() {
             currentLang === 'cz'
                 ? `Přidat adresy v kopii (CC)?\n\nOddělte adresy čárkami.\nPříklad: email1@domain.com, email2@domain.com\n\nNechte prázdné, pokud nechcete kopii.`
                 : `Ajouter des adresses en copie (CC)?\n\nSéparez les adresses par des virgules.\nExemple: email1@domain.com, email2@domain.com\n\nLaissez vide si pas de copie.`,
+            ''
+        );
+
+        // Ask for an optional comment to include in the email body
+        const comment = prompt(
+            currentLang === 'cz'
+                ? `Chcete přidat komentář do emailu?\n\nNechte prázdné, pokud nechcete žádný komentář.`
+                : `Souhaitez-vous ajouter un commentaire dans l'email?\n\nLaissez vide si vous ne voulez pas de commentaire.`,
             ''
         );
 
@@ -12148,8 +12154,8 @@ async function sendRepairQuoteByEmail() {
             replyTo: 'tomas.karas@hotjet.cz',
             subject: `${currentLang === 'cz' ? 'Nabídka opravy' : 'Devis de réparation'} ${quote.quoteNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             body: currentLang === 'cz' ?
-                `Dobrý den,\n\nV příloze naleznete nabídku opravy ${quote.quoteNumber}.\n\nPro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}` :
-                `Bonjour,\n\nVous trouverez en pièce jointe notre devis de réparation ${quote.quoteNumber}.\n\nPour toute réponse, contactez: tomas.karas@hotjet.cz\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+                `Dobrý den,\n\nV příloze naleznete nabídku opravy ${quote.quoteNumber}.\n\n${comment && comment.trim() ? comment.trim() + '\n\n' : ''}Pro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}` :
+                `Bonjour,\n\nVous trouverez en pièce jointe notre devis de réparation ${quote.quoteNumber}.\n\n${comment && comment.trim() ? comment.trim() + '\n\n' : ''}Pour toute réponse, contactez: tomas.karas@hotjet.cz\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
             htmlContent: quoteHtml,
             documentNumber: quote.quoteNumber,
             documentType: currentLang === 'cz' ? 'Nabídka opravy' : 'Devis de réparation'
