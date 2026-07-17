@@ -504,7 +504,8 @@ const REPAIR_PRICE_LIST = {
         cleaning: { price: 30, unit: 'EUR/hod', label: 'Nettoyage / Čištění' },
         repair: { price: 30, unit: 'EUR/hod', label: 'Réparation / Oprava' },
         refrigerantR134a: { price: 25, unit: 'EUR/kg', label: 'Réfrigérant R134a' },
-        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' }
+        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' },
+        travel: { price: 0.5, unit: 'EUR/km', label: 'Déplacement / Přesun' }
     },
 
     // Composants T9/T11

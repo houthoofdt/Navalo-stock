@@ -294,6 +294,7 @@ const TRANSLATIONS = {
         refrigerantFluid: 'Fluide frigorigène',
         disposalKg: 'Élimination (kg)',
         wasteDisposal: 'Élimination déchets',
+        travelKm: 'Déplacement (km)',
         pacSubtotal: 'Sous-total PAC',
         removePAC: 'Retirer cette PAC',
         removeComponent: 'Retirer',
@@ -571,6 +572,7 @@ const TRANSLATIONS = {
         refrigerantFluid: 'Chladivo',
         disposalKg: 'Likvidace (kg)',
         wasteDisposal: 'Likvidace odpadu',
+        travelKm: 'Přesun (km)',
         pacSubtotal: 'Mezisoučet TČ',
         removePAC: 'Odebrat toto TČ',
         removeComponent: 'Odebrat',
@@ -10267,6 +10269,9 @@ async function loadRepairQuoteData(quoteId) {
                 if (pacCard.querySelector('.service-repair')) {
                     pacCard.querySelector('.service-repair').value = pac.services?.repair || 0;
                 }
+                if (pacCard.querySelector('.service-travel')) {
+                    pacCard.querySelector('.service-travel').value = pac.services?.travel || 0;
+                }
                 if (pacCard.querySelector('.service-labor')) {
                     // For backwards compatibility with old quotes that only have "labor"
                     pacCard.querySelector('.service-labor').value = pac.services?.labor || 0;
@@ -10280,6 +10285,9 @@ async function loadRepairQuoteData(quoteId) {
                 }
                 if (pacCard.querySelector('.service-repair-pays')) {
                     pacCard.querySelector('.service-repair-pays').checked = pac.services?.repairPays || false;
+                }
+                if (pacCard.querySelector('.service-travel-pays')) {
+                    pacCard.querySelector('.service-travel-pays').checked = pac.services?.travelPays || false;
                 }
                 if (pacCard.querySelector('.service-refrigerant-pays')) {
                     pacCard.querySelector('.service-refrigerant-pays').checked = pac.services?.refrigerantPays || false;
@@ -10477,6 +10485,15 @@ function addPACToRepairQuote() {
                         <span class="component-price-display">30 EUR/hod</span>
                         <div style="margin-top: 5px;">
                             <input type="checkbox" class="service-repair-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <label style="font-size: 0.85em; display: inline;">Client paie</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>${t('travelKm')}</label>
+                        <input type="number" class="service-travel" min="0" step="any" value="0" onchange="calculatePACSubtotal(${pacCounter})">
+                        <span class="component-price-display">0.5 EUR/km</span>
+                        <div style="margin-top: 5px;">
+                            <input type="checkbox" class="service-travel-pays" onchange="calculatePACSubtotal(${pacCounter})" style="width: 16px; height: 16px; margin-right: 5px;">
                             <label style="font-size: 0.85em; display: inline;">Client paie</label>
                         </div>
                     </div>
@@ -10730,6 +10747,7 @@ function calculatePACSubtotal(pacIndex) {
     // Calculate services total
     const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
     const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
+    const travel = parseFloat(pacCard.querySelector('.service-travel')?.value) || 0;
     const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0; // Keep for backwards compatibility
     const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
     const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
@@ -10737,21 +10755,24 @@ function calculatePACSubtotal(pacIndex) {
     const serviceRates = getServiceRates();
     const cleaningTotal = cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
     const repairTotal = repair * (serviceRates.repair?.price || serviceRates.labor.price);
+    const travelTotal = travel * (serviceRates.travel?.price || 0.5);
     const laborTotal = labor * serviceRates.labor.price; // Backwards compatibility
     const refrigerantTotal = refrigerant * serviceRates.refrigerantR134a.price;
     const disposalTotal = disposal * serviceRates.disposal.price;
 
-    subtotalBeforeWarranty += cleaningTotal + repairTotal + laborTotal + refrigerantTotal + disposalTotal;
+    subtotalBeforeWarranty += cleaningTotal + repairTotal + travelTotal + laborTotal + refrigerantTotal + disposalTotal;
 
     // Check "customer pays" for each service
     const cleaningPays = pacCard.querySelector('.service-cleaning-pays')?.checked || false;
     const repairPays = pacCard.querySelector('.service-repair-pays')?.checked || false;
+    const travelPays = pacCard.querySelector('.service-travel-pays')?.checked || false;
     const refrigerantPays = pacCard.querySelector('.service-refrigerant-pays')?.checked || false;
     const disposalPays = pacCard.querySelector('.service-disposal-pays')?.checked || false;
 
     // Add to subtotal only if customer pays OR not under warranty
     if (!underWarranty || cleaningPays) subtotal += cleaningTotal;
     if (!underWarranty || repairPays) subtotal += repairTotal;
+    if (!underWarranty || travelPays) subtotal += travelTotal;
     if (!underWarranty) subtotal += laborTotal; // Labor always charged if not under warranty
     if (!underWarranty || refrigerantPays) subtotal += refrigerantTotal;
     if (!underWarranty || disposalPays) subtotal += disposalTotal;
@@ -10814,6 +10835,7 @@ function calculateRepairQuoteTotal() {
         // Services
         const cleaning = parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0;
         const repair = parseFloat(pacCard.querySelector('.service-repair')?.value) || 0;
+        const travel = parseFloat(pacCard.querySelector('.service-travel')?.value) || 0;
         const labor = parseFloat(pacCard.querySelector('.service-labor')?.value) || 0;
         const refrigerant = parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0;
         const disposal = parseFloat(pacCard.querySelector('.service-disposal').value) || 0;
@@ -10821,6 +10843,7 @@ function calculateRepairQuoteTotal() {
         const serviceRates = getServiceRates();
         const cleaningTotal = cleaning * (serviceRates.cleaning?.price || serviceRates.labor.price);
         const repairTotal = repair * (serviceRates.repair?.price || serviceRates.labor.price);
+        const travelTotal = travel * (serviceRates.travel?.price || 0.5);
         const laborTotal = labor * serviceRates.labor.price;
         const refrigerantTotal = refrigerant * serviceRates.refrigerantR134a.price;
         const disposalTotal = disposal * serviceRates.disposal.price;
@@ -10828,12 +10851,14 @@ function calculateRepairQuoteTotal() {
         // Check "customer pays" for each service
         const cleaningPays = pacCard.querySelector('.service-cleaning-pays')?.checked || false;
         const repairPays = pacCard.querySelector('.service-repair-pays')?.checked || false;
+        const travelPays = pacCard.querySelector('.service-travel-pays')?.checked || false;
         const refrigerantPays = pacCard.querySelector('.service-refrigerant-pays')?.checked || false;
         const disposalPays = pacCard.querySelector('.service-disposal-pays')?.checked || false;
 
         // Add to subtotal only if customer pays OR not under warranty
         if (!underWarranty || cleaningPays) pacSubtotal += cleaningTotal;
         if (!underWarranty || repairPays) pacSubtotal += repairTotal;
+        if (!underWarranty || travelPays) pacSubtotal += travelTotal;
         if (!underWarranty) pacSubtotal += laborTotal; // Labor always charged if not under warranty
         if (!underWarranty || refrigerantPays) pacSubtotal += refrigerantTotal;
         if (!underWarranty || disposalPays) pacSubtotal += disposalTotal;
@@ -10903,12 +10928,14 @@ async function saveRepairQuote() {
             services: {
                 cleaning: parseFloat(pacCard.querySelector('.service-cleaning')?.value) || 0,
                 repair: parseFloat(pacCard.querySelector('.service-repair')?.value) || 0,
+                travel: parseFloat(pacCard.querySelector('.service-travel')?.value) || 0,
                 labor: parseFloat(pacCard.querySelector('.service-labor')?.value) || 0, // Keep for backwards compatibility
                 refrigerant: parseFloat(pacCard.querySelector('.service-refrigerant').value) || 0,
                 disposal: parseFloat(pacCard.querySelector('.service-disposal').value) || 0,
                 // Save "customer pays" checkbox states
                 cleaningPays: pacCard.querySelector('.service-cleaning-pays')?.checked || false,
                 repairPays: pacCard.querySelector('.service-repair-pays')?.checked || false,
+                travelPays: pacCard.querySelector('.service-travel-pays')?.checked || false,
                 refrigerantPays: pacCard.querySelector('.service-refrigerant-pays')?.checked || false,
                 disposalPays: pacCard.querySelector('.service-disposal-pays')?.checked || false
             },
@@ -11092,7 +11119,8 @@ function getServiceRates() {
     return {
         labor: { price: 30, unit: 'EUR/hod', label: 'Main d\'œuvre' },
         refrigerantR134a: { price: 25, unit: 'EUR/kg', label: 'Réfrigérant R134a' },
-        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' }
+        disposal: { price: 17, unit: 'EUR/kg', label: 'Élimination réfrigérant' },
+        travel: { price: 0.5, unit: 'EUR/km', label: 'Déplacement' }
     };
 }
 
@@ -11216,6 +11244,25 @@ function showRepairQuotePreview(quote) {
             `;
         }
 
+        // Show travel distance
+        if (services.travel > 0) {
+            const travelRate = serviceRates.travel || { price: 0.5 };
+            const travelTotal = services.travel * travelRate.price;
+            const isFree = pac.underWarranty && !services.travelPays;
+            const rowStyle = isFree ? 'color: #999; text-decoration: line-through;' : '';
+            const priceDisplay = isFree ? `<span style="${rowStyle}">${travelTotal.toFixed(2)} EUR</span> → <strong style="color: #22c55e;">ZDARMA</strong>` : `${travelTotal.toFixed(2)} EUR`;
+
+            pacsTableHtml += `
+                <tr>
+                    <td style="${rowStyle}">${t('travelKm')}</td>
+                    <td style="${rowStyle}">SERVICE</td>
+                    <td style="text-align:center; ${rowStyle}">${services.travel} km</td>
+                    <td style="text-align:right; ${rowStyle}">${travelRate.price} EUR/km</td>
+                    <td style="text-align:right">${priceDisplay}</td>
+                </tr>
+            `;
+        }
+
         // Show old "labor" field for backwards compatibility with old quotes
         if (services.labor > 0 && !services.cleaning && !services.repair) {
             pacsTableHtml += `
@@ -11272,6 +11319,7 @@ function showRepairQuotePreview(quote) {
             }
             totalBeforeWarranty += (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
             totalBeforeWarranty += (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
+            totalBeforeWarranty += (pac.services.travel || 0) * (serviceRates.travel?.price || 0.5);
             totalBeforeWarranty += (pac.services.labor || 0) * serviceRates.labor.price; // Backwards compatibility
             totalBeforeWarranty += (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
             totalBeforeWarranty += (pac.services.disposal || 0) * serviceRates.disposal.price;
@@ -11287,11 +11335,13 @@ function showRepairQuotePreview(quote) {
             }
             const cleaningTotal = (pac.services.cleaning || 0) * (serviceRates.cleaning?.price || serviceRates.labor.price);
             const repairTotal = (pac.services.repair || 0) * (serviceRates.repair?.price || serviceRates.labor.price);
+            const travelTotal = (pac.services.travel || 0) * (serviceRates.travel?.price || 0.5);
             const refrigerantTotal = (pac.services.refrigerant || 0) * serviceRates.refrigerantR134a.price;
             const disposalTotal = (pac.services.disposal || 0) * serviceRates.disposal.price;
 
             if (pac.services.cleaningPays) chargedAmount += cleaningTotal;
             if (pac.services.repairPays) chargedAmount += repairTotal;
+            if (pac.services.travelPays) chargedAmount += travelTotal;
             if (pac.services.refrigerantPays) chargedAmount += refrigerantTotal;
             if (pac.services.disposalPays) chargedAmount += disposalTotal;
 
@@ -11632,6 +11682,10 @@ async function convertRepairQuoteToInvoice(quoteId) {
                         const repairRate = serviceRates.repair || serviceRates.labor;
                         addInvoiceItemRow('Oprava / Réparation', pac.services.repair, repairRate.price);
                     }
+                    if (pac.services.travel > 0) {
+                        const travelRate = serviceRates.travel || { price: 0.5 };
+                        addInvoiceItemRow(t('travelKm'), pac.services.travel, travelRate.price);
+                    }
                     // Backwards compatibility for old quotes with only "labor"
                     if (pac.services.labor > 0 && !pac.services.cleaning && !pac.services.repair) {
                         addInvoiceItemRow(t('labor'), pac.services.labor, serviceRates.labor.price);
@@ -11836,6 +11890,16 @@ async function acceptRepairQuote(quoteId) {
                             qty: pac.services.repair,
                             price: repairRate.price,
                             pricePerUnit: repairRate.price
+                        });
+                    }
+                    if (pac.services.travel > 0) {
+                        const travelRate = serviceRates.travel || { price: 0.5 };
+                        items.push({
+                            name: t('travelKm'),
+                            description: t('travelKm'),
+                            qty: pac.services.travel,
+                            price: travelRate.price,
+                            pricePerUnit: travelRate.price
                         });
                     }
                     // Backwards compatibility
@@ -13565,6 +13629,7 @@ function previewRepairQuoteBeforeSave() {
             services: {
                 cleaning: 0,
                 repair: 0,
+                travel: 0,
                 labor: 0,
                 refrigerant: 0,
                 disposal: 0
@@ -13602,12 +13667,14 @@ function previewRepairQuoteBeforeSave() {
         // Get services for this PAC
         const cleaningInput = container.querySelector('.service-cleaning');
         const repairInput = container.querySelector('.service-repair');
+        const travelInput = container.querySelector('.service-travel');
         const laborInput = container.querySelector('.service-labor');
         const refrigerantInput = container.querySelector('.service-refrigerant');
         const disposalInput = container.querySelector('.service-disposal');
 
         pac.services.cleaning = parseFloat(cleaningInput?.value) || 0;
         pac.services.repair = parseFloat(repairInput?.value) || 0;
+        pac.services.travel = parseFloat(travelInput?.value) || 0;
         pac.services.labor = parseFloat(laborInput?.value) || 0;
         pac.services.refrigerant = parseFloat(refrigerantInput?.value) || 0;
         pac.services.disposal = parseFloat(disposalInput?.value) || 0;
@@ -13617,6 +13684,7 @@ function previewRepairQuoteBeforeSave() {
             pac.subtotal = pac.components.reduce((sum, comp) => sum + comp.total, 0);
             pac.subtotal += pac.services.cleaning * ((serviceRates.cleaning || serviceRates.labor)?.price || 0);
             pac.subtotal += pac.services.repair * ((serviceRates.repair || serviceRates.labor)?.price || 0);
+            pac.subtotal += pac.services.travel * (serviceRates.travel?.price || 0.5);
             pac.subtotal += pac.services.labor * (serviceRates.labor?.price || 0);
             pac.subtotal += pac.services.refrigerant * (serviceRates.refrigerantR134a?.price || 0);
             pac.subtotal += pac.services.disposal * (serviceRates.disposal?.price || 0);
