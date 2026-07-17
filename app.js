@@ -2026,7 +2026,8 @@ function addDeliveryComponentRow(ref = '', qty = '', componentName = '') {
     qtyInput.type = 'number';
     qtyInput.className = 'item-qty';
     qtyInput.placeholder = 'Qté';
-    qtyInput.min = '1';
+    qtyInput.min = '0.01';
+    qtyInput.step = '0.01';
     qtyInput.style.flex = '1';
     qtyInput.value = qty || '';
 
@@ -2109,7 +2110,7 @@ function getDeliveryItems() {
         const select = row.querySelector('.item-ref');
         const qtyInput = row.querySelector('.item-qty');
         const ref = select?.value;
-        const qty = parseInt(qtyInput?.value || 0);
+        const qty = parseFloat(qtyInput?.value) || 0; // parseFloat to preserve decimals (e.g. 2.7 kg de refrigerant)
 
         if (ref && qty > 0) {
             const opt = select.options[select.selectedIndex];
