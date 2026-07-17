@@ -2962,7 +2962,7 @@ function getReceivedInvoices(limit) {
   const data = sheet.getDataRange().getValues();
 
   const invoices = [];
-  for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+  for (let i = 1; i < data.length; i++) {
     let linkedProformaData = null;
     try {
       if (data[i][20]) linkedProformaData = JSON.parse(data[i][20]);
