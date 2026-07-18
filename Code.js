@@ -1941,8 +1941,8 @@ function getReceipts(limit) {
   
   const data = sheet.getDataRange().getValues();
   const receipts = [];
-  
-  for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+
+  for (let i = 1; i < data.length; i++) {
     let items = [];
     try { items = JSON.parse(data[i][8] || '[]'); } catch(e) {}
     

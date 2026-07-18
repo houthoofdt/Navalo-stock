@@ -204,6 +204,9 @@
                 <!-- Historique des příjemky -->
                 <div class="receipts-history-section">
                     <h3>📋 <span data-i18n="receiptsHistory">Historique des réceptions</span></h3>
+                    <div class="filters-row" style="margin-bottom: 1rem;">
+                        <input type="text" id="receiptSearchInput" class="filter-input" data-i18n-placeholder="supplierSearchPlaceholder" placeholder="Rechercher un fournisseur..." oninput="updateReceiptsHistoryDisplay()">
+                    </div>
                     <div class="table-container">
                         <table class="data-table">
                             <thead>

@@ -137,6 +137,7 @@ const TRANSLATIONS = {
         requiredPerPAC: 'Requis/PAC',
         entryTitle: 'Réception Marchandises', newReceipt: 'Nouvelle réception',
         receiptsHistory: 'Historique des réceptions', cancelReceipt: 'Annuler réception',
+        supplierSearchPlaceholder: 'Rechercher un fournisseur...',
         confirmCancelReceipt: 'Annuler cette réception? Les quantités seront retirées du stock.',
         receiptNumber: 'N° Bon de réception', date: 'Date', linkToPO: 'Lier à commande',
         none: '-- Aucune --', supplier: 'Fournisseur', currency: 'Devise',
@@ -415,6 +416,7 @@ const TRANSLATIONS = {
         requiredPerPAC: 'Potřeba/TČ',
         entryTitle: 'Příjem zboží', newReceipt: 'Nová příjemka',
         receiptsHistory: 'Historie příjemek', cancelReceipt: 'Stornovat příjemku',
+        supplierSearchPlaceholder: 'Hledat dodavatele...',
         confirmCancelReceipt: 'Stornovat tuto příjemku? Množství bude odebráno ze skladu.',
         receiptNumber: 'Číslo příjemky', date: 'Datum', linkToPO: 'Navázat na obj.',
         none: '-- Žádná --', supplier: 'Dodavatel', currency: 'Měna',
@@ -4278,7 +4280,7 @@ async function updateReceiptsHistoryDisplay() {
     // Load from Google Sheets if connected - GS is the source of truth
     if (storage.getMode() === 'googlesheets') {
         try {
-            const remoteReceipts = await storage.getReceipts(200);
+            const remoteReceipts = await storage.getReceipts(500);
             if (Array.isArray(remoteReceipts)) {
                 receipts = remoteReceipts;
                 localStorage.setItem('navalo_receipts', JSON.stringify(receipts));
@@ -4296,6 +4298,12 @@ async function updateReceiptsHistoryDisplay() {
     
     // Sort by date descending
     receipts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Apply supplier search filter
+    const searchText = document.getElementById('receiptSearchInput')?.value.trim().toLowerCase() || '';
+    if (searchText) {
+        receipts = receipts.filter(r => (r.supplier || '').toLowerCase().includes(searchText));
+    }
 
     if (receipts.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center">${t('noData')}</td></tr>`;
