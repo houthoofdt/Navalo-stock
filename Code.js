@@ -3331,7 +3331,7 @@ function getDeliveries(limit) {
   const data = sheet.getDataRange().getValues();
 
   const deliveries = [];
-  for (let i = Math.max(1, data.length - limit); i < data.length; i++) {
+  for (let i = 1; i < data.length; i++) {
     // Column structure (with TIZ_TH11 and TIZ_TX9):
     // 0:ID, 1:Date, 2:BL, 3:Client, 4:Address, 5:TX9, 6:TX12-3PH, 7:TX12-1PH, 8:TH11,
     // 9:TIZ_TH11, 10:TIZ_TX9, 11:Total, 12:Value, 13:Status, 14:Notes, 15:LinkedOrderId,

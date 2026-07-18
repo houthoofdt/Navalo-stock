@@ -4560,7 +4560,7 @@ async function updateDeliveriesDisplay() {
         // Merge with Google Sheets data if connected
         if (storage.getMode() === 'googlesheets') {
             try {
-                const remoteDeliveries = await storage.getDeliveries(20);
+                const remoteDeliveries = await storage.getDeliveries(500);
                 if (Array.isArray(remoteDeliveries) && remoteDeliveries.length > 0) {
                     console.log('🚚 Merging deliveries. Local:', deliveries.length, 'Remote:', remoteDeliveries.length);
 
