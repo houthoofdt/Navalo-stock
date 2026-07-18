@@ -2247,7 +2247,17 @@ function processDelivery(data) {
     totalCustom,
     repairQuoteData ? JSON.stringify(repairQuoteData) : '' // repairQuoteData
   ]);
-  
+
+  // Keep the linked order's delivered/remaining quantities in sync so partial
+  // deliveries are reflected immediately, not only once fully delivered
+  if (linkedOrderId) {
+    try {
+      applyDeliveryToOrder(linkedOrderId, quantities);
+    } catch (e) {
+      Logger.log('processDelivery: failed to update linked order ' + linkedOrderId + ': ' + e);
+    }
+  }
+
   getStockValuation();
 
   return {
@@ -2573,7 +2583,9 @@ function createReceivedOrder(data) {
     '', // driveFileId                              // 25 (Z)
     '', // driveFileUrl                             // 26 (AA)
     JSON.stringify(stockComponents || []),          // 27 (AB)
-    JSON.stringify(customItems || [])               // 28 (AC)
+    JSON.stringify(customItems || []),              // 28 (AC)
+    JSON.stringify({}),                             // 29 (AD) deliveredQuantities
+    JSON.stringify(quantities || {})                // 30 (AE) remainingQuantities
   ]);
 
   return { success: true, roId, roNumber, total };
@@ -2598,6 +2610,33 @@ function getReceivedOrders(limit) {
       if (row[28]) customItems = JSON.parse(row[28]);
     } catch (e) {}
 
+    const quantities = {
+      'TX9': row[6] || 0,
+      'TX12-3PH': row[8] || 0,
+      'TX12-1PH': row[10] || 0,
+      'TH11': row[12] || 0,
+      'TIZ_TH11': row[21] || 0,  // Column V
+      'TIZ_TX9': row[23] || 0    // Column X
+    };
+
+    // Parse deliveredQuantities / remainingQuantities from JSON (cols 29-30)
+    // Fall back for older rows created before these columns existed
+    let deliveredQuantities = {};
+    let remainingQuantities = null;
+    try {
+      if (row[29]) deliveredQuantities = JSON.parse(row[29]);
+    } catch (e) {}
+    try {
+      if (row[30]) remainingQuantities = JSON.parse(row[30]);
+    } catch (e) {}
+    if (!remainingQuantities) {
+      const status = row[17] || 'new';
+      remainingQuantities = {};
+      Object.keys(quantities).forEach(function(model) {
+        remainingQuantities[model] = status === 'delivered' ? 0 : quantities[model];
+      });
+    }
+
     orders.push({
       id: row[0],
       date: normalizeDate(row[1]),
@@ -2605,14 +2644,7 @@ function getReceivedOrders(limit) {
       clientOrderNumber: row[3],
       client: row[4],
       address: row[5],
-      quantities: {
-        'TX9': row[6] || 0,
-        'TX12-3PH': row[8] || 0,
-        'TX12-1PH': row[10] || 0,
-        'TH11': row[12] || 0,
-        'TIZ_TH11': row[21] || 0,  // Column V
-        'TIZ_TX9': row[23] || 0    // Column X
-      },
+      quantities: quantities,
       prices: {
         'TX9': row[7] || 0,
         'TX12-3PH': row[9] || 0,
@@ -2631,7 +2663,9 @@ function getReceivedOrders(limit) {
       driveFileId: row[25] || '',   // Column Z
       driveFileUrl: row[26] || '',  // Column AA
       stockComponents: stockComponents,
-      customItems: customItems
+      customItems: customItems,
+      deliveredQuantities: deliveredQuantities,
+      remainingQuantities: remainingQuantities
     });
   }
 
@@ -2644,7 +2678,8 @@ function updateReceivedOrder(data) {
   const roData = roSheet.getDataRange().getValues();
   
   const { roId, delivered, invoiced, quantities, prices, client, address,
-          deliveryDate, currency, total, status, notes, clientOrderNumber, stockComponents, customItems } = data;
+          deliveryDate, currency, total, status, notes, clientOrderNumber, stockComponents, customItems,
+          deliveredQuantities, remainingQuantities } = data;
   
   for (let i = 1; i < roData.length; i++) {
     if (roData[i][0] === roId) {
@@ -2690,11 +2725,82 @@ function updateReceivedOrder(data) {
         roSheet.getRange(i + 1, 29).setValue(JSON.stringify(customItems || []));
       }
 
+      // Update partial delivery tracking if provided (cols AD-AE = 30-31 in 1-indexed)
+      if (deliveredQuantities !== undefined) {
+        roSheet.getRange(i + 1, 30).setValue(JSON.stringify(deliveredQuantities || {}));
+      }
+      if (remainingQuantities !== undefined) {
+        roSheet.getRange(i + 1, 31).setValue(JSON.stringify(remainingQuantities || {}));
+      }
+
       return { success: true };
     }
   }
   
   return { success: false, error: 'Commande non trouvée' };
+}
+
+/**
+ * Apply a delivery's PAC quantities to its linked received order:
+ * increments deliveredQuantities, recomputes remainingQuantities, and
+ * updates the order status to 'partial' or 'delivered'. Called
+ * automatically from processDelivery so the remaining-to-produce count
+ * stays accurate after every partial delivery, not just once everything
+ * has shipped.
+ * @param {String} linkedOrderId
+ * @param {Object} deliveredQty - quantities just delivered, keyed by model
+ */
+function applyDeliveryToOrder(linkedOrderId, deliveredQty) {
+  if (!linkedOrderId) return;
+
+  const totalDelivered = PAC_MODELS.reduce((sum, model) => sum + (deliveredQty[model] || 0), 0);
+  if (totalDelivered <= 0) return;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const roSheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_ORDERS);
+  const roData = roSheet.getDataRange().getValues();
+
+  for (let i = 1; i < roData.length; i++) {
+    if (roData[i][0] !== linkedOrderId) continue;
+
+    const row = roData[i];
+    const orderedQuantities = {
+      'TX9': row[6] || 0,
+      'TX12-3PH': row[8] || 0,
+      'TX12-1PH': row[10] || 0,
+      'TH11': row[12] || 0,
+      'TIZ_TH11': row[21] || 0,
+      'TIZ_TX9': row[23] || 0
+    };
+
+    let deliveredQuantities = {};
+    try { if (row[29]) deliveredQuantities = JSON.parse(row[29]); } catch (e) {}
+
+    PAC_MODELS.forEach(function(model) {
+      if (deliveredQty[model] > 0) {
+        deliveredQuantities[model] = (deliveredQuantities[model] || 0) + deliveredQty[model];
+      }
+    });
+
+    const remainingQuantities = {};
+    let hasRemaining = false;
+    PAC_MODELS.forEach(function(model) {
+      const remaining = Math.max(0, (orderedQuantities[model] || 0) - (deliveredQuantities[model] || 0));
+      remainingQuantities[model] = remaining;
+      if (remaining > 0) hasRemaining = true;
+    });
+
+    const newStatus = hasRemaining ? 'partial' : 'delivered';
+
+    roSheet.getRange(i + 1, 18).setValue(newStatus);
+    roSheet.getRange(i + 1, 30).setValue(JSON.stringify(deliveredQuantities));
+    roSheet.getRange(i + 1, 31).setValue(JSON.stringify(remainingQuantities));
+
+    Logger.log('applyDeliveryToOrder: order ' + linkedOrderId + ' -> ' + newStatus + ', remaining: ' + JSON.stringify(remainingQuantities));
+    return;
+  }
+
+  Logger.log('applyDeliveryToOrder: linked order not found: ' + linkedOrderId);
 }
 
 function deleteReceivedOrder(id) {
