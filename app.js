@@ -12616,12 +12616,11 @@ async function migrateDeliveryData() {
 
         // Process each order
         for (const order of orders) {
-            // Skip if order has no clientOrderNumber
-            if (!order.clientOrderNumber) continue;
-
-            // Find all BL linked to this order
+            // Find all BL linked to this order: prefer the real linkedOrderId
+            // relationship, fall back to matching clientOrderNumber text
             const orderBLs = deliveries.filter(bl =>
-                bl.clientOrderNumber === order.clientOrderNumber && order.clientOrderNumber
+                (bl.linkedOrderId && bl.linkedOrderId === order.id) ||
+                (bl.clientOrderNumber && order.clientOrderNumber && bl.clientOrderNumber === order.clientOrderNumber)
             );
 
             if (orderBLs.length === 0) continue;
