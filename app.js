@@ -1231,7 +1231,7 @@ function updateStockDisplay() {
     
     let filtered = Object.entries(currentStock).filter(([ref, data]) => {
         const matchSearch = !search || ref.toLowerCase().includes(search) ||
-            (data.name && data.name.toLowerCase().includes(search));
+            String(data.name || '').toLowerCase().includes(search);
         const totalAvail = (data.qty || 0) + (pendingQty[ref] || 0);
         const componentDemand = demand[ref] || 0;
         const shortage = componentDemand - totalAvail;
