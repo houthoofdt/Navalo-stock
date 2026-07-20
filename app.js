@@ -10549,7 +10549,7 @@ function removePACFromQuote(pacIndex) {
 function updateComponentsForPAC(pacIndex) {
     // Suggestion automatique du compresseur principal
     const modelComponentMap = {
-        'TX9': 'WHP05100BSV',       // TX9 → Compressor HIGHLY (230 EUR)
+        'TX9': 'WHP05100VUX',       // TX9 → Compressor HIGHLY, remplacement de WHP05100BSV (230 EUR)
         'TH11': 'C-SBS120H38A'      // TH11 → Compressor Sanyo (424 EUR)
     };
 

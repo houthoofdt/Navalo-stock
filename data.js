@@ -524,7 +524,7 @@ const REPAIR_PRICE_LIST = {
 
     // Composants TX9 (deuxième tableau du screenshot)
     componentsTX9: [
-        { ref: 'WHP05100BSV', name: 'Compressor HIGHLY WHP05100BSV', price: 230, currency: 'EUR' },
+        { ref: 'WHP05100VUX', name: 'Compressor HIGHLY WHP05100VUX', price: 230, currency: 'EUR' },
         { ref: '04878', name: 'Výparník', price: 155, currency: 'EUR' },
         { ref: '04879', name: 'Kondenzátor', price: 125, currency: 'EUR' },
         { ref: 'B5THx16/1P-SC-M', name: 'Deskový výměník', price: 82, currency: 'EUR' },
