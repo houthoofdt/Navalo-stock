@@ -6001,15 +6001,23 @@ async function createInvoiceFromBL(blId) {
     if (delivery.tx12_1ph > 0) qty['TX12-1PH'] = delivery.tx12_1ph;
     if (delivery.th11 > 0) qty['TH11'] = delivery.th11;
     const models = getPacModels();
-    
+
+    // Prefer the real linkedOrderId relationship established when the BL was
+    // created (most reliable), before falling back to fuzzy matching
+    let matchingOrder = delivery.linkedOrderId
+        ? receivedOrders.find(o => o.id === delivery.linkedOrderId)
+        : null;
+
     // Find a received order for same client with matching quantities
-    let matchingOrder = receivedOrders.find(o => {
-        if (o.client !== delivery.client) return false;
-        if (o.status !== 'confirmed' && o.status !== 'delivered') return false;
-        // Check all model quantities match
-        return models.every(m => (o.quantities?.[m.id] || 0) === (qty[m.id] || 0));
-    });
-    
+    if (!matchingOrder) {
+        matchingOrder = receivedOrders.find(o => {
+            if (o.client !== delivery.client) return false;
+            if (o.status !== 'confirmed' && o.status !== 'delivered' && o.status !== 'partial') return false;
+            // Check all model quantities match
+            return models.every(m => (o.quantities?.[m.id] || 0) === (qty[m.id] || 0));
+        });
+    }
+
     // If no exact match, find any recent order from same client with prices
     if (!matchingOrder) {
         matchingOrder = receivedOrders.find(o => 
@@ -9371,10 +9379,30 @@ function exportReceivedOrders() {
     downloadCSV(csv, `objednavky_prijate_${new Date().toISOString().split('T')[0]}.csv`);
 }
 
+// Fetch invoices fresh from Google Sheets when possible, since the local
+// cache is cleared on every page load and may not reflect invoices created
+// in a prior session or from another device
+async function getFreshInvoicesForLookup() {
+    let invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+    if (storage.getMode() === 'googlesheets') {
+        try {
+            const remoteInvoices = await storage.getInvoices(500);
+            if (Array.isArray(remoteInvoices) && remoteInvoices.length > 0) {
+                invoices = remoteInvoices;
+                // Cache so viewInvoice() (which reads localStorage directly) finds it too
+                localStorage.setItem('navalo_invoices', JSON.stringify(invoices));
+            }
+        } catch (e) {
+            console.warn('Failed to load invoices from Google Sheets:', e);
+        }
+    }
+    return invoices;
+}
+
 // View linked proforma (záloha) for received order
 async function viewLinkedProformaForOrder(orderId) {
     try {
-        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const invoices = await getFreshInvoicesForLookup();
         const proforma = invoices.find(inv =>
             inv.linkedOrder === orderId &&
             (inv.isProforma === true || inv.isProforma === 'true' || inv.isProforma === 'TRUE')
@@ -9394,7 +9422,7 @@ async function viewLinkedProformaForOrder(orderId) {
 // View linked tax document (daňový doklad) for received order
 async function viewLinkedTaxDocForOrder(orderId) {
     try {
-        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const invoices = await getFreshInvoicesForLookup();
         console.log('🔍 Looking for tax document for order:', orderId);
 
         // First find the proforma linked to this order
@@ -9444,7 +9472,7 @@ async function viewLinkedTaxDocForOrder(orderId) {
 // View linked final invoice for received order
 async function viewLinkedInvoiceForOrder(orderId) {
     try {
-        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
+        const invoices = await getFreshInvoicesForLookup();
         const invoice = invoices.find(inv =>
             inv.linkedOrder === orderId &&
             !inv.isProforma
