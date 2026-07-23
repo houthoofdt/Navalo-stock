@@ -9439,30 +9439,15 @@ async function viewLinkedTaxDocForOrder(orderId) {
 
         console.log('✅ Found proforma:', proforma.number, '- Paid:', proforma.paid);
 
-        // Tax document number is usually based on proforma number
-        // Format: DD-YYYY-XXX (e.g., DD-2026-001 for proforma ZL2026001 or PF2026001)
-        const proformaNum = proforma.number.replace(/^(ZL|PF|PI)-?/, '');
-        const taxDocNumber = `DD-${proformaNum}`;
-        console.log('🔍 Looking for tax document:', taxDocNumber);
-
-        // Try to find tax document
-        const taxDoc = invoices.find(inv => inv.number === taxDocNumber);
-
-        if (taxDoc) {
-            console.log('✅ Found tax document');
-            viewInvoice(taxDoc.number);
-        } else {
-            console.log('❌ Tax document not found');
-            console.log('  - Total invoices loaded:', invoices.length);
-            console.log('  - Looking for:', taxDocNumber);
-            console.log('  - Available tax documents:', invoices.filter(inv => inv.number && inv.number.startsWith('DD-')).map(inv => inv.number));
-
-            if (!proforma.paid) {
-                showToast('Proforma ' + proforma.number + ' není zaplacena. Nejprve označte jako zaplacenou pomocí 💰📄', 'warning');
-            } else {
-                showToast('Daňový doklad ' + taxDocNumber + ' nenalezen. Vytvořte ho pomocí tlačítka 💰📄 u proformy v záložce Faktury.', 'warning');
-            }
+        if (!proforma.paid) {
+            showToast('Proforma ' + proforma.number + ' není zaplacena. Nejprve označte jako zaplacenou pomocí 💰📄 v záložce Faktury.', 'warning');
+            return;
         }
+
+        // The daňový doklad is never stored as its own record - it's always
+        // regenerated on demand from the paid proforma, exactly like the
+        // 💰📄 button does in the Faktury tab
+        await generateTaxDocument(proforma.number);
     } catch (error) {
         console.error('Error finding tax document:', error);
         showToast(t('error'), 'error');
