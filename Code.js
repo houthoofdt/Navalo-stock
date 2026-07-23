@@ -2531,7 +2531,7 @@ function createReceivedOrder(data) {
   const roSheet = ss.getSheetByName(SHEET_NAMES.RECEIVED_ORDERS);
 
   const {
-    id, orderNumber, clientOrderNumber, client, address,
+    id, orderNumber, clientOrderNumber, client, address, clientIco, clientDic,
     quantities, prices, notes, date, deliveryDate, currency,
     subtotal, total: totalValue, status, stockComponents, customItems
   } = data;
@@ -2585,7 +2585,9 @@ function createReceivedOrder(data) {
     JSON.stringify(stockComponents || []),          // 27 (AB)
     JSON.stringify(customItems || []),              // 28 (AC)
     JSON.stringify({}),                             // 29 (AD) deliveredQuantities
-    JSON.stringify(quantities || {})                // 30 (AE) remainingQuantities
+    JSON.stringify(quantities || {}),               // 30 (AE) remainingQuantities
+    clientIco || '',                                // 31 (AF)
+    clientDic || ''                                 // 32 (AG)
   ]);
 
   return { success: true, roId, roNumber, total };
@@ -2665,7 +2667,9 @@ function getReceivedOrders(limit) {
       stockComponents: stockComponents,
       customItems: customItems,
       deliveredQuantities: deliveredQuantities,
-      remainingQuantities: remainingQuantities
+      remainingQuantities: remainingQuantities,
+      clientIco: row[31] || '',   // Column AF
+      clientDic: row[32] || ''    // Column AG
     });
   }
 
@@ -2679,7 +2683,7 @@ function updateReceivedOrder(data) {
   
   const { roId, delivered, invoiced, quantities, prices, client, address,
           deliveryDate, currency, total, status, notes, clientOrderNumber, stockComponents, customItems,
-          deliveredQuantities, remainingQuantities } = data;
+          deliveredQuantities, remainingQuantities, clientIco, clientDic } = data;
   
   for (let i = 1; i < roData.length; i++) {
     if (roData[i][0] === roId) {
@@ -2696,6 +2700,8 @@ function updateReceivedOrder(data) {
       if (total) roSheet.getRange(i + 1, 15).setValue(total);
       if (status) roSheet.getRange(i + 1, 18).setValue(status);
       if (notes) roSheet.getRange(i + 1, 21).setValue(notes);
+      if (clientIco !== undefined) roSheet.getRange(i + 1, 32).setValue(clientIco);
+      if (clientDic !== undefined) roSheet.getRange(i + 1, 33).setValue(clientDic);
 
       // Update quantities and prices if provided
       if (quantities) {
