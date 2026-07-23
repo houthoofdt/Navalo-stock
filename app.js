@@ -9614,6 +9614,103 @@ function printOrderConfirm() {
     setTimeout(() => { document.title = originalTitle; }, 500);
 }
 
+async function sendOrderConfirmationByEmail() {
+    const order = window.currentReceivedOrder;
+    if (!order) {
+        showToast(t('error') || 'Erreur', 'error');
+        return;
+    }
+
+    // Default recipients for received order confirmations
+    const defaultEmail = 'Petra.Kolibova@alliancels.com';
+    const defaultCc = 'Karas@hotjet.cz';
+
+    const recipientEmail = prompt(
+        currentLang === 'cz'
+            ? `Zadejte email příjemce pro potvrzení objednávky ${order.orderNumber}:`
+            : `Entrez l'email du destinataire pour la confirmation de commande ${order.orderNumber}:`,
+        defaultEmail
+    );
+
+    if (!recipientEmail || !recipientEmail.trim()) {
+        return; // User cancelled or empty
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recipientEmail.trim())) {
+        showToast(t('invalidEmail'), 'error');
+        return;
+    }
+
+    const ccAddresses = prompt(
+        currentLang === 'cz'
+            ? `Adresy v kopii (CC)?\n\nOddělte adresy čárkami.\n\nNechte prázdné, pokud nechcete kopii.`
+            : `Adresses en copie (CC)?\n\nSéparez les adresses par des virgules.\n\nLaissez vide si pas de copie.`,
+        defaultCc
+    );
+
+    try {
+        const previewHtmlRaw = document.getElementById('orderConfirmPreview').innerHTML;
+
+        const previewHtml = `
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+                .order-confirm-doc { max-width: 800px; margin: 0 auto; }
+                .oc-header { display: flex; justify-content: space-between; border-bottom: 2px solid #22c55e; padding-bottom: 10px; margin-bottom: 20px; }
+                .oc-company h2 { margin: 0 0 5px 0; color: #1e3a8a; font-size: 16px; }
+                .oc-company p { margin: 3px 0; font-size: 11px; color: #64748b; }
+                .oc-info { text-align: right; }
+                .oc-info h1 { margin: 0 0 5px 0; color: #22c55e; font-size: 18px; }
+                .oc-info p { margin: 3px 0; font-size: 11px; color: #64748b; }
+                .oc-parties { display: flex; gap: 20px; margin-bottom: 20px; }
+                .oc-party { flex: 1; }
+                .oc-party h4 { text-transform: uppercase; font-size: 10px; color: #64748b; margin-bottom: 5px; }
+                .oc-party-box { background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 11px; }
+                .oc-reference { background: #f0fdf4; padding: 10px; border-radius: 4px; margin-bottom: 20px; border-left: 3px solid #22c55e; font-size: 11px; }
+                .oc-reference p { margin: 3px 0; }
+                .oc-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .oc-table th { background: #22c55e; color: white; padding: 8px; text-align: left; font-size: 11px; }
+                .oc-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+                .oc-table .oc-total td { font-weight: bold; font-size: 13px; background: #f0fdf4; }
+                .oc-notes { background: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 11px; }
+                .oc-footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+                .oc-footer p { color: #64748b; margin-bottom: 15px; font-size: 11px; }
+                .oc-signature { display: inline-block; text-align: center; }
+                .oc-signature-line { width: 200px; height: 1px; background: #e5e7eb; margin-bottom: 5px; }
+                .text-right { text-align: right; }
+            </style>
+            ${previewHtmlRaw}
+        `;
+
+        const emailData = {
+            to: recipientEmail.trim(),
+            replyTo: 'tomas.karas@hotjet.cz',
+            subject: `${currentLang === 'cz' ? 'Potvrzení objednávky' : 'Confirmation de commande'} ${order.orderNumber} - ${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            body: currentLang === 'cz' ?
+                `Dobrý den,\n\nV příloze naleznete potvrzení objednávky ${order.orderNumber}.\n\nPro odpověď kontaktujte: tomas.karas@hotjet.cz\n\nS pozdravem,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}` :
+                `Bonjour,\n\nVous trouverez en pièce jointe la confirmation de la commande ${order.orderNumber}.\n\nPour toute réponse, contactez: tomas.karas@hotjet.cz\n\nCordialement,\n${CONFIG?.COMPANY?.name || 'NAVALO s.r.o.'}`,
+            htmlContent: previewHtml,
+            documentNumber: order.orderNumber,
+            documentType: currentLang === 'cz' ? 'Potvrzení objednávky' : 'Confirmation de commande'
+        };
+
+        if (ccAddresses && ccAddresses.trim()) {
+            emailData.cc = ccAddresses.trim();
+        }
+
+        const result = await storage.apiPost('sendEmail', emailData);
+
+        if (result && result.success) {
+            showToast(`${t('emailSent')} - ${recipientEmail.trim()}`, 'success');
+        } else {
+            throw new Error(result?.error || t('sendError'));
+        }
+    } catch (error) {
+        console.error('Error sending order confirmation:', error);
+        showToast(t('sendError') + ': ' + error.message, 'error');
+    }
+}
+
 // ========================================
 // DIAGNOSTIC FUNCTIONS
 // ========================================
