@@ -1010,11 +1010,12 @@
                                     <th data-i18n="fixedCosts">Charges Fixes</th>
                                     <th data-i18n="totalCosts">Total Charges</th>
                                     <th data-i18n="profit">Bénéfice</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="profitTableBody">
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">
+                                    <td colspan="8" class="text-center text-muted">
                                         <span data-i18n="loading">Chargement...</span>
                                     </td>
                                 </tr>
@@ -1405,7 +1406,7 @@
                         </select>
                     </div>
                     <div class="form-group" id="invProformaDeductionPercentGroup" style="display: none;">
-                        <label>% zálohy k odečtení</label>
+                        <label>Kolik z této zálohy odečíst (ponechte 100 %, pokud odečítáte celou zálohu)</label>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="number" id="invProformaDeductionPercent" value="100" min="0.01" max="100" step="any" style="width: 100px;" onchange="updateProformaDeductionPreview()">
                             <span>%</span>
@@ -1413,6 +1414,7 @@
                                 <span id="invProformaDeductionPreview"></span>
                             </span>
                         </div>
+                        <small style="color: #888;">Pozor: % zálohy (např. 50 %) je již zahrnuto v částce zálohy - toto pole neměňte, pokud nechcete odečíst jen část této zálohy.</small>
                     </div>
                     <div class="form-group">
                         <label data-i18n="proforma">Proforma</label>
@@ -1969,6 +1971,44 @@
         </div>
     </div>
 
+    <!-- Month Revenue Breakdown Modal -->
+    <div class="modal" id="monthInvoicesModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="monthInvoicesModalTitle">Faktury za měsíc</h3>
+                <button class="modal-close" onclick="closeMonthInvoicesModal()">✕</button>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Faktura</th>
+                            <th>Datum</th>
+                            <th>Zákazník</th>
+                            <th class="text-right">Bez DPH</th>
+                            <th class="text-right">DPH</th>
+                            <th class="text-right">S DPH</th>
+                            <th>Měna</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthInvoicesTableBody"></tbody>
+                    <tfoot>
+                        <tr style="font-weight: bold; background: #f3f4f6;">
+                            <td colspan="3">Celkem (v CZK)</td>
+                            <td class="text-right" id="monthInvoicesSubtotalCZK">0 CZK</td>
+                            <td class="text-right" id="monthInvoicesVatCZK">0 CZK</td>
+                            <td class="text-right" id="monthInvoicesTotalCZK">0 CZK</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeMonthInvoicesModal()" data-i18n="close">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Adjustment Modal -->
     <div class="modal" id="adjustmentModal">
         <div class="modal-content">
@@ -2040,10 +2080,10 @@
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="config.js?v=6.7"></script>
-    <script src="data.js?v=6.7"></script>
-    <script src="sync-manager.js?v=6.7"></script>
-    <script src="storage.js?v=6.7"></script>
-    <script src="app.js?v=6.7"></script>
+    <script src="config.js?v=6.8"></script>
+    <script src="data.js?v=6.8"></script>
+    <script src="sync-manager.js?v=6.8"></script>
+    <script src="storage.js?v=6.8"></script>
+    <script src="app.js?v=6.8"></script>
 </body>
 </html>

@@ -13424,39 +13424,38 @@ function previewInvoiceBeforeSave() {
     }
 
     // Get linked proforma info if available (for deposit deduction)
-    const linkedProformaNumber = document.getElementById('invLinkedProforma')?.value;
-    console.log('Preview - Linked proforma number:', linkedProformaNumber);
+    // Mirrors the same computation as the actual save (saveIssuedInvoice), using
+    // the same <option> dataset and the invProformaDeductionPercent field, so the
+    // preview never disagrees with what actually gets saved
+    const proformaSelectPreview = document.getElementById('invLinkedProforma');
+    console.log('Preview - Linked proforma number:', proformaSelectPreview?.value);
 
-    if (linkedProformaNumber && linkedProformaNumber !== '') {
-        const invoices = JSON.parse(localStorage.getItem('navalo_invoices') || '[]');
-        const proformaInvoice = invoices.find(i => i.number === linkedProformaNumber);
-        console.log('Preview - Found proforma invoice:', proformaInvoice);
+    if (proformaSelectPreview && proformaSelectPreview.value) {
+        const opt = proformaSelectPreview.options[proformaSelectPreview.selectedIndex];
 
-        if (proformaInvoice && (proformaInvoice.isPaid || proformaInvoice.paid)) {
-            // Calculate tax document amounts (deposit amounts with VAT)
-            const depositPercent = proformaInvoice.depositPercent || 100;
-            const fullSubtotal = (proformaInvoice.items || []).reduce((sum, item) => sum + (item.qty * item.price), 0);
-            const taxDocSubtotal = proformaInvoice.taxDocSubtotal || (fullSubtotal * depositPercent / 100);
-            const taxDocVat = proformaInvoice.taxDocVat || (taxDocSubtotal * 21 / 100);
-            const taxDocTotal = proformaInvoice.taxDocTotal || (taxDocSubtotal + taxDocVat);
+        const deductionPercent = parseFloat(document.getElementById('invProformaDeductionPercent')?.value) || 100;
+        const fullTotal = parseFloat(opt.dataset.total) || 0;
+        const fullSubtotal = parseFloat(opt.dataset.subtotal) || 0;
+        const fullVat = parseFloat(opt.dataset.vat) || 0;
 
-            invoiceData.linkedProforma = {
-                id: proformaInvoice.id,
-                number: proformaInvoice.number,
-                ddNumber: proformaInvoice.ddNumber || proformaInvoice.number.replace(/^(ZL|PI|PF)-?/, 'DD-'),
-                subtotal: taxDocSubtotal,
-                vat: taxDocVat,
-                total: taxDocTotal,
-                paidExchangeRate: parseFloat(proformaInvoice.paidExchangeRate || proformaInvoice.exchangeRate) || null,
-                paidSubtotalCZK: parseFloat(proformaInvoice.paidSubtotalCZK) || null,
-                paidVatCZK: parseFloat(proformaInvoice.paidVatCZK) || null,
-                paidAmountCZK: parseFloat(proformaInvoice.paidAmountCZK) || null
-            };
+        invoiceData.linkedProforma = {
+            number: proformaSelectPreview.value,
+            ddNumber: opt.dataset.ddNumber || proformaSelectPreview.value.replace(/^(ZL|PI|PF)-?/, 'DD-'),
+            total: fullTotal * (deductionPercent / 100),
+            subtotal: fullSubtotal * (deductionPercent / 100),
+            vat: fullVat * (deductionPercent / 100),
+            fullTotal: fullTotal,
+            fullSubtotal: fullSubtotal,
+            fullVat: fullVat,
+            deductionPercent: deductionPercent,
+            currency: opt.dataset.currency || invoiceData.currency,
+            paidExchangeRate: parseFloat(opt.dataset.paidExchangeRate) || null,
+            paidAmountCZK: parseFloat(opt.dataset.paidAmountCZK) || null,
+            paidSubtotalCZK: parseFloat(opt.dataset.paidSubtotalCZK) || null,
+            paidVatCZK: parseFloat(opt.dataset.paidVatCZK) || null
+        };
 
-            console.log('Preview - Linked proforma data:', invoiceData.linkedProforma);
-        } else {
-            console.log('Preview - Proforma not found or not paid');
-        }
+        console.log('Preview - Linked proforma data:', invoiceData.linkedProforma);
     }
 
     // Get proforma status and deposit percentage
@@ -15102,7 +15101,8 @@ function calculateMonthlyRevenue(month, invoices) {
     let totalRevenueCZK = 0;
 
     monthInvoices.forEach(inv => {
-        let amount = inv.total || 0;
+        // Revenu = montant HORS TVA (la TVA collectée n'est pas du revenu, elle est reversée à l'État)
+        let amount = inv.subtotal || 0;
 
         // Convertir en CZK si nécessaire
         if (inv.currency === 'EUR') {
@@ -15132,6 +15132,9 @@ async function updateProfitDashboard() {
         const invoices = await storage.getInvoices(1000);
         const purchaseOrders = await storage.getPurchaseOrders(1000);
         const monthlyCosts = await storage.getMonthlyCosts();
+
+        // Garder en mémoire pour le détail par mois (showMonthInvoicesBreakdown)
+        window._profitDashboardInvoices = invoices;
 
         console.log('📊 Financial Dashboard - Data loaded:');
         console.log('  - Invoices:', invoices?.length || 0);
@@ -15213,6 +15216,7 @@ async function updateProfitDashboard() {
                     <td class="${profitClass}">
                         ${profitIcon} <strong>${formatCurrency(profit)} CZK</strong>
                     </td>
+                    <td><button class="btn-icon" onclick="showMonthInvoicesBreakdown('${month}')" title="Zobrazit faktury">👁️</button></td>
                 </tr>
             `;
         }
@@ -15236,10 +15240,59 @@ async function updateProfitDashboard() {
     } catch (error) {
         console.error('Error updating profit dashboard:', error);
         document.getElementById('profitTableBody').innerHTML = `
-            <tr><td colspan="7" class="text-center text-danger">Erreur de chargement</td></tr>
+            <tr><td colspan="8" class="text-center text-danger">Erreur de chargement</td></tr>
         `;
     }
 }
+
+// Show the list of invoices that make up a month's revenue in the Přehled Zisku
+// table, so figures can be verified against actual issued invoices
+function showMonthInvoicesBreakdown(month) {
+    const invoices = window._profitDashboardInvoices || [];
+    const monthInvoices = invoices.filter(inv =>
+        inv.date && inv.date.substring(0, 7) === month && !inv.isProforma
+    );
+
+    const monthDate = new Date(month + '-01');
+    const monthName = monthDate.toLocaleDateString(currentLang, { month: 'long', year: 'numeric' });
+    document.getElementById('monthInvoicesModalTitle').textContent = `Faktury - ${monthName}`;
+
+    let totalSubtotalCZK = 0, totalVatCZK = 0, totalTotalCZK = 0;
+
+    const tbody = document.getElementById('monthInvoicesTableBody');
+    if (monthInvoices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center">${t('noData')}</td></tr>`;
+    } else {
+        tbody.innerHTML = monthInvoices.map(inv => {
+            const rate = inv.currency === 'EUR' ? (inv.exchangeRate || 24.5) : 1;
+            totalSubtotalCZK += (inv.subtotal || 0) * rate;
+            totalVatCZK += (inv.vat || 0) * rate;
+            totalTotalCZK += (inv.total || 0) * rate;
+
+            return `<tr>
+                <td><strong>${inv.number}</strong></td>
+                <td>${formatDate(inv.date)}</td>
+                <td>${inv.client || ''}</td>
+                <td class="text-right">${formatCurrency(inv.subtotal || 0)}</td>
+                <td class="text-right">${formatCurrency(inv.vat || 0)}</td>
+                <td class="text-right">${formatCurrency(inv.total || 0)}</td>
+                <td>${inv.currency || 'CZK'}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    document.getElementById('monthInvoicesSubtotalCZK').textContent = formatCurrency(totalSubtotalCZK) + ' CZK';
+    document.getElementById('monthInvoicesVatCZK').textContent = formatCurrency(totalVatCZK) + ' CZK';
+    document.getElementById('monthInvoicesTotalCZK').textContent = formatCurrency(totalTotalCZK) + ' CZK';
+
+    document.getElementById('monthInvoicesModal').classList.add('active');
+}
+
+function closeMonthInvoicesModal() {
+    document.getElementById('monthInvoicesModal').classList.remove('active');
+}
+window.showMonthInvoicesBreakdown = showMonthInvoicesBreakdown;
+window.closeMonthInvoicesModal = closeMonthInvoicesModal;
 
 // Export functions to window
 window.openSubcontractingOrderModal = openSubcontractingOrderModal;
