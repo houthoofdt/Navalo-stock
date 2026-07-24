@@ -2009,6 +2009,24 @@
         </div>
     </div>
 
+    <!-- Link Existing Invoice to Delivery Modal -->
+    <div class="modal" id="linkInvoiceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Lier une facture existante</h3>
+                <button class="modal-close" onclick="closeLinkInvoiceModal()">✕</button>
+            </div>
+            <div class="form-group">
+                <label>Facture</label>
+                <select id="linkInvoiceSelect"></select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeLinkInvoiceModal()" data-i18n="cancel">Zrušit</button>
+                <button class="btn btn-primary" onclick="confirmLinkInvoiceToDelivery()">Lier</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Adjustment Modal -->
     <div class="modal" id="adjustmentModal">
         <div class="modal-content">
@@ -2080,10 +2098,10 @@
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="config.js?v=6.9"></script>
-    <script src="data.js?v=6.9"></script>
-    <script src="sync-manager.js?v=6.9"></script>
-    <script src="storage.js?v=6.9"></script>
-    <script src="app.js?v=6.9"></script>
+    <script src="config.js?v=7.0"></script>
+    <script src="data.js?v=7.0"></script>
+    <script src="sync-manager.js?v=7.0"></script>
+    <script src="storage.js?v=7.0"></script>
+    <script src="app.js?v=7.0"></script>
 </body>
 </html>

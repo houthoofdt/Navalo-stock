@@ -2280,7 +2280,7 @@ function updateDelivery(data) {
   const deliveriesSheet = ss.getSheetByName(SHEET_NAMES.DELIVERIES);
   const deliveriesData = deliveriesSheet.getDataRange().getValues();
 
-  const { id, date, clientAddress, clientOrderNumber, notes } = data;
+  const { id, date, clientAddress, clientOrderNumber, notes, invoiceNumber, invoiceDate } = data;
 
   // Find delivery by ID
   for (let i = 1; i < deliveriesData.length; i++) {
@@ -2290,6 +2290,8 @@ function updateDelivery(data) {
       if (clientAddress !== undefined) deliveriesSheet.getRange(i + 1, 5).setValue(clientAddress);
       if (clientOrderNumber !== undefined) deliveriesSheet.getRange(i + 1, 17).setValue(clientOrderNumber);
       if (notes !== undefined) deliveriesSheet.getRange(i + 1, 15).setValue(notes);
+      if (invoiceNumber !== undefined) deliveriesSheet.getRange(i + 1, 23).setValue(invoiceNumber);
+      if (invoiceDate !== undefined) deliveriesSheet.getRange(i + 1, 24).setValue(invoiceDate ? new Date(invoiceDate) : '');
 
       Logger.log('Updated delivery ' + deliveriesData[i][2] + ' (ID: ' + id + ')');
       return { success: true };
@@ -3501,7 +3503,9 @@ function getDeliveries(limit) {
       clientOrderNumber: data[i][16] || '',
       totalComponents: data[i][19] || 0,
       totalCustom: data[i][20] || 0,
-      repairQuoteData: repairQuoteData
+      repairQuoteData: repairQuoteData,
+      invoiceNumber: data[i][22] || '',
+      invoiceDate: data[i][23] ? normalizeDate(data[i][23]) : ''
     });
   }
 

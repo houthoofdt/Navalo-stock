@@ -4589,6 +4589,10 @@ async function updateDeliveriesDisplay() {
             }
         }
 
+        // Cache what was fetched so other actions (view/edit/link invoice) that
+        // read this cache directly don't see stale or empty data
+        localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
+
         const tbody = document.getElementById('blTableBody');
         if (!tbody) return;
 
@@ -4635,12 +4639,98 @@ async function updateDeliveriesDisplay() {
                     ${!invoiced ? `<button class="btn btn-outline btn-small" onclick="editDelivery('${d.id}')" title="${t('edit')}">✏️</button>` : ''}
                     ${d.linkedOrderId ? `<button class="btn btn-outline btn-small" onclick="viewOrderFromDelivery('${d.linkedOrderId}')" title="Voir commande">📋</button>` : ''}
                     ${!invoiced ? `<button class="btn btn-secondary btn-small" onclick="createInvoiceFromBL('${d.id}')" title="${t('createInvoice')}">🧾</button>` : ''}
+                    ${!invoiced ? `<button class="btn btn-outline btn-small" onclick="openLinkInvoiceModal('${d.id}')" title="Lier une facture existante">🔗</button>` : ''}
                     <button class="btn btn-outline btn-small" onclick="deleteDelivery('${d.id}')" title="${t('delete')}">🗑️</button>
                 </td>
             </tr>`;
         }).join('');
     } catch (e) { console.error('Deliveries error:', e); }
 }
+
+let linkInvoiceModalDeliveryId = null;
+
+// Let the user manually mark a BL as invoiced when the actual invoice was
+// created independently (e.g. a consolidated invoice covering several BL,
+// or an invoice created without going through "Créer facture" on this BL)
+async function openLinkInvoiceModal(deliveryId) {
+    // updateDeliveriesDisplay() never persists what it fetches to localStorage,
+    // so the cache is often empty here - fetch fresh if the delivery isn't cached
+    let deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
+    let delivery = deliveries.find(d => d.id === deliveryId);
+    if (!delivery && storage.getMode() === 'googlesheets') {
+        try {
+            const remoteDeliveries = await storage.getDeliveries(500);
+            if (Array.isArray(remoteDeliveries)) {
+                delivery = remoteDeliveries.find(d => d.id === deliveryId);
+            }
+        } catch (e) {
+            console.warn('Failed to load deliveries for link-invoice modal:', e);
+        }
+    }
+    if (!delivery) {
+        showToast(t('error') || 'Erreur', 'error');
+        return;
+    }
+
+    linkInvoiceModalDeliveryId = deliveryId;
+
+    const invoices = await getFreshInvoicesForLookup();
+    const nonProforma = invoices.filter(inv => !inv.isProforma);
+    // Show invoices for the same client first, then the rest
+    const sameClient = nonProforma.filter(inv => inv.client === delivery.client);
+    const otherClient = nonProforma.filter(inv => inv.client !== delivery.client);
+    const ordered = [...sameClient, ...otherClient];
+
+    const select = document.getElementById('linkInvoiceSelect');
+    select.innerHTML = ordered.map(inv =>
+        `<option value="${inv.number}">${inv.number} - ${formatDate(inv.date)} - ${inv.client} - ${formatCurrency(inv.total || 0)} ${inv.currency || 'CZK'}</option>`
+    ).join('');
+
+    document.getElementById('linkInvoiceModal').classList.add('active');
+}
+
+function closeLinkInvoiceModal() {
+    document.getElementById('linkInvoiceModal').classList.remove('active');
+    linkInvoiceModalDeliveryId = null;
+}
+
+async function confirmLinkInvoiceToDelivery() {
+    const deliveryId = linkInvoiceModalDeliveryId;
+    const select = document.getElementById('linkInvoiceSelect');
+    const invoiceNumber = select.value;
+    if (!deliveryId || !invoiceNumber) return;
+
+    const invoices = await getFreshInvoicesForLookup();
+    const invoice = invoices.find(inv => inv.number === invoiceNumber);
+    if (!invoice) {
+        showToast(t('error') || 'Erreur', 'error');
+        return;
+    }
+
+    try {
+        if (storage.getMode() === 'googlesheets') {
+            await storage.updateDelivery({ id: deliveryId, invoiceNumber: invoice.number, invoiceDate: invoice.date });
+        }
+
+        let deliveries = JSON.parse(localStorage.getItem('navalo_deliveries') || '[]');
+        const index = deliveries.findIndex(d => d.id === deliveryId);
+        if (index >= 0) {
+            deliveries[index].invoiceNumber = invoice.number;
+            deliveries[index].invoiceDate = invoice.date;
+            localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
+        }
+
+        closeLinkInvoiceModal();
+        await updateDeliveriesDisplay();
+        showToast(t('saved'), 'success');
+    } catch (e) {
+        console.error('Error linking invoice to delivery:', e);
+        showToast(t('error') + ': ' + e.message, 'error');
+    }
+}
+window.openLinkInvoiceModal = openLinkInvoiceModal;
+window.closeLinkInvoiceModal = closeLinkInvoiceModal;
+window.confirmLinkInvoiceToDelivery = confirmLinkInvoiceToDelivery;
 
 // ========================================
 // PURCHASE ORDERS
@@ -7624,6 +7714,18 @@ async function saveIssuedInvoice() {
             deliveries[deliveryIndex].invoiceDate = invoice.date;
             localStorage.setItem('navalo_deliveries', JSON.stringify(deliveries));
         }
+
+        // Persist to Google Sheets too - without this, the "already invoiced"
+        // status never survives a page reload and the create-invoice button
+        // reappears even though an invoice already exists
+        if (storage.getMode() === 'googlesheets') {
+            try {
+                await storage.updateDelivery({ id: deliveryId, invoiceNumber: invoice.number, invoiceDate: invoice.date });
+            } catch (e) {
+                console.error('Error saving invoice link on delivery in Google Sheets:', e);
+            }
+        }
+
         // Clear the dataset
         delete document.getElementById('invoiceForm').dataset.deliveryId;
     }
