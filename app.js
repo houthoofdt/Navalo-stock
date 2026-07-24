@@ -15116,18 +15116,115 @@ function calculateMonthlyRevenue(month, invoices) {
     return totalRevenueCZK;
 }
 
-function calculateMonthlyPurchases(revenue) {
-    // Calculer les coûts basés sur une marge bénéficiaire théorique
-    // Formule : Coûts = Revenus × (1 - Marge%)
+// Prix de revient d'une reference composant, converti en CZK (repli EUR -> CZK)
+function getComponentCostCZK(ref) {
+    let priceCZK = getComponentPrice(ref, 'CZK');
+    if (!priceCZK) {
+        const priceEUR = getComponentPrice(ref, 'EUR');
+        if (priceEUR) priceCZK = priceEUR * (exchangeRate || 24.5);
+    }
+    return priceCZK || 0;
+}
 
-    const PROFIT_MARGIN = 0.42; // 42% de marge bénéficiaire sur le prix de vente
-    const costs = revenue * (1 - PROFIT_MARGIN); // 58% du revenu = coûts
+// Coûts internes forfaitaires pour les services de réparation qui ne sont pas
+// des composants de stock (inférieurs au prix facturé au client)
+const REPAIR_SERVICE_COST_EUR = {
+    refrigerant: 18, // vendu 25 EUR/kg
+    disposal: 12     // vendu 17 EUR/kg
+};
+const REFRIGERANT_LABELS = ['Chladivo', 'Fluide frigorigène'];
+const DISPOSAL_LABELS = ['Likvidace odpadu', 'Élimination déchets'];
 
-    return costs;
+// Calcule le coût exact des marchandises et pièces vendues (Nákupy) ce mois :
+// - unités PAC assemblées -> coût du kusovník (BOM)
+// - pièces détachées vendues seules -> prix de référence du composant (par nom)
+// - réfrigérant / élimination -> coût interne forfaitaire au kg
+// La main d'oeuvre (Čištění, Oprava) n'a volontairement pas de coût ici : elle
+// est déjà comptée dans les Mzdy (Salaires), la compter aussi ici ferait doublon
+function calculateMonthlyPurchasesFromBOM(month, invoices) {
+    const models = getPacModels();
+    const monthInvoices = invoices.filter(inv =>
+        inv.date && inv.date.substring(0, 7) === month && !inv.isProforma
+    );
+
+    // Table nom (en minuscule) -> reference, pour retrouver une piece detachee
+    // vendue par son nom quand la facture ne conserve pas sa reference stock
+    const stockNameToRef = {};
+    if (currentStock) {
+        Object.entries(currentStock).forEach(([ref, data]) => {
+            const name = String(data.name || '').trim().toLowerCase();
+            if (name) stockNameToRef[name] = ref;
+        });
+    }
+
+    let totalCostCZK = 0;
+
+    monthInvoices.forEach(inv => {
+        const rate = inv.currency === 'EUR' ? (inv.exchangeRate || exchangeRate || 24.5) : 1;
+
+        (inv.items || []).forEach(item => {
+            if (!(item.qty > 0)) return;
+
+            // 1) Unite PAC assemblee -> cout complet du kusovnik
+            const model = models.find(m => m.fullName === item.name);
+            if (model) {
+                const bomItems = (currentBom && currentBom[model.id]) || [];
+                let unitBomCostCZK = 0;
+                bomItems.forEach(bomItem => {
+                    const qtyNeeded = parseFloat(String(bomItem.qty).replace(',', '.')) || 0;
+                    unitBomCostCZK += qtyNeeded * getComponentCostCZK(bomItem.ref);
+                });
+                totalCostCZK += unitBomCostCZK * item.qty;
+                return;
+            }
+
+            // 2) Réfrigérant rechargé -> coût interne forfaitaire au kg
+            if (REFRIGERANT_LABELS.includes(item.name)) {
+                totalCostCZK += item.qty * REPAIR_SERVICE_COST_EUR.refrigerant * rate;
+                return;
+            }
+
+            // 3) Élimination réfrigérant -> coût interne forfaitaire au kg
+            if (DISPOSAL_LABELS.includes(item.name)) {
+                totalCostCZK += item.qty * REPAIR_SERVICE_COST_EUR.disposal * rate;
+                return;
+            }
+
+            // 4) Pièce détachée vendue seule, retrouvée par son nom dans le stock
+            const ref = stockNameToRef[String(item.name || '').trim().toLowerCase()];
+            if (ref) {
+                totalCostCZK += item.qty * getComponentCostCZK(ref);
+            }
+
+            // Main d'oeuvre (Čištění / Nettoyage, Oprava / Réparation) : pas de
+            // coût ici, déjà comptée dans les Mzdy (Salaires)
+        });
+    });
+
+    return totalCostCZK;
 }
 
 async function updateProfitDashboard() {
     try {
+        // S'assurer que le kusovník (BOM) et le stock sont chargés avant de
+        // calculer Nákupy - sinon (ex: clic rapide sur Finances juste après le
+        // chargement de la page) le coût BOM serait silencieusement compté à 0
+        if (!currentBom || Object.keys(currentBom).length === 0) {
+            try {
+                currentBom = await storage.getBom();
+            } catch (e) {
+                console.warn('Could not load BOM for profit dashboard:', e);
+            }
+        }
+        if (!currentStock || Object.keys(currentStock).length === 0) {
+            try {
+                const stockData = await storage.getStockWithValue();
+                currentStock = stockData?.components || {};
+            } catch (e) {
+                console.warn('Could not load stock for profit dashboard:', e);
+            }
+        }
+
         // Récupérer toutes les données
         const invoices = await storage.getInvoices(1000);
         const purchaseOrders = await storage.getPurchaseOrders(1000);
@@ -15167,7 +15264,7 @@ async function updateProfitDashboard() {
 
         for (const month of months) {
             const revenue = calculateMonthlyRevenue(month, invoices);
-            const purchases = calculateMonthlyPurchases(revenue);
+            const purchases = calculateMonthlyPurchasesFromBOM(month, invoices);
 
             // Trouver les charges du mois
             const costs = monthlyCosts.find(c => c.month === month);
